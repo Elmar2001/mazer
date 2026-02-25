@@ -7,6 +7,7 @@ import { dijkstraSolver } from "@/core/plugins/solvers/dijkstra";
 import { dfsSolver } from "@/core/plugins/solvers/dfs";
 import { greedyBestFirstSolver } from "@/core/plugins/solvers/greedyBestFirst";
 import { leftWallFollowerSolver } from "@/core/plugins/solvers/leftWallFollower";
+import { leeWavefrontSolver } from "@/core/plugins/solvers/leeWavefront";
 import { wallFollowerSolver } from "@/core/plugins/solvers/wallFollower";
 import { weightedAStarSolver } from "@/core/plugins/solvers/weightedAstar";
 
@@ -20,6 +21,7 @@ export const solverPlugins = [
   bidirectionalBfsSolver,
   deadEndFillingSolver,
   weightedAStarSolver,
+  leeWavefrontSolver,
   wallFollowerSolver,
   leftWallFollowerSolver,
 ] as const;
