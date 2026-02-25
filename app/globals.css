@@ -548,6 +548,14 @@ button:disabled {
 
 .rightPane {
   display: grid;
+  min-height: 0;
+}
+
+.rightPaneLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 1rem;
+  min-height: 0;
 }
 
 .canvasViewport {
@@ -678,9 +686,127 @@ canvas {
   border-radius: 0;
 }
 
+.tracePanel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: linear-gradient(180deg, rgba(7, 12, 19, 0.93), rgba(5, 9, 15, 0.96));
+  box-shadow:
+    0 0 0 1px rgba(148, 163, 184, 0.06) inset,
+    0 12px 22px rgba(2, 6, 13, 0.45);
+  padding: 0.78rem;
+}
+
+.traceHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.traceEyebrow {
+  margin: 0;
+  color: #7dd3fc;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.traceHead h3 {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.traceHead p {
+  margin: 0.34rem 0 0;
+  font-size: 0.78rem;
+  color: rgba(203, 213, 225, 0.86);
+}
+
+.traceMeta {
+  display: grid;
+  gap: 0.32rem;
+  justify-items: end;
+}
+
+.traceMeta span {
+  border: 1px solid rgba(148, 163, 184, 0.34);
+  background: rgba(15, 23, 42, 0.62);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.traceCodeList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.23);
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(15, 23, 42, 0.55),
+      rgba(15, 23, 42, 0.55) 32px,
+      rgba(2, 6, 13, 0.6) 32px,
+      rgba(2, 6, 13, 0.6) 64px
+    );
+}
+
+.traceLine {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.46rem 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.traceLineNo {
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.95);
+  font-family: var(--font-display), sans-serif;
+}
+
+.traceLine code {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  color: rgba(226, 232, 240, 0.9);
+  white-space: pre-wrap;
+}
+
+.traceLineActive {
+  background: linear-gradient(90deg, rgba(251, 146, 60, 0.24), rgba(56, 189, 248, 0.2));
+}
+
+.traceLineActive .traceLineNo {
+  color: #fcd34d;
+}
+
+.traceLineActive code {
+  color: #ffffff;
+}
+
+.traceHint {
+  margin: 0;
+  font-size: 0.74rem;
+  color: rgba(148, 163, 184, 0.92);
+}
+
 @media (max-width: 1200px) {
   .appShell {
     grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  }
+
+  .rightPaneLayout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -712,6 +838,14 @@ canvas {
 
   .battleCards {
     grid-template-columns: 1fr;
+  }
+
+  .rightPaneLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .tracePanel {
+    min-height: 340px;
   }
 }
 .docsPage {

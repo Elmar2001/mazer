@@ -24,6 +24,7 @@ export interface MazeRuntime {
   phase: MazePhase;
   paused: boolean;
   metrics: MazeMetrics;
+  generatorActiveLine: number | null;
 }
 
 interface MazeStore {
@@ -80,6 +81,7 @@ const DEFAULT_RUNTIME: MazeRuntime = {
   phase: "Idle",
   paused: true,
   metrics: { ...DEFAULT_METRICS },
+  generatorActiveLine: null,
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -190,6 +192,7 @@ export const useMazeStore = create<MazeStore>((set) => ({
         phase: "Idle",
         paused: true,
         metrics: { ...DEFAULT_METRICS },
+        generatorActiveLine: null,
       },
     })),
 }));

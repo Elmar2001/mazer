@@ -69,13 +69,26 @@ export function useMazeEngine(): UseMazeEngineResult {
         solverBId: settings.solverBId,
       },
       {
-        onPatchesApplied: (dirtyCells, _meta, metrics) => {
+        onPatchesApplied: (dirtyCells, meta, metrics) => {
           rendererRef.current?.renderDirty(dirtyCells);
-          queueRuntimeUpdate({ metrics });
+
+          const line =
+            typeof meta?.line === "number" && Number.isFinite(meta.line)
+              ? Math.max(1, Math.floor(meta.line))
+              : undefined;
+
+          queueRuntimeUpdate({
+            metrics,
+            ...(typeof line === "number" ? { generatorActiveLine: line } : {}),
+          });
         },
         onPhaseChange: (phase) => {
           const paused = phase !== "Generating" && phase !== "Solving";
-          queueRuntimeUpdate({ phase, paused });
+          queueRuntimeUpdate({
+            phase,
+            paused,
+            ...(phase === "Generating" ? {} : { generatorActiveLine: null }),
+          });
         },
         onGridRebuilt: (grid) => {
           rendererRef.current?.setGrid(grid);
@@ -98,6 +111,7 @@ export function useMazeEngine(): UseMazeEngineResult {
       phase: engine.getPhase(),
       paused: true,
       metrics: engine.getMetrics(),
+      generatorActiveLine: null,
     });
 
     return () => {
@@ -159,6 +173,7 @@ export function useMazeEngine(): UseMazeEngineResult {
       phase: "Idle",
       paused: true,
       metrics: { ...DEFAULT_METRICS },
+      generatorActiveLine: null,
     });
   }, [settings.gridHeight, settings.gridWidth, queueRuntimeUpdate]);
 
@@ -202,7 +217,11 @@ export function useMazeEngine(): UseMazeEngineResult {
         }
 
         engine.startGeneration();
-        queueRuntimeUpdate({ paused: false, metrics: engine.getMetrics() });
+        queueRuntimeUpdate({
+          paused: false,
+          metrics: engine.getMetrics(),
+          generatorActiveLine: null,
+        });
       },
       solve: () => {
         const engine = syncEngineOptions();
@@ -211,7 +230,11 @@ export function useMazeEngine(): UseMazeEngineResult {
         }
 
         engine.startSolving();
-        queueRuntimeUpdate({ paused: false, metrics: engine.getMetrics() });
+        queueRuntimeUpdate({
+          paused: false,
+          metrics: engine.getMetrics(),
+          generatorActiveLine: null,
+        });
       },
       pauseResume: () => {
         const engine = engineRef.current;
