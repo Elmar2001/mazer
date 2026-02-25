@@ -13,12 +13,14 @@ export default function HomePage() {
     <main className="appShell">
       <aside className="leftPane">
         <ControlPanel controls={controls} />
-        <MetricsPanel />
       </aside>
       <section className="rightPane">
         <div className="rightPaneLayout">
           <CanvasViewport canvasRef={canvasRef} controls={controls} />
-          <GeneratorTracePanel />
+          <aside className="inspectorPane">
+            <GeneratorTracePanel />
+            <MetricsPanel />
+          </aside>
         </div>
       </section>
     </main>

@@ -53,6 +53,20 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
             {gridWidth} x {gridHeight} cells at {cellSize}px ({viewportWidth} x {viewportHeight}
             px)
           </p>
+          <div className="canvasStatStrip">
+            <span>
+              <b>Steps:</b> {runtime.metrics.stepCount}
+            </span>
+            <span>
+              <b>Visited:</b> {runtime.metrics.visitedCount}
+            </span>
+            <span>
+              <b>Frontier:</b> {runtime.metrics.frontierSize}
+            </span>
+            <span>
+              <b>Rate:</b> {runtime.metrics.actualStepsPerSec.toFixed(0)} sps
+            </span>
+          </div>
         </div>
         <div className="canvasHeaderRight">
           <div className="arenaActions">

@@ -167,6 +167,23 @@ export function ControlPanel({ controls }: ControlPanelProps) {
         {settings.battleMode ? <span className="modePill">Battle Mode</span> : null}
       </div>
 
+      <div className="controlQuickStats">
+        <article>
+          <span>Generators</span>
+          <strong>{GENERATOR_OPTIONS.length}</strong>
+        </article>
+        <article>
+          <span>Solvers</span>
+          <strong>{SOLVER_OPTIONS.length}</strong>
+        </article>
+        <article>
+          <span>Grid</span>
+          <strong>
+            {settings.gridWidth} x {settings.gridHeight}
+          </strong>
+        </article>
+      </div>
+
       <section className="actionDock">
         <div className="actionDockGrid">
           <button type="button" className="btnPrimary" onClick={controls.generate}>
@@ -204,45 +221,47 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
       <section className="controlGroup">
         <h4>Algorithms</h4>
-        <label>
-          Generator
-          <select
-            value={settings.generatorId}
-            onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
-          >
-            {GENERATOR_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Solver A
-          <select
-            value={settings.solverId}
-            onChange={onSolverAChange}
-          >
-            {SOLVER_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Seed
-          <input
-            type="text"
-            value={settings.seed}
-            onChange={(event) => setSeed(event.currentTarget.value)}
-          />
-        </label>
+        <div className="controlFieldGrid">
+          <label>
+            Generator
+            <select
+              value={settings.generatorId}
+              onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
+            >
+              {GENERATOR_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Solver A
+            <select
+              value={settings.solverId}
+              onChange={onSolverAChange}
+            >
+              {SOLVER_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="labelWide">
+            Seed
+            <input
+              type="text"
+              value={settings.seed}
+              onChange={(event) => setSeed(event.currentTarget.value)}
+            />
+          </label>
+        </div>
       </section>
 
       <fieldset className="controlGroup">
         <legend>Battle Setup</legend>
-        <label className="toggleRow">
+        <label className="toggleRow toggleRowAccent">
           <input
             type="checkbox"
             checked={settings.battleMode}
@@ -418,7 +437,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
       <fieldset className="controlGroup">
         <legend>Overlays</legend>
-        <label className="toggleRow">
+        <label className="toggleRow togglePill">
           <input
             type="checkbox"
             checked={settings.showVisited}
@@ -426,7 +445,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           />
           Show visited
         </label>
-        <label className="toggleRow">
+        <label className="toggleRow togglePill">
           <input
             type="checkbox"
             checked={settings.showFrontier}
@@ -434,7 +453,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           />
           Show frontier
         </label>
-        <label className="toggleRow">
+        <label className="toggleRow togglePill">
           <input
             type="checkbox"
             checked={settings.showPath}
