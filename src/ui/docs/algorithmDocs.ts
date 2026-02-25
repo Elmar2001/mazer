@@ -188,6 +188,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Unlike Prim, this variant commits tree parents by discovery order, creating BFS-depth layers.",
   },
   {
+    id: "eller",
+    name: "Eller",
+    kind: "Generator",
+    summary: "Builds the maze one row at a time using dynamic disjoint sets.",
+    howItWorks: [
+      "Assign set ids across the current row.",
+      "Randomly join adjacent cells with different set ids.",
+      "For each set, carve at least one vertical connection downward.",
+      "On the final row, force all remaining disjoint sets to merge.",
+    ],
+    timeComplexity: "O(V) expected",
+    spaceComplexity: "O(width)",
+    pros: ["Streaming-friendly", "Memory-efficient for tall mazes"],
+    cons: ["Row-wise bias can be visible", "Implementation is more stateful than DFS/Prim"],
+    bestFor: "Generating large mazes where memory proportional to width is preferred.",
+    interestingFact:
+      "Eller is one of the few classic perfect-maze algorithms that does not require full-grid state history.",
+  },
+  {
+    id: "wilson",
+    name: "Wilson",
+    kind: "Generator",
+    summary: "Creates a uniform spanning tree using loop-erased random walks.",
+    howItWorks: [
+      "Start with one cell in the tree.",
+      "Pick an unvisited cell and perform a random walk.",
+      "Erase loops in the walk as they form (loop-erased random walk).",
+      "When the walk hits the existing tree, carve the whole walk into the tree.",
+    ],
+    timeComplexity: "Expected polynomial; often higher than DFS/Prim",
+    spaceComplexity: "O(V)",
+    pros: ["Uniform spanning tree output", "Strong theoretical guarantees"],
+    cons: ["Can be slower", "Walk-loop bookkeeping is heavier"],
+    bestFor: "When statistical fairness of generated spanning trees matters.",
+    interestingFact:
+      "Wilson and Aldous-Broder both generate uniform spanning trees, but Wilson is usually much faster in practice.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
@@ -376,6 +414,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Educational demos of local navigation strategies.",
     interestingFact:
       "In perfect mazes (tree mazes), wall following always reaches the goal because there are no isolated loops.",
+  },
+  {
+    id: "left-wall-follower",
+    name: "Wall Follower (Left-Hand)",
+    kind: "Solver",
+    summary: "Left-hand counterpart of wall following with mirrored turn preference.",
+    howItWorks: [
+      "Keep one hand on the left wall while moving.",
+      "Prefer left turn, then straight, then right, then back.",
+      "Track visited/discovered cells and parent links.",
+      "Reconstruct path after goal is reached.",
+    ],
+    timeComplexity: "Input-dependent, typically O(E) in tree mazes",
+    spaceComplexity: "O(V) with parent tracking",
+    pros: ["Simple local rule", "Useful for comparing handedness behavior"],
+    cons: ["Not generally optimal", "Same topology limits as right-hand variant"],
+    bestFor: "Educational side-by-side comparison with right-hand wall following.",
+    interestingFact:
+      "In simply connected mazes, left-hand and right-hand rules both solve, but can produce very different traversal traces.",
   },
 ];
 

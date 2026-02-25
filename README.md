@@ -14,6 +14,8 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Hunt-and-Kill
   - Growing Tree
   - Randomized BFS Tree
+  - Eller
+  - Wilson
 - Step-based maze solvers:
   - BFS
   - DFS
@@ -25,6 +27,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Dead-End Filling
   - Weighted A*
   - Wall Follower (Right-Hand)
+  - Wall Follower (Left-Hand)
 - Runtime controls:
   - algorithm selection
   - speed (steps/sec)
