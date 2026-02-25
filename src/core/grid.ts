@@ -15,7 +15,34 @@ export const enum OverlayFlag {
   Frontier = 2,
   Path = 4,
   Current = 8,
+  VisitedB = 16,
+  FrontierB = 32,
+  PathB = 64,
+  CurrentB = 128,
 }
+
+export const PRIMARY_OVERLAY_MASK =
+  OverlayFlag.Visited |
+  OverlayFlag.Frontier |
+  OverlayFlag.Path |
+  OverlayFlag.Current;
+
+export const SECONDARY_OVERLAY_MASK =
+  OverlayFlag.VisitedB |
+  OverlayFlag.FrontierB |
+  OverlayFlag.PathB |
+  OverlayFlag.CurrentB;
+
+export const ALL_SOLVER_OVERLAY_MASK =
+  PRIMARY_OVERLAY_MASK | SECONDARY_OVERLAY_MASK;
+
+export const ANY_VISITED_OVERLAY_MASK =
+  OverlayFlag.Visited | OverlayFlag.VisitedB;
+
+export const ANY_FRONTIER_OVERLAY_MASK =
+  OverlayFlag.Frontier | OverlayFlag.FrontierB;
+
+export const ANY_PATH_OVERLAY_MASK = OverlayFlag.Path | OverlayFlag.PathB;
 
 export interface Grid {
   width: number;

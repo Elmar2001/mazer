@@ -23,6 +23,31 @@ export interface MazeMetrics {
   dirtyCellCount: number;
   avgPatchesPerStep: number;
   avgDirtyCellsPerStep: number;
+  battle: SolverBattleMetrics | null;
+}
+
+export interface SolverRunMetrics {
+  id: SolverPluginId;
+  label: string;
+  stepCount: number;
+  visitedCount: number;
+  frontierSize: number;
+  pathLength: number;
+  elapsedMs: number;
+  computeMs: number;
+  actualStepsPerSec: number;
+  patchCount: number;
+  dirtyCellCount: number;
+  avgPatchesPerStep: number;
+  avgDirtyCellsPerStep: number;
+  solved: boolean;
+  done: boolean;
+}
+
+export interface SolverBattleMetrics {
+  enabled: boolean;
+  solverA: SolverRunMetrics;
+  solverB: SolverRunMetrics;
 }
 
 export interface MazeEngineOptions {
@@ -32,6 +57,8 @@ export interface MazeEngineOptions {
   seed: string;
   generatorId: GeneratorPluginId;
   solverId: SolverPluginId;
+  battleMode: boolean;
+  solverBId: SolverPluginId;
 }
 
 export interface MazeEngineCallbacks {

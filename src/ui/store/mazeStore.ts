@@ -8,6 +8,8 @@ import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 export interface MazeSettings {
   generatorId: GeneratorPluginId;
   solverId: SolverPluginId;
+  solverBId: SolverPluginId;
+  battleMode: boolean;
   speed: number;
   gridWidth: number;
   gridHeight: number;
@@ -29,6 +31,8 @@ interface MazeStore {
   runtime: MazeRuntime;
   setGeneratorId: (id: GeneratorPluginId) => void;
   setSolverId: (id: SolverPluginId) => void;
+  setSolverBId: (id: SolverPluginId) => void;
+  setBattleMode: (value: boolean) => void;
   setSpeed: (value: number) => void;
   setGridWidth: (value: number) => void;
   setGridHeight: (value: number) => void;
@@ -54,11 +58,14 @@ export const DEFAULT_METRICS: MazeMetrics = {
   dirtyCellCount: 0,
   avgPatchesPerStep: 0,
   avgDirtyCellsPerStep: 0,
+  battle: null,
 };
 
 const DEFAULT_SETTINGS: MazeSettings = {
   generatorId: "dfs-backtracker",
   solverId: "bfs",
+  solverBId: "astar",
+  battleMode: false,
   speed: 60,
   gridWidth: 40,
   gridHeight: 25,
@@ -98,6 +105,20 @@ export const useMazeStore = create<MazeStore>((set) => ({
       settings: {
         ...state.settings,
         solverId: id,
+      },
+    })),
+  setSolverBId: (id) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        solverBId: id,
+      },
+    })),
+  setBattleMode: (value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        battleMode: value,
       },
     })),
   setSpeed: (value) =>

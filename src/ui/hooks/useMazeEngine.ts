@@ -65,6 +65,8 @@ export function useMazeEngine(): UseMazeEngineResult {
         seed: settings.seed,
         generatorId: settings.generatorId,
         solverId: settings.solverId,
+        battleMode: settings.battleMode,
+        solverBId: settings.solverBId,
       },
       {
         onPatchesApplied: (dirtyCells, _meta, metrics) => {
@@ -132,10 +134,19 @@ export function useMazeEngine(): UseMazeEngineResult {
       seed: settings.seed,
       generatorId: settings.generatorId,
       solverId: settings.solverId,
+      battleMode: settings.battleMode,
+      solverBId: settings.solverBId,
       speed: settings.speed,
     });
     engine.setSpeed(settings.speed);
-  }, [settings.generatorId, settings.seed, settings.solverId, settings.speed]);
+  }, [
+    settings.battleMode,
+    settings.generatorId,
+    settings.seed,
+    settings.solverBId,
+    settings.solverId,
+    settings.speed,
+  ]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -174,6 +185,8 @@ export function useMazeEngine(): UseMazeEngineResult {
       seed: store.seed,
       generatorId: store.generatorId,
       solverId: store.solverId,
+      battleMode: store.battleMode,
+      solverBId: store.solverBId,
     });
     engine.setSpeed(store.speed);
 
@@ -189,7 +202,7 @@ export function useMazeEngine(): UseMazeEngineResult {
         }
 
         engine.startGeneration();
-        queueRuntimeUpdate({ paused: false, metrics: { ...DEFAULT_METRICS } });
+        queueRuntimeUpdate({ paused: false, metrics: engine.getMetrics() });
       },
       solve: () => {
         const engine = syncEngineOptions();
@@ -198,7 +211,7 @@ export function useMazeEngine(): UseMazeEngineResult {
         }
 
         engine.startSolving();
-        queueRuntimeUpdate({ paused: false, metrics: { ...DEFAULT_METRICS } });
+        queueRuntimeUpdate({ paused: false, metrics: engine.getMetrics() });
       },
       pauseResume: () => {
         const engine = engineRef.current;

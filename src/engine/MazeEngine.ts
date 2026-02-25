@@ -1,4 +1,5 @@
 import {
+  ALL_SOLVER_OVERLAY_MASK,
   ALL_WALLS,
   applyCellPatch,
   clearOverlays,
@@ -6,7 +7,6 @@ import {
   OverlayFlag,
   type Grid,
 } from "@/core/grid";
-import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 import type { CellPatch, StepMeta } from "@/core/patches";
 import type {
   GeneratorPlugin,
@@ -24,12 +24,14 @@ import type {
   SolverRunOptions,
 } from "@/core/plugins/types";
 import { createSeededRandom } from "@/core/rng";
+import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 import type {
   MazeEngineCallbacks,
   MazeEngineOptions,
   MazeEnginePublicApi,
   MazeMetrics,
   MazePhase,
+  SolverRunMetrics,
 } from "@/engine/types";
 
 const DEFAULT_METRICS: MazeMetrics = {
@@ -45,12 +47,24 @@ const DEFAULT_METRICS: MazeMetrics = {
   dirtyCellCount: 0,
   avgPatchesPerStep: 0,
   avgDirtyCellsPerStep: 0,
+  battle: null,
 };
 
 const GENERATOR_INDEX = new Map(
   generatorPlugins.map((plugin) => [plugin.id, plugin]),
 );
 const SOLVER_INDEX = new Map(solverPlugins.map((plugin) => [plugin.id, plugin]));
+
+type SolverRole = "A" | "B";
+
+interface SolverRuntime {
+  id: MazeEngineOptions["solverId"];
+  label: string;
+  role: SolverRole;
+  stepper: SolverStepper<AlgorithmStepMeta>;
+  metrics: SolverRunMetrics;
+  done: boolean;
+}
 
 export class MazeEngine implements MazeEnginePublicApi {
   private grid: Grid;
@@ -65,7 +79,9 @@ export class MazeEngine implements MazeEnginePublicApi {
 
   private generatorStepper: GeneratorStepper<AlgorithmStepMeta> | null = null;
 
-  private solverStepper: SolverStepper<AlgorithmStepMeta> | null = null;
+  private solverPrimary: SolverRuntime | null = null;
+
+  private solverSecondary: SolverRuntime | null = null;
 
   private paused = true;
 
@@ -90,7 +106,18 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   getMetrics(): MazeMetrics {
-    return { ...this.metrics };
+    const battle = this.metrics.battle;
+
+    return {
+      ...this.metrics,
+      battle: battle
+        ? {
+            enabled: battle.enabled,
+            solverA: { ...battle.solverA },
+            solverB: { ...battle.solverB },
+          }
+        : null,
+    };
   }
 
   getOptions(): MazeEngineOptions {
@@ -110,7 +137,9 @@ export class MazeEngine implements MazeEnginePublicApi {
       rng,
       options: {},
     });
-    this.solverStepper = null;
+
+    this.solverPrimary = null;
+    this.solverSecondary = null;
 
     this.phase = "Generating";
     this.emitPhase();
@@ -128,26 +157,32 @@ export class MazeEngine implements MazeEnginePublicApi {
       return;
     }
 
-    const plugin = this.getSolverPlugin(this.options.solverId);
-
-    clearOverlays(
-      this.grid,
-      OverlayFlag.Visited |
-        OverlayFlag.Frontier |
-        OverlayFlag.Path |
-        OverlayFlag.Current,
-    );
+    clearOverlays(this.grid, ALL_SOLVER_OVERLAY_MASK);
     this.metrics = { ...DEFAULT_METRICS };
 
-    const rng = createSeededRandom(`${this.options.seed}-solve`);
-    this.solverStepper = plugin.create({
-      grid: this.grid,
-      rng,
-      options: {
-        startIndex: 0,
-        goalIndex: this.grid.cellCount - 1,
-      },
-    });
+    const solverAPlugin = this.getSolverPlugin(this.options.solverId);
+
+    this.solverPrimary = this.createSolverRuntime(
+      solverAPlugin,
+      this.options.solverId,
+      "A",
+      `${this.options.seed}-solve-a`,
+    );
+
+    this.solverSecondary = null;
+
+    if (this.options.battleMode) {
+      const solverBPlugin = this.getSolverPlugin(this.options.solverBId);
+      this.solverSecondary = this.createSolverRuntime(
+        solverBPlugin,
+        this.options.solverBId,
+        "B",
+        `${this.options.seed}-solve-b`,
+      );
+
+      this.syncBattleMetricsSnapshot();
+    }
+
     this.generatorStepper = null;
 
     this.phase = "Solving";
@@ -166,7 +201,7 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   resume(): void {
-    if (!this.activeStepper()) {
+    if (!this.hasActiveWork()) {
       return;
     }
 
@@ -182,12 +217,14 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     this.metrics.dirtyCellCount += result.dirtyCells.length;
     this.recomputeDerivedMetrics();
+    this.syncBattleMetricsSnapshot();
     this.emitPatches(result.dirtyCells, result.meta);
   }
 
   reset(): void {
     this.generatorStepper = null;
-    this.solverStepper = null;
+    this.solverPrimary = null;
+    this.solverSecondary = null;
     this.phase = "Idle";
     this.paused = true;
     this.metrics = { ...DEFAULT_METRICS };
@@ -209,6 +246,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     const nextWidth = Math.max(2, Math.floor(merged.width));
     const nextHeight = Math.max(2, Math.floor(merged.height));
+
     this.options = {
       ...merged,
       width: nextWidth,
@@ -227,7 +265,8 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     this.grid = createGrid(safeWidth, safeHeight);
     this.generatorStepper = null;
-    this.solverStepper = null;
+    this.solverPrimary = null;
+    this.solverSecondary = null;
     this.phase = "Idle";
     this.paused = true;
     this.metrics = { ...DEFAULT_METRICS };
@@ -261,7 +300,7 @@ export class MazeEngine implements MazeEnginePublicApi {
   private onFrame(ts: number): void {
     this.rafHandle = null;
 
-    if (!this.activeStepper()) {
+    if (!this.hasActiveWork()) {
       return;
     }
 
@@ -274,6 +313,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     if (!this.paused) {
       this.metrics.elapsedMs += delta;
+
       const stepInterval = 1000 / this.options.speed;
       this.accumulatorMs += delta;
 
@@ -285,7 +325,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       while (
         this.accumulatorMs >= stepInterval &&
         iteration < 1000 &&
-        this.activeStepper()
+        this.hasActiveWork()
       ) {
         const result = this.processStep();
         if (!result) {
@@ -309,11 +349,12 @@ export class MazeEngine implements MazeEnginePublicApi {
       if (stepped) {
         this.metrics.dirtyCellCount += dirtySet.size;
         this.recomputeDerivedMetrics();
+        this.syncBattleMetricsSnapshot();
         this.emitPatches(Array.from(dirtySet), latestMeta);
       }
     }
 
-    if (this.activeStepper()) {
+    if (this.hasActiveWork()) {
       this.ensureLoop();
     }
   }
@@ -321,7 +362,21 @@ export class MazeEngine implements MazeEnginePublicApi {
   private processStep():
     | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
     | null {
-    const stepper = this.activeStepper();
+    if (this.phase === "Generating") {
+      return this.processGenerationStep();
+    }
+
+    if (this.phase === "Solving") {
+      return this.processSolvingStep();
+    }
+
+    return null;
+  }
+
+  private processGenerationStep():
+    | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
+    | null {
+    const stepper = this.generatorStepper;
     if (!stepper) {
       return null;
     }
@@ -331,7 +386,7 @@ export class MazeEngine implements MazeEnginePublicApi {
     const dirtyCells: number[] = [];
 
     for (const patch of result.patches) {
-      this.applyPatchWithMetrics(patch);
+      this.applyPatch(patch);
       dirtyCells.push(patch.index);
     }
 
@@ -353,6 +408,160 @@ export class MazeEngine implements MazeEnginePublicApi {
       dirtyCells,
       meta: result.meta,
     };
+  }
+
+  private processSolvingStep():
+    | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
+    | null {
+    const dirtySet = new Set<number>();
+    let latestMeta: StepMeta | undefined;
+    let anyWork = false;
+
+    if (this.solverPrimary && !this.solverPrimary.done) {
+      const result = this.processSolverRuntime(this.solverPrimary);
+      anyWork = true;
+      latestMeta = result.meta;
+      for (const cell of result.dirtyCells) {
+        dirtySet.add(cell);
+      }
+    }
+
+    if (this.solverSecondary && !this.solverSecondary.done) {
+      const result = this.processSolverRuntime(this.solverSecondary);
+      anyWork = true;
+      latestMeta = result.meta;
+      for (const cell of result.dirtyCells) {
+        dirtySet.add(cell);
+      }
+    }
+
+    if (!anyWork) {
+      this.completePhase();
+      return {
+        done: true,
+        dirtyCells: [],
+        meta: latestMeta,
+      };
+    }
+
+    if (this.solverSecondary) {
+      this.syncBattleGlobalFromSolvers();
+    }
+
+    const done = this.isSolvingComplete();
+    if (done) {
+      this.completePhase();
+    }
+
+    return {
+      done,
+      dirtyCells: Array.from(dirtySet),
+      meta: latestMeta,
+    };
+  }
+
+  private processSolverRuntime(runtime: SolverRuntime): {
+    dirtyCells: number[];
+    meta?: AlgorithmStepMeta;
+  } {
+    const computeStart = nowMs();
+    const raw = runtime.stepper.step();
+    const patches =
+      runtime.role === "A"
+        ? raw.patches
+        : raw.patches.map((patch) => remapPatchForSecondary(patch));
+
+    const dirtySet = new Set<number>();
+    for (const patch of patches) {
+      this.applyPatch(patch);
+      dirtySet.add(patch.index);
+    }
+
+    const computeDelta = nowMs() - computeStart;
+
+    runtime.metrics.stepCount += 1;
+    runtime.metrics.elapsedMs += 1000 / this.options.speed;
+    runtime.metrics.computeMs += computeDelta;
+    runtime.metrics.patchCount += patches.length;
+    runtime.metrics.dirtyCellCount += dirtySet.size;
+
+    if (typeof raw.meta?.visitedCount === "number") {
+      runtime.metrics.visitedCount = raw.meta.visitedCount;
+    }
+
+    if (typeof raw.meta?.frontierSize === "number") {
+      runtime.metrics.frontierSize = raw.meta.frontierSize;
+    }
+
+    if (typeof raw.meta?.pathLength === "number") {
+      runtime.metrics.pathLength = raw.meta.pathLength;
+    }
+
+    if (typeof raw.meta?.solved === "boolean") {
+      runtime.metrics.solved = raw.meta.solved;
+    }
+
+    if (raw.done) {
+      runtime.done = true;
+      runtime.metrics.done = true;
+      if (!runtime.metrics.solved && runtime.metrics.pathLength > 0) {
+        runtime.metrics.solved = true;
+      }
+    }
+
+    recomputeSolverDerived(runtime.metrics);
+
+    this.metrics.stepCount += 1;
+    this.metrics.computeMs += computeDelta;
+    this.metrics.patchCount += patches.length;
+
+    if (!this.solverSecondary) {
+      this.applyMetaOverrides(raw.meta);
+    }
+
+    return {
+      dirtyCells: Array.from(dirtySet),
+      meta: raw.meta,
+    };
+  }
+
+  private createSolverRuntime(
+    plugin: SolverPlugin<SolverRunOptions, AlgorithmStepMeta>,
+    solverId: MazeEngineOptions["solverId"],
+    role: SolverRole,
+    seedText: string,
+  ): SolverRuntime {
+    const rng = createSeededRandom(seedText);
+    const stepper = plugin.create({
+      grid: this.grid,
+      rng,
+      options: {
+        startIndex: 0,
+        goalIndex: this.grid.cellCount - 1,
+      },
+    });
+
+    return {
+      id: solverId,
+      label: plugin.label,
+      role,
+      stepper,
+      metrics: createEmptySolverMetrics(solverId, plugin.label),
+      done: false,
+    };
+  }
+
+  private syncBattleGlobalFromSolvers(): void {
+    if (!this.solverPrimary || !this.solverSecondary) {
+      return;
+    }
+
+    const a = this.solverPrimary.metrics;
+    const b = this.solverSecondary.metrics;
+
+    this.metrics.visitedCount = a.visitedCount + b.visitedCount;
+    this.metrics.frontierSize = a.frontierSize + b.frontierSize;
+    this.metrics.pathLength = a.pathLength + b.pathLength;
   }
 
   private applyMetaOverrides(meta?: AlgorithmStepMeta): void {
@@ -395,6 +604,27 @@ export class MazeEngine implements MazeEnginePublicApi {
     }
   }
 
+  private syncBattleMetricsSnapshot(): void {
+    if (!this.solverPrimary || !this.solverSecondary) {
+      if (
+        this.phase === "Solved" &&
+        this.metrics.battle &&
+        this.metrics.battle.enabled
+      ) {
+        return;
+      }
+
+      this.metrics.battle = null;
+      return;
+    }
+
+    this.metrics.battle = {
+      enabled: true,
+      solverA: { ...this.solverPrimary.metrics },
+      solverB: { ...this.solverSecondary.metrics },
+    };
+  }
+
   private completePhase(): void {
     if (this.phase === "Generating") {
       this.generatorStepper = null;
@@ -405,41 +635,16 @@ export class MazeEngine implements MazeEnginePublicApi {
     }
 
     if (this.phase === "Solving") {
-      this.solverStepper = null;
+      this.solverPrimary = null;
+      this.solverSecondary = null;
       this.paused = true;
       this.phase = "Solved";
       this.emitPhase();
     }
   }
 
-  private applyPatchWithMetrics(patch: CellPatch): void {
-    const before = this.grid.overlays[patch.index] as number;
+  private applyPatch(patch: CellPatch): void {
     applyCellPatch(this.grid, patch);
-    const after = this.grid.overlays[patch.index] as number;
-
-    this.updateBitMetric(before, after, OverlayFlag.Visited, "visitedCount");
-    this.updateBitMetric(before, after, OverlayFlag.Frontier, "frontierSize");
-    this.updateBitMetric(before, after, OverlayFlag.Path, "pathLength");
-  }
-
-  private updateBitMetric(
-    before: number,
-    after: number,
-    mask: number,
-    field: keyof Pick<MazeMetrics, "visitedCount" | "frontierSize" | "pathLength">,
-  ): void {
-    const had = (before & mask) !== 0;
-    const has = (after & mask) !== 0;
-
-    if (had === has) {
-      return;
-    }
-
-    if (has) {
-      this.metrics[field] += 1;
-    } else {
-      this.metrics[field] = Math.max(0, this.metrics[field] - 1);
-    }
   }
 
   private emitAllDirty(): void {
@@ -455,19 +660,30 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.callbacks.onPhaseChange?.(this.phase);
   }
 
-  private activeStepper():
-    | GeneratorStepper<AlgorithmStepMeta>
-    | SolverStepper<AlgorithmStepMeta>
-    | null {
+  private hasActiveWork(): boolean {
     if (this.phase === "Generating") {
-      return this.generatorStepper;
+      return this.generatorStepper !== null;
     }
 
     if (this.phase === "Solving") {
-      return this.solverStepper;
+      return (
+        (this.solverPrimary !== null && !this.solverPrimary.done) ||
+        (this.solverSecondary !== null && !this.solverSecondary.done)
+      );
     }
 
-    return null;
+    return false;
+  }
+
+  private isSolvingComplete(): boolean {
+    if (this.phase !== "Solving") {
+      return false;
+    }
+
+    const aDone = this.solverPrimary ? this.solverPrimary.done : true;
+    const bDone = this.solverSecondary ? this.solverSecondary.done : true;
+
+    return aDone && bDone;
   }
 
   private getGeneratorPlugin(
@@ -497,7 +713,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       return globalThis.requestAnimationFrame(callback);
     }
 
-    return setTimeout(() => callback(performance.now()), 16) as unknown as number;
+    return setTimeout(() => callback(nowMs()), 16) as unknown as number;
   }
 
   private cancelAnimationFrame(handle: number): void {
@@ -507,6 +723,81 @@ export class MazeEngine implements MazeEnginePublicApi {
     }
 
     clearTimeout(handle);
+  }
+}
+
+function remapPatchForSecondary(patch: CellPatch): CellPatch {
+  return {
+    ...patch,
+    overlaySet:
+      typeof patch.overlaySet === "number"
+        ? mapPrimaryToSecondaryOverlay(patch.overlaySet)
+        : undefined,
+    overlayClear:
+      typeof patch.overlayClear === "number"
+        ? mapPrimaryToSecondaryOverlay(patch.overlayClear)
+        : undefined,
+  };
+}
+
+function mapPrimaryToSecondaryOverlay(mask: number): number {
+  let mapped = 0;
+
+  if ((mask & OverlayFlag.Visited) !== 0) {
+    mapped |= OverlayFlag.VisitedB;
+  }
+
+  if ((mask & OverlayFlag.Frontier) !== 0) {
+    mapped |= OverlayFlag.FrontierB;
+  }
+
+  if ((mask & OverlayFlag.Path) !== 0) {
+    mapped |= OverlayFlag.PathB;
+  }
+
+  if ((mask & OverlayFlag.Current) !== 0) {
+    mapped |= OverlayFlag.CurrentB;
+  }
+
+  return mapped;
+}
+
+function createEmptySolverMetrics(
+  id: MazeEngineOptions["solverId"],
+  label: string,
+): SolverRunMetrics {
+  return {
+    id,
+    label,
+    stepCount: 0,
+    visitedCount: 0,
+    frontierSize: 0,
+    pathLength: 0,
+    elapsedMs: 0,
+    computeMs: 0,
+    actualStepsPerSec: 0,
+    patchCount: 0,
+    dirtyCellCount: 0,
+    avgPatchesPerStep: 0,
+    avgDirtyCellsPerStep: 0,
+    solved: false,
+    done: false,
+  };
+}
+
+function recomputeSolverDerived(metrics: SolverRunMetrics): void {
+  if (metrics.elapsedMs > 0) {
+    metrics.actualStepsPerSec = metrics.stepCount / (metrics.elapsedMs / 1000);
+  } else {
+    metrics.actualStepsPerSec = 0;
+  }
+
+  if (metrics.stepCount > 0) {
+    metrics.avgPatchesPerStep = metrics.patchCount / metrics.stepCount;
+    metrics.avgDirtyCellsPerStep = metrics.dirtyCellCount / metrics.stepCount;
+  } else {
+    metrics.avgPatchesPerStep = 0;
+    metrics.avgDirtyCellsPerStep = 0;
   }
 }
 
