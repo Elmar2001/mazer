@@ -65,6 +65,7 @@ function stepPrim(context: PrimContext) {
       done: context.grid.cellCount <= 1,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.frontier.length,
       },
@@ -76,6 +77,7 @@ function stepPrim(context: PrimContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -124,6 +126,7 @@ function stepPrim(context: PrimContext) {
     done: context.visitedCount >= context.grid.cellCount,
     patches,
     meta: {
+      line: 5,
       visitedCount: context.visitedCount,
       frontierSize: context.frontier.length,
     },

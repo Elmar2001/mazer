@@ -68,6 +68,7 @@ function stepBfsTree(context: BfsTreeContext) {
       done: context.grid.cellCount <= 1,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.queue.length - context.head,
       },
@@ -87,6 +88,7 @@ function stepBfsTree(context: BfsTreeContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -143,6 +145,7 @@ function stepBfsTree(context: BfsTreeContext) {
     done: context.visitedCount >= context.grid.cellCount && frontierSize === 0,
     patches,
     meta: {
+      line: 4,
       visitedCount: context.visitedCount,
       frontierSize,
     },

@@ -99,6 +99,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: context.grid.cellCount === 1,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -118,6 +119,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: true,
       patches,
       meta: {
+        line: 6,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -155,6 +157,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: false,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -169,6 +172,7 @@ function stepHouston(context: HoustonContext, root: number) {
         done: true,
         patches,
         meta: {
+          line: 6,
           visitedCount: context.visitedCount,
           frontierSize: 0,
         },
@@ -191,6 +195,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: false,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: context.walkPath.length,
       },
@@ -233,6 +238,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: context.visitedCount >= context.grid.cellCount,
       patches,
       meta: {
+        line: 5,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -263,6 +269,7 @@ function stepHouston(context: HoustonContext, root: number) {
       done: false,
       patches,
       meta: {
+        line: 5,
         visitedCount: context.visitedCount,
         frontierSize: context.walkPath.length,
       },
@@ -282,6 +289,7 @@ function stepHouston(context: HoustonContext, root: number) {
     done: false,
     patches,
     meta: {
+      line: 5,
       visitedCount: context.visitedCount,
       frontierSize: context.walkPath.length,
     },

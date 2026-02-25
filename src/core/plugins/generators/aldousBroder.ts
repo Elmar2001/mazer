@@ -63,6 +63,7 @@ function stepAldousBroder(context: AldousBroderContext) {
         done: true,
         patches,
         meta: {
+          line: 1,
           visitedCount: context.visitedCount,
           frontierSize: 0,
         },
@@ -73,6 +74,7 @@ function stepAldousBroder(context: AldousBroderContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -89,6 +91,7 @@ function stepAldousBroder(context: AldousBroderContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -97,8 +100,9 @@ function stepAldousBroder(context: AldousBroderContext) {
 
   const candidates = neighbors(context.grid, context.current);
   const pick = candidates[context.rng.nextInt(candidates.length)]!;
+  const discoveredNew = context.visited[pick.index] === 0;
 
-  if (context.visited[pick.index] === 0) {
+  if (discoveredNew) {
     context.visited[pick.index] = 1;
     context.visitedCount += 1;
 
@@ -131,6 +135,7 @@ function stepAldousBroder(context: AldousBroderContext) {
     done,
     patches,
     meta: {
+      line: discoveredNew ? 4 : 5,
       visitedCount: context.visitedCount,
       frontierSize: done ? 0 : 1,
     },

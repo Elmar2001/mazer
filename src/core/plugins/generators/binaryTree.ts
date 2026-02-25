@@ -56,6 +56,7 @@ function stepBinaryTree(context: BinaryTreeContext) {
       done: true,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -108,6 +109,7 @@ function stepBinaryTree(context: BinaryTreeContext) {
     done,
     patches,
     meta: {
+      line: options.length > 0 ? 4 : 5,
       visitedCount: context.visitedCount,
       frontierSize: done ? 0 : 1,
     },

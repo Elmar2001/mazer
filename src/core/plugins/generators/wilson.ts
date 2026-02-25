@@ -93,6 +93,7 @@ function stepWilson(context: WilsonContext, root: number) {
       done: true,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -116,6 +117,7 @@ function stepWilson(context: WilsonContext, root: number) {
       done: false,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: context.walkPath.length,
       },
@@ -159,6 +161,7 @@ function stepWilson(context: WilsonContext, root: number) {
       done: context.unvisitedList.length === 0,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -189,6 +192,7 @@ function stepWilson(context: WilsonContext, root: number) {
       done: false,
       patches,
       meta: {
+        line: 5,
         visitedCount: context.visitedCount,
         frontierSize: context.walkPath.length,
       },
@@ -208,6 +212,7 @@ function stepWilson(context: WilsonContext, root: number) {
     done: false,
     patches,
     meta: {
+      line: 6,
       visitedCount: context.visitedCount,
       frontierSize: context.walkPath.length,
     },

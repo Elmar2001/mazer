@@ -53,6 +53,7 @@ function stepEller(context: EllerContext) {
       done: true,
       patches: [],
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -83,6 +84,7 @@ function stepEller(context: EllerContext) {
     done,
     patches,
     meta: {
+      line: 2,
       visitedCount: context.visitedCount,
       frontierSize: done ? 0 : 1,
     },

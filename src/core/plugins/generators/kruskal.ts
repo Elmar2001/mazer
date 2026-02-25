@@ -65,6 +65,7 @@ function stepKruskal(context: KruskalContext) {
       done: true,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.carvedEdges + 1,
         frontierSize: context.edges.length - context.cursor,
       },
@@ -95,6 +96,7 @@ function stepKruskal(context: KruskalContext) {
     done: context.components <= 1,
     patches,
     meta: {
+      line: 3,
       visitedCount: context.carvedEdges + 1,
       frontierSize: context.edges.length - context.cursor,
     },

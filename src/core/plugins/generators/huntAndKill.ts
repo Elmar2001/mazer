@@ -65,6 +65,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
         done: true,
         patches,
         meta: {
+          line: 1,
           visitedCount: context.visitedCount,
           frontierSize: 0,
         },
@@ -75,6 +76,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -91,6 +93,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
       done: true,
       patches,
       meta: {
+        line: 6,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -126,6 +129,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
       done: false,
       patches,
       meta: {
+        line: 3,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -171,6 +175,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
       done: false,
       patches,
       meta: {
+        line: 5,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -181,6 +186,7 @@ function stepHuntAndKill(context: HuntAndKillContext) {
     done: true,
     patches,
     meta: {
+      line: 6,
       visitedCount: context.visitedCount,
       frontierSize: 0,
     },

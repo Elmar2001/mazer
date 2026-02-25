@@ -69,6 +69,7 @@ function stepGrowingTree(context: GrowingTreeContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.active.length,
       },
@@ -88,6 +89,7 @@ function stepGrowingTree(context: GrowingTreeContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -123,6 +125,7 @@ function stepGrowingTree(context: GrowingTreeContext) {
       done: context.active.length === 0,
       patches,
       meta: {
+        line: 5,
         visitedCount: context.visitedCount,
         frontierSize: context.active.length,
       },
@@ -152,6 +155,7 @@ function stepGrowingTree(context: GrowingTreeContext) {
     done: false,
     patches,
     meta: {
+      line: 4,
       visitedCount: context.visitedCount,
       frontierSize: context.active.length,
     },

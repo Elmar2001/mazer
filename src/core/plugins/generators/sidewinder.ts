@@ -60,6 +60,7 @@ function stepSidewinder(context: SidewinderContext) {
       done: true,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -117,6 +118,7 @@ function stepSidewinder(context: SidewinderContext) {
     done,
     patches,
     meta: {
+      line: shouldCloseOut ? 4 : 5,
       visitedCount: context.visitedCount,
       frontierSize: done ? 0 : 1,
     },

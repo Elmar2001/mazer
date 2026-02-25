@@ -73,6 +73,7 @@ function stepPrimEdges(context: PrimEdgesContext) {
       done: context.grid.cellCount <= 1,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.edges.length,
       },
@@ -114,6 +115,7 @@ function stepPrimEdges(context: PrimEdgesContext) {
       done: false,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: context.edges.length,
       },
@@ -124,6 +126,7 @@ function stepPrimEdges(context: PrimEdgesContext) {
     done: true,
     patches,
     meta: {
+      line: 6,
       visitedCount: context.visitedCount,
       frontierSize: 0,
     },

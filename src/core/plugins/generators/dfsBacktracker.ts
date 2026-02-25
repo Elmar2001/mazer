@@ -67,6 +67,7 @@ function stepDfs(context: DfsContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.stack.length,
       },
@@ -78,6 +79,7 @@ function stepDfs(context: DfsContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
       },
@@ -107,6 +109,7 @@ function stepDfs(context: DfsContext) {
       done: context.stack.length === 0,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: context.stack.length,
       },
@@ -133,6 +136,7 @@ function stepDfs(context: DfsContext) {
     done: false,
     patches,
     meta: {
+      line: 5,
       visitedCount: context.visitedCount,
       frontierSize: context.stack.length,
     },
