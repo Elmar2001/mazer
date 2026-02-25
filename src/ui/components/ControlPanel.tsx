@@ -18,6 +18,8 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
   const setGeneratorId = useMazeStore((state) => state.setGeneratorId);
   const setSolverId = useMazeStore((state) => state.setSolverId);
+  const setSolverBId = useMazeStore((state) => state.setSolverBId);
+  const setBattleMode = useMazeStore((state) => state.setBattleMode);
   const setSpeed = useMazeStore((state) => state.setSpeed);
   const setGridWidth = useMazeStore((state) => state.setGridWidth);
   const setGridHeight = useMazeStore((state) => state.setGridHeight);
@@ -36,6 +38,23 @@ export function ControlPanel({ controls }: ControlPanelProps) {
     (event: ChangeEvent<HTMLInputElement>) => {
       setter(event.currentTarget.checked);
     };
+
+  const onBattleModeChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.currentTarget.checked;
+    setBattleMode(enabled);
+
+    if (!enabled || settings.solverBId !== settings.solverId) {
+      return;
+    }
+
+    const fallback = SOLVER_OPTIONS.find(
+      (option) => option.id !== settings.solverId,
+    )?.id;
+
+    if (fallback) {
+      setSolverBId(fallback);
+    }
+  };
 
   return (
     <section className="controlPanel">
@@ -62,7 +81,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       </label>
 
       <label>
-        Solver
+        Solver A
         <select
           value={settings.solverId}
           onChange={(event) => setSolverId(event.currentTarget.value as typeof settings.solverId)}
@@ -74,6 +93,46 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           ))}
         </select>
       </label>
+
+      <fieldset>
+        <legend>Battle Mode</legend>
+        <label className="toggleRow">
+          <input
+            type="checkbox"
+            checked={settings.battleMode}
+            onChange={onBattleModeChange}
+          />
+          Compare two solvers side by side
+        </label>
+        <label>
+          Solver B
+          <select
+            value={settings.solverBId}
+            onChange={(event) =>
+              setSolverBId(event.currentTarget.value as typeof settings.solverBId)
+            }
+            disabled={!settings.battleMode}
+          >
+            {SOLVER_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {settings.battleMode ? (
+          <div className="battleLegend">
+            <span className="legendItem">
+              <i className="legendSwatch legendSwatchA" />
+              Solver A overlays
+            </span>
+            <span className="legendItem">
+              <i className="legendSwatch legendSwatchB" />
+              Solver B overlays
+            </span>
+          </div>
+        ) : null}
+      </fieldset>
 
       <label>
         Seed

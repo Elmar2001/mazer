@@ -11,12 +11,16 @@ const COLORS = {
   background: "#0f1318",
   cell: "#151d24",
   wall: "#f1f5f9",
-  visited: "rgba(71, 159, 230, 0.30)",
-  frontier: "rgba(245, 158, 11, 0.45)",
-  path: "rgba(34, 197, 94, 0.70)",
+  visitedA: "rgba(71, 159, 230, 0.30)",
+  frontierA: "rgba(245, 158, 11, 0.45)",
+  pathA: "rgba(34, 197, 94, 0.70)",
+  visitedB: "rgba(244, 114, 182, 0.34)",
+  frontierB: "rgba(251, 113, 133, 0.50)",
+  pathB: "rgba(251, 146, 60, 0.72)",
   start: "#22d3ee",
   goal: "#fb7185",
-  currentRing: "rgba(255, 255, 255, 0.75)",
+  currentRingA: "rgba(255, 255, 255, 0.75)",
+  currentRingB: "rgba(251, 191, 36, 0.85)",
 };
 
 export class CanvasRenderer {
@@ -114,24 +118,54 @@ export class CanvasRenderer {
     const overlays = this.grid.overlays[index] as number;
 
     if (this.settings.showVisited && (overlays & OverlayFlag.Visited) !== 0) {
-      this.ctx.fillStyle = COLORS.visited;
+      this.ctx.fillStyle = COLORS.visitedA;
       this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
     }
 
-    if (this.settings.showFrontier && (overlays & OverlayFlag.Frontier) !== 0) {
-      this.ctx.fillStyle = COLORS.frontier;
-      this.ctx.fillRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
-    }
-
-    if (this.settings.showPath && (overlays & OverlayFlag.Path) !== 0) {
-      this.ctx.fillStyle = COLORS.path;
+    if (this.settings.showVisited && (overlays & OverlayFlag.VisitedB) !== 0) {
+      this.ctx.fillStyle = COLORS.visitedB;
       this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
     }
 
+    if (this.settings.showFrontier && (overlays & OverlayFlag.Frontier) !== 0) {
+      this.ctx.fillStyle = COLORS.frontierA;
+      this.ctx.fillRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
+    }
+
+    if (this.settings.showFrontier && (overlays & OverlayFlag.FrontierB) !== 0) {
+      this.ctx.strokeStyle = COLORS.frontierB;
+      this.ctx.lineWidth = 1.2;
+      this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
+    }
+
+    if (this.settings.showPath && (overlays & OverlayFlag.Path) !== 0) {
+      this.ctx.fillStyle = COLORS.pathA;
+      this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
+    }
+
+    if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
+      this.ctx.fillStyle = COLORS.pathB;
+      this.ctx.beginPath();
+      this.ctx.arc(
+        x + size * 0.5,
+        y + size * 0.5,
+        Math.max(1.5, size * 0.22),
+        0,
+        Math.PI * 2,
+      );
+      this.ctx.fill();
+    }
+
     if ((overlays & OverlayFlag.Current) !== 0) {
-      this.ctx.strokeStyle = COLORS.currentRing;
+      this.ctx.strokeStyle = COLORS.currentRingA;
       this.ctx.lineWidth = 1.5;
       this.ctx.strokeRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
+    }
+
+    if ((overlays & OverlayFlag.CurrentB) !== 0) {
+      this.ctx.strokeStyle = COLORS.currentRingB;
+      this.ctx.lineWidth = 1.3;
+      this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
 
     this.drawWalls(index, x, y, size);

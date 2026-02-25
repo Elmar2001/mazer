@@ -33,6 +33,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Wall Follower (Left-Hand)
 - Runtime controls:
   - algorithm selection
+  - optional solver battle mode (Solver A vs Solver B)
   - speed (steps/sec)
   - grid width/height
   - cell size
@@ -49,6 +50,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - actual throughput (steps/s)
   - patch + dirty-cell volume
   - engine compute time + utilization estimate
+  - per-solver comparison cards in battle mode (status, throughput, visited/frontier/path, patches)
 
 ## Architecture
 
