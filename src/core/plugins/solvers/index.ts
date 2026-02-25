@@ -5,6 +5,7 @@ import { deadEndFillingSolver } from "@/core/plugins/solvers/deadEndFilling";
 import { dijkstraSolver } from "@/core/plugins/solvers/dijkstra";
 import { dfsSolver } from "@/core/plugins/solvers/dfs";
 import { greedyBestFirstSolver } from "@/core/plugins/solvers/greedyBestFirst";
+import { weightedAStarSolver } from "@/core/plugins/solvers/weightedAstar";
 
 export const solverPlugins = [
   bfsSolver,
@@ -14,6 +15,7 @@ export const solverPlugins = [
   greedyBestFirstSolver,
   bidirectionalBfsSolver,
   deadEndFillingSolver,
+  weightedAStarSolver,
 ] as const;
 
 export type SolverPluginId = (typeof solverPlugins)[number]["id"];

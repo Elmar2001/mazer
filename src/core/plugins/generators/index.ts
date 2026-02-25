@@ -1,6 +1,7 @@
 import { aldousBroderGenerator } from "@/core/plugins/generators/aldousBroder";
 import { binaryTreeGenerator } from "@/core/plugins/generators/binaryTree";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
+import { growingTreeGenerator } from "@/core/plugins/generators/growingTree";
 import { huntAndKillGenerator } from "@/core/plugins/generators/huntAndKill";
 import { kruskalGenerator } from "@/core/plugins/generators/kruskal";
 import { primGenerator } from "@/core/plugins/generators/prim";
@@ -14,6 +15,7 @@ export const generatorPlugins = [
   sidewinderGenerator,
   aldousBroderGenerator,
   huntAndKillGenerator,
+  growingTreeGenerator,
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];
