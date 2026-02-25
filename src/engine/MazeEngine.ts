@@ -501,6 +501,10 @@ export class MazeEngine implements MazeEnginePublicApi {
       runtime.metrics.solved = raw.meta.solved;
     }
 
+    if (typeof raw.meta?.line === "number" && Number.isFinite(raw.meta.line)) {
+      runtime.metrics.activeLine = Math.max(1, Math.floor(raw.meta.line));
+    }
+
     if (raw.done) {
       runtime.done = true;
       runtime.metrics.done = true;
@@ -521,7 +525,10 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     return {
       dirtyCells: Array.from(dirtySet),
-      meta: raw.meta,
+      meta: {
+        ...raw.meta,
+        solverRole: runtime.role,
+      },
     };
   }
 
@@ -769,6 +776,7 @@ function createEmptySolverMetrics(
   return {
     id,
     label,
+    activeLine: null,
     stepCount: 0,
     visitedCount: 0,
     frontierSize: 0,

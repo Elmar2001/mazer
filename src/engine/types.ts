@@ -29,6 +29,7 @@ export interface MazeMetrics {
 export interface SolverRunMetrics {
   id: SolverPluginId;
   label: string;
+  activeLine: number | null;
   stepCount: number;
   visitedCount: number;
   frontierSize: number;

@@ -71,6 +71,7 @@ function stepLee(context: LeeContext) {
         done: true,
         patches,
         meta: {
+          line: 1,
           solved: true,
           pathLength: 1,
           visitedCount: 1,
@@ -93,6 +94,7 @@ function stepLee(context: LeeContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
       },
@@ -114,6 +116,7 @@ function stepLee(context: LeeContext) {
           done: true,
           patches,
           meta: {
+            line: 2,
             solved: false,
             visitedCount: context.visitedCount,
             frontierSize: 0,
@@ -126,6 +129,7 @@ function stepLee(context: LeeContext) {
         done: false,
         patches,
         meta: {
+          line: 4,
           solved: false,
           pathLength: context.pathLength,
           visitedCount: context.visitedCount,
@@ -187,6 +191,7 @@ function stepLee(context: LeeContext) {
       done: false,
       patches,
       meta: {
+        line: 3,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
         pathLength: context.pathLength,
@@ -204,6 +209,7 @@ function stepLee(context: LeeContext) {
       done: true,
       patches,
       meta: {
+        line: 6,
         solved: true,
         pathLength: context.pathLength,
         visitedCount: context.visitedCount,
@@ -218,6 +224,7 @@ function stepLee(context: LeeContext) {
       done: true,
       patches,
       meta: {
+        line: 6,
         solved: false,
         pathLength: context.pathLength,
         visitedCount: context.visitedCount,
@@ -250,6 +257,7 @@ function stepLee(context: LeeContext) {
     done: false,
     patches,
     meta: {
+      line: 5,
       solved: false,
       pathLength: context.pathLength,
       visitedCount: context.visitedCount,

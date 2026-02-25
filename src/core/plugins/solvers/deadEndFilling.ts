@@ -72,6 +72,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
         done: true,
         patches,
         meta: {
+          line: 2,
           solved: true,
           pathLength,
           frontierSize: 0,
@@ -83,6 +84,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         frontierSize: context.frontierSize,
       },
     };
@@ -102,6 +104,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
       done: true,
       patches,
       meta: {
+        line: 3,
         solved: true,
         pathLength,
         frontierSize: 0,
@@ -126,6 +129,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
       done: false,
       patches,
       meta: {
+        line: 4,
         frontierSize: context.frontierSize,
       },
     };
@@ -166,6 +170,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
     done: false,
     patches,
     meta: {
+      line: 5,
       frontierSize: context.frontierSize,
     },
   };

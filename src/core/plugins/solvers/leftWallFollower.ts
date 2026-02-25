@@ -76,6 +76,7 @@ function stepLeftWallFollower(context: LeftWallFollowerContext) {
         done: true,
         patches,
         meta: {
+          line: 1,
           solved: true,
           pathLength: 1,
           visitedCount: context.visitedCount,
@@ -88,6 +89,7 @@ function stepLeftWallFollower(context: LeftWallFollowerContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: 1,
       },
@@ -109,6 +111,7 @@ function stepLeftWallFollower(context: LeftWallFollowerContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         solved: true,
         pathLength: path.length,
         visitedCount: context.visitedCount,
@@ -147,6 +150,7 @@ function stepLeftWallFollower(context: LeftWallFollowerContext) {
       done: true,
       patches,
       meta: {
+        line: 4,
         solved: true,
         pathLength: path.length,
         visitedCount: context.visitedCount,
@@ -159,6 +163,7 @@ function stepLeftWallFollower(context: LeftWallFollowerContext) {
     done: false,
     patches,
     meta: {
+      line: 3,
       visitedCount: context.visitedCount,
       frontierSize: 1,
     },

@@ -88,6 +88,7 @@ function stepBidirectional(context: BidirectionalContext) {
         done: true,
         patches,
         meta: {
+          line: 1,
           solved: true,
           pathLength: 1,
           frontierSize: 0,
@@ -99,6 +100,7 @@ function stepBidirectional(context: BidirectionalContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         frontierSize: context.frontierCount,
       },
     };
@@ -128,6 +130,7 @@ function stepBidirectional(context: BidirectionalContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         solved: false,
         frontierSize: context.frontierCount,
       },
@@ -147,6 +150,7 @@ function stepBidirectional(context: BidirectionalContext) {
       done: false,
       patches,
       meta: {
+        line: 3,
         frontierSize: context.frontierCount,
       },
     };
@@ -171,6 +175,7 @@ function stepBidirectional(context: BidirectionalContext) {
     done: true,
     patches,
     meta: {
+      line: 4,
       solved: true,
       pathLength: path.length,
       frontierSize: context.frontierCount,

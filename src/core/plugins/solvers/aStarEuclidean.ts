@@ -79,6 +79,7 @@ function stepAStarEuclidean(context: AStarEuclideanContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
       },
@@ -95,6 +96,7 @@ function stepAStarEuclidean(context: AStarEuclideanContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: false,
@@ -138,6 +140,7 @@ function stepAStarEuclidean(context: AStarEuclideanContext) {
       done: true,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
         solved: true,
@@ -175,6 +178,7 @@ function stepAStarEuclidean(context: AStarEuclideanContext) {
     done: false,
     patches,
     meta: {
+      line: 5,
       visitedCount: context.visitedCount,
       frontierSize: context.frontierSize,
     },

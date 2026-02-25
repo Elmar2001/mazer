@@ -74,6 +74,7 @@ function stepGreedy(context: GreedyContext) {
       done: false,
       patches,
       meta: {
+        line: 1,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
       },
@@ -93,6 +94,7 @@ function stepGreedy(context: GreedyContext) {
       done: true,
       patches,
       meta: {
+        line: 2,
         visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: false,
@@ -142,6 +144,7 @@ function stepGreedy(context: GreedyContext) {
       done: true,
       patches,
       meta: {
+        line: 4,
         visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
         solved: true,
@@ -168,6 +171,7 @@ function stepGreedy(context: GreedyContext) {
     done: false,
     patches,
     meta: {
+      line: 5,
       visitedCount: context.visitedCount,
       frontierSize: context.frontierSize,
     },
