@@ -1,0 +1,188 @@
+"use client";
+
+import type { ChangeEvent } from "react";
+
+import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
+import type { MazeControls } from "@/ui/hooks/useMazeEngine";
+import { GENERATOR_OPTIONS, SOLVER_OPTIONS } from "@/ui/constants/algorithms";
+import { useMazeStore } from "@/ui/store/mazeStore";
+
+interface ControlPanelProps {
+  controls: MazeControls;
+}
+
+export function ControlPanel({ controls }: ControlPanelProps) {
+  const settings = useMazeStore((state) => state.settings);
+  const runtime = useMazeStore((state) => state.runtime);
+
+  const setGeneratorId = useMazeStore((state) => state.setGeneratorId);
+  const setSolverId = useMazeStore((state) => state.setSolverId);
+  const setSpeed = useMazeStore((state) => state.setSpeed);
+  const setGridWidth = useMazeStore((state) => state.setGridWidth);
+  const setGridHeight = useMazeStore((state) => state.setGridHeight);
+  const setCellSize = useMazeStore((state) => state.setCellSize);
+  const setSeed = useMazeStore((state) => state.setSeed);
+  const setShowVisited = useMazeStore((state) => state.setShowVisited);
+  const setShowFrontier = useMazeStore((state) => state.setShowFrontier);
+  const setShowPath = useMazeStore((state) => state.setShowPath);
+
+  const canSolve = runtime.phase === "Generated" || runtime.phase === "Solved";
+  const canPlaybackControl =
+    runtime.phase === "Generating" || runtime.phase === "Solving";
+
+  const onCheckboxChange =
+    (setter: (value: boolean) => void) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setter(event.currentTarget.checked);
+    };
+
+  return (
+    <section className="controlPanel">
+      <h1>Mazer</h1>
+      <p className="subtitle">Canvas maze generator and solver visualizer.</p>
+
+      <label>
+        Generator
+        <select
+          value={settings.generatorId}
+          onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
+        >
+          {GENERATOR_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Solver
+        <select
+          value={settings.solverId}
+          onChange={(event) => setSolverId(event.currentTarget.value as typeof settings.solverId)}
+        >
+          {SOLVER_OPTIONS.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label>
+        Seed
+        <input
+          type="text"
+          value={settings.seed}
+          onChange={(event) => setSeed(event.currentTarget.value)}
+        />
+      </label>
+
+      <div className="sliderField">
+        <div>
+          <span>Speed</span>
+          <strong>{settings.speed} steps/s</strong>
+        </div>
+        <input
+          type="range"
+          min={SPEED_MIN}
+          max={SPEED_MAX}
+          value={settings.speed}
+          onChange={(event) => setSpeed(Number(event.currentTarget.value))}
+        />
+      </div>
+
+      <div className="sliderField">
+        <div>
+          <span>Grid Width</span>
+          <strong>{settings.gridWidth}</strong>
+        </div>
+        <input
+          type="range"
+          min={10}
+          max={120}
+          value={settings.gridWidth}
+          onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
+        />
+      </div>
+
+      <div className="sliderField">
+        <div>
+          <span>Grid Height</span>
+          <strong>{settings.gridHeight}</strong>
+        </div>
+        <input
+          type="range"
+          min={10}
+          max={120}
+          value={settings.gridHeight}
+          onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
+        />
+      </div>
+
+      <div className="sliderField">
+        <div>
+          <span>Cell Size</span>
+          <strong>{settings.cellSize}px</strong>
+        </div>
+        <input
+          type="range"
+          min={8}
+          max={32}
+          value={settings.cellSize}
+          onChange={(event) => setCellSize(Number(event.currentTarget.value))}
+        />
+      </div>
+
+      <fieldset>
+        <legend>Overlays</legend>
+        <label className="toggleRow">
+          <input
+            type="checkbox"
+            checked={settings.showVisited}
+            onChange={onCheckboxChange(setShowVisited)}
+          />
+          Show visited
+        </label>
+        <label className="toggleRow">
+          <input
+            type="checkbox"
+            checked={settings.showFrontier}
+            onChange={onCheckboxChange(setShowFrontier)}
+          />
+          Show frontier
+        </label>
+        <label className="toggleRow">
+          <input
+            type="checkbox"
+            checked={settings.showPath}
+            onChange={onCheckboxChange(setShowPath)}
+          />
+          Show final path
+        </label>
+      </fieldset>
+
+      <div className="buttonGrid">
+        <button type="button" onClick={controls.generate}>
+          Generate
+        </button>
+        <button type="button" onClick={controls.solve} disabled={!canSolve}>
+          Solve
+        </button>
+        <button
+          type="button"
+          onClick={controls.pauseResume}
+          disabled={!canPlaybackControl}
+        >
+          {runtime.paused ? "Resume" : "Pause"}
+        </button>
+        <button type="button" onClick={controls.stepOnce} disabled={!canPlaybackControl}>
+          Step Once
+        </button>
+        <button type="button" onClick={controls.reset}>
+          Reset
+        </button>
+      </div>
+    </section>
+  );
+}

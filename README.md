@@ -1,0 +1,113 @@
+# Mazer
+
+Deterministic maze generation and solving visualizer built with Next.js App Router, React, TypeScript, Zustand, and an HTML Canvas renderer.
+
+## Features
+
+- Step-based maze generators:
+  - Recursive Backtracker (DFS)
+  - Randomized Prim
+  - Randomized Kruskal
+  - Binary Tree
+  - Sidewinder
+  - Aldous-Broder
+  - Hunt-and-Kill
+- Step-based maze solvers:
+  - BFS
+  - DFS
+  - A*
+  - Dijkstra
+  - Greedy Best-First
+  - Bidirectional BFS
+  - Dead-End Filling
+- Runtime controls:
+  - algorithm selection
+  - speed (steps/sec)
+  - grid width/height
+  - cell size
+  - play/pause/step/reset/generate/solve
+  - deterministic seed input
+  - visited/frontier/path visibility toggles
+- speed slider range: `1..5000` steps/sec
+- Metrics panel:
+  - step count
+  - visited count
+  - frontier size
+  - path length
+  - elapsed time
+  - actual throughput (steps/s)
+  - patch + dirty-cell volume
+  - engine compute time + utilization estimate
+
+## Architecture
+
+- `src/core/`: pure algorithmic logic
+  - `grid.ts`: typed-array grid model (`walls`, `overlays`) and helpers
+  - `rng.ts`: deterministic PRNG + string-to-seed hashing
+  - `patches.ts`: cell patch and step result types
+  - `plugins/*`: generator/solver interfaces and plugin implementations
+- `src/engine/`
+  - `MazeEngine.ts`: phase state machine, RAF scheduler, patch application, dirty-cell emission
+- `src/render/`
+  - `CanvasRenderer.ts`: DPR-aware canvas rendering + dirty-cell redraw
+- `src/ui/`
+  - Zustand store (`store/mazeStore.ts`)
+  - engine hook (`hooks/useMazeEngine.ts`)
+  - React components (`components/*`)
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Tests
+
+```bash
+npm test
+```
+
+Current tests cover:
+- deterministic RNG behavior
+- deterministic generator outputs for identical seeds
+- basic generator correctness (connectivity + tree edges)
+- solver correctness and BFS optimal path length
+
+## Adding a New Generator Plugin
+
+1. Create a file in `src/core/plugins/generators/`.
+2. Implement `GeneratorPlugin`:
+   - `create(...)` returns a stepper with `step(): StepResult`
+   - mutate only through returned `patches`
+3. Export plugin in `src/core/plugins/generators/index.ts`.
+4. It will appear in the UI dropdown via `src/ui/constants/algorithms.ts`.
+
+Example patch usage:
+
+```ts
+return {
+  done: false,
+  patches: [
+    { index: from, wallClear: WallFlag.East },
+    { index: to, wallClear: WallFlag.West, overlaySet: OverlayFlag.Visited },
+  ],
+};
+```
+
+## Adding a New Solver Plugin
+
+1. Create a file in `src/core/plugins/solvers/`.
+2. Implement `SolverPlugin` with step-wise search logic.
+3. Emit path overlays (`OverlayFlag.Path`) when goal is reached.
+4. Export plugin in `src/core/plugins/solvers/index.ts`.
+
+## Performance Notes
+
+- Algorithms never clone full grids per step.
+- Step updates are cell-level patches (`CellPatch`).
+- Engine tracks dirty cell indices and sends only those to renderer.
+- Renderer redraws dirty cells (plus local neighbors for wall edge consistency).
+- React runtime state updates are throttled to a single `requestAnimationFrame` flush.
