@@ -122,31 +122,34 @@ export function MetricsPanel() {
 
   return (
     <section className="metricsPanel">
-      <h3>Metrics</h3>
+      <div className="metricsHead">
+        <h3>Metrics</h3>
+        <span>{runtime.phase}</span>
+      </div>
+
+      <div className="metricsKpiGrid">
+        <article>
+          <span>Steps</span>
+          <strong>{runtime.metrics.stepCount}</strong>
+        </article>
+        <article>
+          <span>Visited</span>
+          <strong>{runtime.metrics.visitedCount}</strong>
+        </article>
+        <article>
+          <span>Frontier</span>
+          <strong>{runtime.metrics.frontierSize}</strong>
+        </article>
+        <article>
+          <span>Elapsed</span>
+          <strong>{formatElapsed(runtime.metrics.elapsedMs)}</strong>
+        </article>
+      </div>
+
       <dl className="metricsGrid">
-        <div>
-          <dt>Phase</dt>
-          <dd>{runtime.phase}</dd>
-        </div>
-        <div>
-          <dt>Step Count</dt>
-          <dd>{runtime.metrics.stepCount}</dd>
-        </div>
-        <div>
-          <dt>Visited</dt>
-          <dd>{runtime.metrics.visitedCount}</dd>
-        </div>
-        <div>
-          <dt>Frontier</dt>
-          <dd>{runtime.metrics.frontierSize}</dd>
-        </div>
         <div>
           <dt>Path Length</dt>
           <dd>{runtime.metrics.pathLength}</dd>
-        </div>
-        <div>
-          <dt>Elapsed</dt>
-          <dd>{formatElapsed(runtime.metrics.elapsedMs)}</dd>
         </div>
         <div>
           <dt>Actual Steps/s</dt>

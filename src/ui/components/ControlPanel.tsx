@@ -59,43 +59,63 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   return (
     <section className="controlPanel">
       <div className="panelTop">
-        <h1>Mazer</h1>
+        <div>
+          <h1>Mazer</h1>
+          <p className="subtitle">Deterministic canvas maze lab.</p>
+        </div>
         <Link href="/docs" className="docsLink">
           Docs
         </Link>
       </div>
-      <p className="subtitle">Canvas maze generator and solver visualizer.</p>
 
-      <label>
-        Generator
-        <select
-          value={settings.generatorId}
-          onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
-        >
-          {GENERATOR_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="panelTopMeta">
+        <span className={`statusPill status${runtime.phase}`}>{runtime.phase}</span>
+        <span className={`statusPill ${runtime.paused ? "statusPaused" : "statusRunning"}`}>
+          {runtime.paused ? "Paused" : "Running"}
+        </span>
+        {settings.battleMode ? <span className="modePill">Battle Mode</span> : null}
+      </div>
 
-      <label>
-        Solver A
-        <select
-          value={settings.solverId}
-          onChange={(event) => setSolverId(event.currentTarget.value as typeof settings.solverId)}
-        >
-          {SOLVER_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <section className="controlGroup">
+        <h4>Algorithms</h4>
+        <label>
+          Generator
+          <select
+            value={settings.generatorId}
+            onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
+          >
+            {GENERATOR_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Solver A
+          <select
+            value={settings.solverId}
+            onChange={(event) => setSolverId(event.currentTarget.value as typeof settings.solverId)}
+          >
+            {SOLVER_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Seed
+          <input
+            type="text"
+            value={settings.seed}
+            onChange={(event) => setSeed(event.currentTarget.value)}
+          />
+        </label>
+      </section>
 
-      <fieldset>
-        <legend>Battle Mode</legend>
+      <fieldset className="controlGroup">
+        <legend>Battle Setup</legend>
         <label className="toggleRow">
           <input
             type="checkbox"
@@ -134,72 +154,63 @@ export function ControlPanel({ controls }: ControlPanelProps) {
         ) : null}
       </fieldset>
 
-      <label>
-        Seed
-        <input
-          type="text"
-          value={settings.seed}
-          onChange={(event) => setSeed(event.currentTarget.value)}
-        />
-      </label>
-
-      <div className="sliderField">
-        <div>
-          <span>Speed</span>
-          <strong>{settings.speed} steps/s</strong>
+      <section className="controlGroup">
+        <h4>Grid + Speed</h4>
+        <div className="sliderField">
+          <div>
+            <span>Speed</span>
+            <strong>{settings.speed} steps/s</strong>
+          </div>
+          <input
+            type="range"
+            min={SPEED_MIN}
+            max={SPEED_MAX}
+            value={settings.speed}
+            onChange={(event) => setSpeed(Number(event.currentTarget.value))}
+          />
         </div>
-        <input
-          type="range"
-          min={SPEED_MIN}
-          max={SPEED_MAX}
-          value={settings.speed}
-          onChange={(event) => setSpeed(Number(event.currentTarget.value))}
-        />
-      </div>
-
-      <div className="sliderField">
-        <div>
-          <span>Grid Width</span>
-          <strong>{settings.gridWidth}</strong>
+        <div className="sliderField">
+          <div>
+            <span>Grid Width</span>
+            <strong>{settings.gridWidth}</strong>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={120}
+            value={settings.gridWidth}
+            onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
+          />
         </div>
-        <input
-          type="range"
-          min={10}
-          max={120}
-          value={settings.gridWidth}
-          onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
-        />
-      </div>
-
-      <div className="sliderField">
-        <div>
-          <span>Grid Height</span>
-          <strong>{settings.gridHeight}</strong>
+        <div className="sliderField">
+          <div>
+            <span>Grid Height</span>
+            <strong>{settings.gridHeight}</strong>
+          </div>
+          <input
+            type="range"
+            min={10}
+            max={120}
+            value={settings.gridHeight}
+            onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
+          />
         </div>
-        <input
-          type="range"
-          min={10}
-          max={120}
-          value={settings.gridHeight}
-          onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
-        />
-      </div>
-
-      <div className="sliderField">
-        <div>
-          <span>Cell Size</span>
-          <strong>{settings.cellSize}px</strong>
+        <div className="sliderField">
+          <div>
+            <span>Cell Size</span>
+            <strong>{settings.cellSize}px</strong>
+          </div>
+          <input
+            type="range"
+            min={8}
+            max={32}
+            value={settings.cellSize}
+            onChange={(event) => setCellSize(Number(event.currentTarget.value))}
+          />
         </div>
-        <input
-          type="range"
-          min={8}
-          max={32}
-          value={settings.cellSize}
-          onChange={(event) => setCellSize(Number(event.currentTarget.value))}
-        />
-      </div>
+      </section>
 
-      <fieldset>
+      <fieldset className="controlGroup">
         <legend>Overlays</legend>
         <label className="toggleRow">
           <input
@@ -228,23 +239,34 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       </fieldset>
 
       <div className="buttonGrid">
-        <button type="button" onClick={controls.generate}>
+        <button type="button" className="btnPrimary" onClick={controls.generate}>
           Generate
         </button>
-        <button type="button" onClick={controls.solve} disabled={!canSolve}>
+        <button
+          type="button"
+          className="btnAccent"
+          onClick={controls.solve}
+          disabled={!canSolve}
+        >
           Solve
         </button>
         <button
           type="button"
+          className="btnGhost"
           onClick={controls.pauseResume}
           disabled={!canPlaybackControl}
         >
           {runtime.paused ? "Resume" : "Pause"}
         </button>
-        <button type="button" onClick={controls.stepOnce} disabled={!canPlaybackControl}>
+        <button
+          type="button"
+          className="btnGhost"
+          onClick={controls.stepOnce}
+          disabled={!canPlaybackControl}
+        >
           Step Once
         </button>
-        <button type="button" onClick={controls.reset}>
+        <button type="button" className="btnDanger" onClick={controls.reset}>
           Reset
         </button>
       </div>

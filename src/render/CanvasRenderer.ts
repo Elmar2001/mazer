@@ -8,19 +8,23 @@ export interface CanvasRendererSettings {
 }
 
 const COLORS = {
-  background: "#0f1318",
-  cell: "#151d24",
-  wall: "#f1f5f9",
-  visitedA: "rgba(71, 159, 230, 0.30)",
-  frontierA: "rgba(245, 158, 11, 0.45)",
-  pathA: "rgba(34, 197, 94, 0.70)",
-  visitedB: "rgba(244, 114, 182, 0.34)",
-  frontierB: "rgba(251, 113, 133, 0.50)",
-  pathB: "rgba(251, 146, 60, 0.72)",
+  background: "#060a11",
+  cellA: "#121a27",
+  cellB: "#172233",
+  cellInset: "rgba(255, 255, 255, 0.02)",
+  wallShadow: "#02060f",
+  wall: "#e2e8f0",
+  visitedA: "rgba(56, 189, 248, 0.30)",
+  frontierA: "rgba(250, 204, 21, 0.42)",
+  pathA: "rgba(16, 185, 129, 0.76)",
+  visitedB: "rgba(244, 114, 182, 0.32)",
+  frontierB: "rgba(251, 113, 133, 0.52)",
+  pathB: "rgba(249, 115, 22, 0.75)",
   start: "#22d3ee",
   goal: "#fb7185",
-  currentRingA: "rgba(255, 255, 255, 0.75)",
-  currentRingB: "rgba(251, 191, 36, 0.85)",
+  endpointStroke: "rgba(241, 245, 249, 0.9)",
+  currentRingA: "rgba(186, 230, 253, 0.95)",
+  currentRingB: "rgba(253, 186, 116, 0.95)",
 };
 
 export class CanvasRenderer {
@@ -111,9 +115,15 @@ export class CanvasRenderer {
     const x = (index % this.grid.width) * this.settings.cellSize;
     const y = Math.floor(index / this.grid.width) * this.settings.cellSize;
     const size = this.settings.cellSize;
+    const row = Math.floor(index / this.grid.width);
+    const col = index % this.grid.width;
 
-    this.ctx.fillStyle = COLORS.cell;
+    this.ctx.fillStyle = ((row + col) & 1) === 0 ? COLORS.cellA : COLORS.cellB;
     this.ctx.fillRect(x, y, size, size);
+    if (size > 9) {
+      this.ctx.fillStyle = COLORS.cellInset;
+      this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
+    }
 
     const overlays = this.grid.overlays[index] as number;
 
@@ -158,13 +168,13 @@ export class CanvasRenderer {
 
     if ((overlays & OverlayFlag.Current) !== 0) {
       this.ctx.strokeStyle = COLORS.currentRingA;
-      this.ctx.lineWidth = 1.5;
+      this.ctx.lineWidth = Math.max(1.1, size * 0.08);
       this.ctx.strokeRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
     }
 
     if ((overlays & OverlayFlag.CurrentB) !== 0) {
       this.ctx.strokeStyle = COLORS.currentRingB;
-      this.ctx.lineWidth = 1.3;
+      this.ctx.lineWidth = Math.max(1.1, size * 0.07);
       this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
 
@@ -174,11 +184,62 @@ export class CanvasRenderer {
 
   private drawWalls(index: number, x: number, y: number, size: number): void {
     const walls = this.grid.walls[index] as number;
+    const wallWidth = Math.max(1, Math.floor(size * 0.1));
+
+    this.ctx.lineCap = "round";
+    this.ctx.lineJoin = "round";
+
+    this.ctx.strokeStyle = COLORS.wallShadow;
+    this.ctx.lineWidth = wallWidth + 1.2;
+    this.ctx.beginPath();
+    this.traceWalls(walls, x, y, size);
+    this.ctx.stroke();
 
     this.ctx.strokeStyle = COLORS.wall;
-    this.ctx.lineWidth = 1.2;
+    this.ctx.lineWidth = wallWidth;
     this.ctx.beginPath();
+    this.traceWalls(walls, x, y, size);
+    this.ctx.stroke();
+  }
 
+  private drawEndpoints(index: number, x: number, y: number, size: number): void {
+    const r = Math.max(2, Math.floor(size * 0.21));
+
+    if (index === 0) {
+      const cx = x + r + 2;
+      const cy = y + r + 2;
+      this.ctx.fillStyle = COLORS.start;
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.strokeStyle = COLORS.endpointStroke;
+      this.ctx.lineWidth = 1;
+      this.ctx.stroke();
+
+      this.ctx.fillStyle = "rgba(10, 20, 34, 0.95)";
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, Math.max(1, r * 0.42), 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+
+    if (index === this.grid.cellCount - 1) {
+      const cx = x + size - r - 2;
+      const cy = y + size - r - 2;
+      const half = Math.max(2, Math.floor(r * 0.88));
+
+      this.ctx.save();
+      this.ctx.translate(cx, cy);
+      this.ctx.rotate(Math.PI / 4);
+      this.ctx.fillStyle = COLORS.goal;
+      this.ctx.fillRect(-half, -half, half * 2, half * 2);
+      this.ctx.strokeStyle = COLORS.endpointStroke;
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(-half, -half, half * 2, half * 2);
+      this.ctx.restore();
+    }
+  }
+
+  private traceWalls(walls: number, x: number, y: number, size: number): void {
     if ((walls & WallFlag.North) !== 0) {
       this.ctx.moveTo(x, y);
       this.ctx.lineTo(x + size, y);
@@ -197,26 +258,6 @@ export class CanvasRenderer {
     if ((walls & WallFlag.West) !== 0) {
       this.ctx.moveTo(x, y + size);
       this.ctx.lineTo(x, y);
-    }
-
-    this.ctx.stroke();
-  }
-
-  private drawEndpoints(index: number, x: number, y: number, size: number): void {
-    const r = Math.max(2, Math.floor(size * 0.2));
-
-    if (index === 0) {
-      this.ctx.fillStyle = COLORS.start;
-      this.ctx.beginPath();
-      this.ctx.arc(x + r + 2, y + r + 2, r, 0, Math.PI * 2);
-      this.ctx.fill();
-    }
-
-    if (index === this.grid.cellCount - 1) {
-      this.ctx.fillStyle = COLORS.goal;
-      this.ctx.beginPath();
-      this.ctx.arc(x + size - r - 2, y + size - r - 2, r, 0, Math.PI * 2);
-      this.ctx.fill();
     }
   }
 
