@@ -230,6 +230,38 @@ body {
   color: var(--accent);
 }
 
+.sliderRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sliderNumber {
+  width: 82px;
+  background: rgba(2, 6, 13, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.36rem 0.42rem;
+  font-size: 0.8rem;
+}
+
+.presetRow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.presetBtn {
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  background: linear-gradient(180deg, rgba(14, 116, 144, 0.36), rgba(8, 47, 73, 0.2));
+  border-color: rgba(56, 189, 248, 0.45);
+}
+
 input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
@@ -329,6 +361,13 @@ button:hover:not(:disabled) {
 button:disabled {
   cursor: not-allowed;
   opacity: 0.44;
+}
+
+.shortcutHint {
+  margin: 0;
+  color: rgba(148, 163, 184, 0.92);
+  font-size: 0.74rem;
+  line-height: 1.35;
 }
 
 .metricsPanel {
@@ -563,6 +602,11 @@ button:disabled {
   border-color: rgba(251, 146, 60, 0.45);
 }
 
+.canvasCoordBadge {
+  color: #7dd3fc;
+  border-color: rgba(125, 211, 252, 0.42);
+}
+
 .canvasLegend {
   display: flex;
   flex-wrap: wrap;
@@ -622,7 +666,7 @@ button:disabled {
 
 .canvasFrame {
   position: relative;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(148, 163, 184, 0.24),
@@ -631,7 +675,7 @@ button:disabled {
 
 canvas {
   display: block;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 @media (max-width: 1200px) {
@@ -651,6 +695,10 @@ canvas {
 
   .buttonGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .presetRow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .canvasHeader {

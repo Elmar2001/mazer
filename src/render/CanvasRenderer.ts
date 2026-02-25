@@ -155,15 +155,7 @@ export class CanvasRenderer {
 
     if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
       this.ctx.fillStyle = COLORS.pathB;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        x + size * 0.5,
-        y + size * 0.5,
-        Math.max(1.5, size * 0.22),
-        0,
-        Math.PI * 2,
-      );
-      this.ctx.fill();
+      this.ctx.fillRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
 
     if ((overlays & OverlayFlag.Current) !== 0) {
@@ -186,8 +178,8 @@ export class CanvasRenderer {
     const walls = this.grid.walls[index] as number;
     const wallWidth = Math.max(1, Math.floor(size * 0.1));
 
-    this.ctx.lineCap = "round";
-    this.ctx.lineJoin = "round";
+    this.ctx.lineCap = "butt";
+    this.ctx.lineJoin = "miter";
 
     this.ctx.strokeStyle = COLORS.wallShadow;
     this.ctx.lineWidth = wallWidth + 1.2;
@@ -203,39 +195,40 @@ export class CanvasRenderer {
   }
 
   private drawEndpoints(index: number, x: number, y: number, size: number): void {
-    const r = Math.max(2, Math.floor(size * 0.21));
+    const markerSize = Math.max(3, Math.floor(size * 0.36));
 
     if (index === 0) {
-      const cx = x + r + 2;
-      const cy = y + r + 2;
+      const sx = x + 2;
+      const sy = y + 2;
       this.ctx.fillStyle = COLORS.start;
-      this.ctx.beginPath();
-      this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      this.ctx.fill();
+      this.ctx.fillRect(sx, sy, markerSize, markerSize);
       this.ctx.strokeStyle = COLORS.endpointStroke;
       this.ctx.lineWidth = 1;
-      this.ctx.stroke();
-
+      this.ctx.strokeRect(sx, sy, markerSize, markerSize);
       this.ctx.fillStyle = "rgba(10, 20, 34, 0.95)";
-      this.ctx.beginPath();
-      this.ctx.arc(cx, cy, Math.max(1, r * 0.42), 0, Math.PI * 2);
-      this.ctx.fill();
+      this.ctx.fillRect(
+        sx + Math.max(1, Math.floor(markerSize * 0.3)),
+        sy + Math.max(1, Math.floor(markerSize * 0.3)),
+        Math.max(1, Math.floor(markerSize * 0.4)),
+        Math.max(1, Math.floor(markerSize * 0.4)),
+      );
     }
 
     if (index === this.grid.cellCount - 1) {
-      const cx = x + size - r - 2;
-      const cy = y + size - r - 2;
-      const half = Math.max(2, Math.floor(r * 0.88));
-
-      this.ctx.save();
-      this.ctx.translate(cx, cy);
-      this.ctx.rotate(Math.PI / 4);
+      const gx = x + size - markerSize - 2;
+      const gy = y + size - markerSize - 2;
       this.ctx.fillStyle = COLORS.goal;
-      this.ctx.fillRect(-half, -half, half * 2, half * 2);
+      this.ctx.fillRect(gx, gy, markerSize, markerSize);
       this.ctx.strokeStyle = COLORS.endpointStroke;
       this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(-half, -half, half * 2, half * 2);
-      this.ctx.restore();
+      this.ctx.strokeRect(gx, gy, markerSize, markerSize);
+
+      this.ctx.beginPath();
+      this.ctx.moveTo(gx + 1, gy + 1);
+      this.ctx.lineTo(gx + markerSize - 1, gy + markerSize - 1);
+      this.ctx.moveTo(gx + markerSize - 1, gy + 1);
+      this.ctx.lineTo(gx + 1, gy + markerSize - 1);
+      this.ctx.stroke();
     }
   }
 

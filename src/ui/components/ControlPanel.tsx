@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent } from "react";
+import { useEffect, type ChangeEvent } from "react";
 import Link from "next/link";
 
 import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
@@ -11,6 +11,11 @@ import { useMazeStore } from "@/ui/store/mazeStore";
 interface ControlPanelProps {
   controls: MazeControls;
 }
+
+const GRID_MIN = 10;
+const GRID_MAX = 120;
+const CELL_MIN = 8;
+const CELL_MAX = 32;
 
 export function ControlPanel({ controls }: ControlPanelProps) {
   const settings = useMazeStore((state) => state.settings);
@@ -39,6 +44,9 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       setter(event.currentTarget.checked);
     };
 
+  const pickDifferentSolver = (excludedId: string): string | undefined =>
+    SOLVER_OPTIONS.find((option) => option.id !== excludedId)?.id;
+
   const onBattleModeChange = (event: ChangeEvent<HTMLInputElement>) => {
     const enabled = event.currentTarget.checked;
     setBattleMode(enabled);
@@ -55,6 +63,89 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       setSolverBId(fallback);
     }
   };
+
+  const onSolverAChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextSolverId = event.currentTarget.value as typeof settings.solverId;
+    setSolverId(nextSolverId);
+
+    if (!settings.battleMode || settings.solverBId !== nextSolverId) {
+      return;
+    }
+
+    const fallback = pickDifferentSolver(nextSolverId);
+    if (fallback) {
+      setSolverBId(fallback as typeof settings.solverBId);
+    }
+  };
+
+  const onSolverBChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextSolverBId = event.currentTarget.value as typeof settings.solverBId;
+    if (!settings.battleMode || nextSolverBId !== settings.solverId) {
+      setSolverBId(nextSolverBId);
+      return;
+    }
+
+    const fallback = pickDifferentSolver(settings.solverId);
+    if (fallback) {
+      setSolverBId(fallback as typeof settings.solverBId);
+    }
+  };
+
+  const onNumberChange =
+    (setter: (value: number) => void) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setter(Number(event.currentTarget.value));
+    };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      if (target) {
+        const tag = target.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          target.isContentEditable
+        ) {
+          return;
+        }
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "g") {
+        controls.generate();
+        return;
+      }
+
+      if (key === "s" && canSolve) {
+        controls.solve();
+        return;
+      }
+
+      if (key === "r") {
+        controls.reset();
+        return;
+      }
+
+      if (key === "n" && canPlaybackControl) {
+        controls.stepOnce();
+        return;
+      }
+
+      if (event.key === " " && canPlaybackControl) {
+        event.preventDefault();
+        controls.pauseResume();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canPlaybackControl, canSolve, controls]);
 
   return (
     <section className="controlPanel">
@@ -95,7 +186,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           Solver A
           <select
             value={settings.solverId}
-            onChange={(event) => setSolverId(event.currentTarget.value as typeof settings.solverId)}
+            onChange={onSolverAChange}
           >
             {SOLVER_OPTIONS.map((option) => (
               <option key={option.id} value={option.id}>
@@ -128,9 +219,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           Solver B
           <select
             value={settings.solverBId}
-            onChange={(event) =>
-              setSolverBId(event.currentTarget.value as typeof settings.solverBId)
-            }
+            onChange={onSolverBChange}
             disabled={!settings.battleMode}
           >
             {SOLVER_OPTIONS.map((option) => (
@@ -161,52 +250,134 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             <span>Speed</span>
             <strong>{settings.speed} steps/s</strong>
           </div>
-          <input
-            type="range"
-            min={SPEED_MIN}
-            max={SPEED_MAX}
-            value={settings.speed}
-            onChange={(event) => setSpeed(Number(event.currentTarget.value))}
-          />
+          <div className="sliderRow">
+            <input
+              type="range"
+              min={SPEED_MIN}
+              max={SPEED_MAX}
+              value={settings.speed}
+              onChange={(event) => setSpeed(Number(event.currentTarget.value))}
+            />
+            <input
+              className="sliderNumber"
+              type="number"
+              min={SPEED_MIN}
+              max={SPEED_MAX}
+              value={settings.speed}
+              onChange={onNumberChange(setSpeed)}
+            />
+          </div>
         </div>
         <div className="sliderField">
           <div>
             <span>Grid Width</span>
             <strong>{settings.gridWidth}</strong>
           </div>
-          <input
-            type="range"
-            min={10}
-            max={120}
-            value={settings.gridWidth}
-            onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
-          />
+          <div className="sliderRow">
+            <input
+              type="range"
+              min={GRID_MIN}
+              max={GRID_MAX}
+              value={settings.gridWidth}
+              onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
+            />
+            <input
+              className="sliderNumber"
+              type="number"
+              min={GRID_MIN}
+              max={GRID_MAX}
+              value={settings.gridWidth}
+              onChange={onNumberChange(setGridWidth)}
+            />
+          </div>
         </div>
         <div className="sliderField">
           <div>
             <span>Grid Height</span>
             <strong>{settings.gridHeight}</strong>
           </div>
-          <input
-            type="range"
-            min={10}
-            max={120}
-            value={settings.gridHeight}
-            onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
-          />
+          <div className="sliderRow">
+            <input
+              type="range"
+              min={GRID_MIN}
+              max={GRID_MAX}
+              value={settings.gridHeight}
+              onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
+            />
+            <input
+              className="sliderNumber"
+              type="number"
+              min={GRID_MIN}
+              max={GRID_MAX}
+              value={settings.gridHeight}
+              onChange={onNumberChange(setGridHeight)}
+            />
+          </div>
         </div>
         <div className="sliderField">
           <div>
             <span>Cell Size</span>
             <strong>{settings.cellSize}px</strong>
           </div>
-          <input
-            type="range"
-            min={8}
-            max={32}
-            value={settings.cellSize}
-            onChange={(event) => setCellSize(Number(event.currentTarget.value))}
-          />
+          <div className="sliderRow">
+            <input
+              type="range"
+              min={CELL_MIN}
+              max={CELL_MAX}
+              value={settings.cellSize}
+              onChange={(event) => setCellSize(Number(event.currentTarget.value))}
+            />
+            <input
+              className="sliderNumber"
+              type="number"
+              min={CELL_MIN}
+              max={CELL_MAX}
+              value={settings.cellSize}
+              onChange={onNumberChange(setCellSize)}
+            />
+          </div>
+        </div>
+        <div className="presetRow">
+          <button
+            type="button"
+            className="presetBtn"
+            onClick={() => {
+              setGridWidth(25);
+              setGridHeight(15);
+              setCellSize(20);
+            }}
+          >
+            Compact
+          </button>
+          <button
+            type="button"
+            className="presetBtn"
+            onClick={() => {
+              setGridWidth(40);
+              setGridHeight(25);
+              setCellSize(16);
+            }}
+          >
+            Default
+          </button>
+          <button
+            type="button"
+            className="presetBtn"
+            onClick={() => {
+              setGridWidth(72);
+              setGridHeight(42);
+              setCellSize(10);
+            }}
+          >
+            Dense
+          </button>
+          <button
+            type="button"
+            className="presetBtn"
+            onClick={() => setSpeed(1500)}
+          >
+            1500 sps
+          </button>
         </div>
       </section>
 
@@ -270,6 +441,8 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           Reset
         </button>
       </div>
+
+      <p className="shortcutHint">Shortcuts: G generate, S solve, Space pause/resume, N step, R reset.</p>
     </section>
   );
 }

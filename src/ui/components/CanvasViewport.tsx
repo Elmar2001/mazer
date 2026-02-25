@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useState, type MouseEvent, type RefObject } from "react";
 
 import { useMazeStore } from "@/ui/store/mazeStore";
 
@@ -13,9 +13,31 @@ export function CanvasViewport({ canvasRef }: CanvasViewportProps) {
     (state) => state.settings,
   );
   const runtime = useMazeStore((state) => state.runtime);
+  const [hoverCell, setHoverCell] = useState<string | null>(null);
 
   const viewportWidth = gridWidth * cellSize;
   const viewportHeight = gridHeight * cellSize;
+
+  const onFramePointerMove = (event: MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+
+    if (
+      localX < 0 ||
+      localY < 0 ||
+      localX >= viewportWidth ||
+      localY >= viewportHeight
+    ) {
+      setHoverCell(null);
+      return;
+    }
+
+    const x = Math.floor(localX / cellSize);
+    const y = Math.floor(localY / cellSize);
+    const index = y * gridWidth + x;
+    setHoverCell(`x:${x} y:${y} #${index}`);
+  };
 
   return (
     <section className="canvasViewport">
@@ -31,6 +53,7 @@ export function CanvasViewport({ canvasRef }: CanvasViewportProps) {
           <span className="canvasBadge">{runtime.phase}</span>
           <span className="canvasBadge">{runtime.paused ? "Paused" : "Running"}</span>
           {battleMode ? <span className="canvasBadge canvasBattleBadge">Battle</span> : null}
+          {hoverCell ? <span className="canvasBadge canvasCoordBadge">{hoverCell}</span> : null}
         </div>
       </header>
       <div className="canvasLegend">
@@ -56,6 +79,8 @@ export function CanvasViewport({ canvasRef }: CanvasViewportProps) {
         <div
           className="canvasFrame"
           style={{ width: `${viewportWidth}px`, height: `${viewportHeight}px` }}
+          onMouseMove={onFramePointerMove}
+          onMouseLeave={() => setHoverCell(null)}
         >
           <canvas ref={canvasRef} />
         </div>
