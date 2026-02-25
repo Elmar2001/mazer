@@ -69,6 +69,13 @@ body {
   gap: 0.82rem;
 }
 
+.panelTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .controlPanel h1 {
   margin: 0;
   font-family: var(--font-display), sans-serif;
@@ -76,6 +83,31 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-size: 1.5rem;
+}
+
+.docsLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 0.76rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  border: 1px solid rgba(229, 231, 235, 0.34);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  background: rgba(2, 8, 14, 0.62);
+  transition:
+    transform 130ms ease,
+    border-color 130ms ease,
+    color 130ms ease;
+}
+
+.docsLink:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .subtitle {
@@ -253,6 +285,233 @@ canvas {
   border-radius: 4px;
 }
 
+.docsPage {
+  min-height: 100vh;
+  padding: 1.4rem;
+  display: grid;
+  gap: 1.2rem;
+}
+
+.docsHero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(229, 231, 235, 0.2);
+  border-radius: 20px;
+  padding: 1.4rem;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(34, 211, 238, 0.18), transparent 45%),
+    radial-gradient(circle at 82% 22%, rgba(245, 158, 11, 0.22), transparent 35%),
+    linear-gradient(130deg, rgba(14, 20, 26, 0.95), rgba(19, 17, 13, 0.95));
+  display: grid;
+  grid-template-columns: 1fr minmax(240px, 320px);
+  gap: 1.1rem;
+}
+
+.docsEyebrow {
+  margin: 0;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.docsHero h1 {
+  margin: 0.35rem 0 0.5rem;
+  font-family: var(--font-display), sans-serif;
+  line-height: 1.06;
+  font-size: clamp(1.8rem, 2.8vw, 2.6rem);
+}
+
+.docsHero p {
+  margin: 0;
+  color: rgba(229, 231, 235, 0.88);
+  max-width: 62ch;
+}
+
+.docsActions {
+  margin-top: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.docsBtn {
+  text-decoration: none;
+  border-radius: 10px;
+  padding: 0.48rem 0.8rem;
+  font-size: 0.82rem;
+  border: 1px solid rgba(229, 231, 235, 0.3);
+}
+
+.docsBtnPrimary {
+  color: #0f172a;
+  background: linear-gradient(180deg, #fbbf24, #f59e0b);
+  border-color: #fbbf24;
+}
+
+.docsBtnGhost {
+  color: var(--text);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.docsStats {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.docsStats > div {
+  background: rgba(5, 10, 16, 0.68);
+  border: 1px solid rgba(229, 231, 235, 0.21);
+  border-radius: 12px;
+  padding: 0.75rem;
+  display: grid;
+}
+
+.docsStats strong {
+  color: var(--accent-2);
+  font-size: 1.3rem;
+  font-family: var(--font-display), sans-serif;
+}
+
+.docsStats span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.docsSection {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.docsSectionHead h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.4rem;
+}
+
+.docsSectionHead p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+}
+
+.algoCardGrid {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+}
+
+.algoCard {
+  border: 1px solid rgba(229, 231, 235, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(14, 20, 26, 0.9), rgba(21, 19, 14, 0.86));
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.66rem;
+}
+
+.algoCardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.algoBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.24rem 0.5rem;
+}
+
+.algoGen {
+  color: #022c22;
+  background: rgba(52, 211, 153, 0.88);
+}
+
+.algoSolve {
+  color: #082f49;
+  background: rgba(56, 189, 248, 0.88);
+}
+
+.algoCard code {
+  color: rgba(229, 231, 235, 0.85);
+  font-size: 0.73rem;
+}
+
+.algoCard h3 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.algoSummary {
+  margin: 0;
+  color: rgba(229, 231, 235, 0.86);
+}
+
+.algoComplexity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.algoComplexity span {
+  background: rgba(2, 8, 14, 0.7);
+  border: 1px solid rgba(229, 231, 235, 0.17);
+  border-radius: 999px;
+  font-size: 0.73rem;
+  padding: 0.22rem 0.52rem;
+}
+
+.algoCard h4 {
+  margin: 0;
+  font-size: 0.83rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(229, 231, 235, 0.82);
+}
+
+.algoCard ol,
+.algoCard ul {
+  margin: 0.32rem 0 0;
+  padding-left: 1.08rem;
+  display: grid;
+  gap: 0.25rem;
+  color: rgba(229, 231, 235, 0.88);
+}
+
+.algoCard li {
+  font-size: 0.86rem;
+  line-height: 1.36;
+}
+
+.algoGrid2 {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.algoNotes {
+  border-top: 1px dashed rgba(229, 231, 235, 0.24);
+  padding-top: 0.62rem;
+  display: grid;
+  gap: 0.34rem;
+}
+
+.algoNotes p {
+  margin: 0;
+  color: rgba(229, 231, 235, 0.9);
+  font-size: 0.84rem;
+  line-height: 1.38;
+}
+
 @media (max-width: 980px) {
   .appShell {
     grid-template-columns: 1fr;
@@ -260,5 +519,22 @@ canvas {
 
   .buttonGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .docsPage {
+    padding: 1rem;
+  }
+
+  .docsHero {
+    grid-template-columns: 1fr;
+    border-radius: 16px;
+  }
+
+  .algoCardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .algoGrid2 {
+    grid-template-columns: 1fr;
   }
 }

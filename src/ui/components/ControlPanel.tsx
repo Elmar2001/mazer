@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
+import Link from "next/link";
 
 import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 import type { MazeControls } from "@/ui/hooks/useMazeEngine";
@@ -38,7 +39,12 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
   return (
     <section className="controlPanel">
-      <h1>Mazer</h1>
+      <div className="panelTop">
+        <h1>Mazer</h1>
+        <Link href="/docs" className="docsLink">
+          Docs
+        </Link>
+      </div>
       <p className="subtitle">Canvas maze generator and solver visualizer.</p>
 
       <label>

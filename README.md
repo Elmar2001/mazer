@@ -12,6 +12,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Sidewinder
   - Aldous-Broder
   - Hunt-and-Kill
+  - Growing Tree
 - Step-based maze solvers:
   - BFS
   - DFS
@@ -20,6 +21,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Greedy Best-First
   - Bidirectional BFS
   - Dead-End Filling
+  - Weighted A*
 - Runtime controls:
   - algorithm selection
   - speed (steps/sec)
@@ -63,6 +65,7 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+Algorithm reference page: [http://localhost:3000/docs](http://localhost:3000/docs).
 
 ## Tests
 
