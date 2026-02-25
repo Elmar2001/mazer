@@ -167,6 +167,41 @@ export function ControlPanel({ controls }: ControlPanelProps) {
         {settings.battleMode ? <span className="modePill">Battle Mode</span> : null}
       </div>
 
+      <section className="actionDock">
+        <div className="actionDockGrid">
+          <button type="button" className="btnPrimary" onClick={controls.generate}>
+            Generate
+          </button>
+          <button
+            type="button"
+            className="btnAccent"
+            onClick={controls.solve}
+            disabled={!canSolve}
+          >
+            Solve
+          </button>
+          <button
+            type="button"
+            className="btnGhost"
+            onClick={controls.pauseResume}
+            disabled={!canPlaybackControl}
+          >
+            {runtime.paused ? "Resume" : "Pause"}
+          </button>
+          <button
+            type="button"
+            className="btnGhost"
+            onClick={controls.stepOnce}
+            disabled={!canPlaybackControl}
+          >
+            Step
+          </button>
+          <button type="button" className="btnDanger" onClick={controls.reset}>
+            Reset
+          </button>
+        </div>
+      </section>
+
       <section className="controlGroup">
         <h4>Algorithms</h4>
         <label>
@@ -408,39 +443,6 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           Show final path
         </label>
       </fieldset>
-
-      <div className="buttonGrid">
-        <button type="button" className="btnPrimary" onClick={controls.generate}>
-          Generate
-        </button>
-        <button
-          type="button"
-          className="btnAccent"
-          onClick={controls.solve}
-          disabled={!canSolve}
-        >
-          Solve
-        </button>
-        <button
-          type="button"
-          className="btnGhost"
-          onClick={controls.pauseResume}
-          disabled={!canPlaybackControl}
-        >
-          {runtime.paused ? "Resume" : "Pause"}
-        </button>
-        <button
-          type="button"
-          className="btnGhost"
-          onClick={controls.stepOnce}
-          disabled={!canPlaybackControl}
-        >
-          Step Once
-        </button>
-        <button type="button" className="btnDanger" onClick={controls.reset}>
-          Reset
-        </button>
-      </div>
 
       <p className="shortcutHint">Shortcuts: G generate, S solve, Space pause/resume, N step, R reset.</p>
     </section>

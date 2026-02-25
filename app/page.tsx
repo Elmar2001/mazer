@@ -17,7 +17,7 @@ export default function HomePage() {
       </aside>
       <section className="rightPane">
         <div className="rightPaneLayout">
-          <CanvasViewport canvasRef={canvasRef} />
+          <CanvasViewport canvasRef={canvasRef} controls={controls} />
           <GeneratorTracePanel />
         </div>
       </section>

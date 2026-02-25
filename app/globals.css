@@ -320,6 +320,23 @@ fieldset.controlGroup legend {
   gap: 0.48rem;
 }
 
+.actionDock {
+  position: sticky;
+  top: -0.45rem;
+  z-index: 7;
+  margin: 0 -0.25rem;
+  padding: 0.35rem 0.25rem 0.4rem;
+  background: linear-gradient(180deg, rgba(9, 14, 24, 0.96), rgba(9, 14, 24, 0.82));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(8px);
+}
+
+.actionDockGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
 button {
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.66), rgba(15, 23, 42, 0.6));
@@ -570,8 +587,18 @@ button:disabled {
 .canvasHeader {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 0.72rem;
+}
+
+.canvasHeaderMain {
+  min-width: 0;
+}
+
+.canvasHeaderRight {
+  display: grid;
+  justify-items: end;
+  gap: 0.4rem;
 }
 
 .canvasHeader h2 {
@@ -591,6 +618,38 @@ button:disabled {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem;
+}
+
+.arenaActions {
+  display: inline-grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 0.35rem;
+}
+
+.arenaBtn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.62));
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.34rem 0.54rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  font-weight: 700;
+}
+
+.arenaBtnGenerate {
+  border-color: rgba(74, 222, 128, 0.55);
+  background: linear-gradient(180deg, rgba(22, 163, 74, 0.35), rgba(22, 101, 52, 0.22));
+}
+
+.arenaBtnSolve {
+  border-color: rgba(251, 146, 60, 0.62);
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.38), rgba(194, 65, 12, 0.24));
+}
+
+.arenaBtnReset {
+  border-color: rgba(251, 113, 133, 0.58);
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.33), rgba(159, 18, 57, 0.2));
 }
 
 .canvasBadge {
@@ -845,6 +904,14 @@ canvas {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .actionDock {
+    top: -0.3rem;
+  }
+
+  .actionDockGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .presetRow {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -852,6 +919,16 @@ canvas {
   .canvasHeader {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .canvasHeaderRight {
+    justify-items: start;
+    width: 100%;
+  }
+
+  .arenaActions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
   }
 
   .canvasBadges {
