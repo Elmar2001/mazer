@@ -7,6 +7,18 @@ export interface SolverPseudocodeDoc {
 }
 
 export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
+  "random-mouse": {
+    title: "Random Mouse",
+    summary: "Random local walking with safety fallback path recovery.",
+    lines: [
+      "initialize at start and mark visited/current",
+      "if current is goal: reconstruct and finish",
+      "pick random open neighbor and move",
+      "record first-discovery parent edges",
+      "if goal reached: mark path and finish",
+      "if random budget exhausted: switch to shortest-path fallback",
+    ],
+  },
   bfs: {
     title: "Breadth-First Search (BFS)",
     summary: "Queue-based level expansion for shortest path on unweighted graph.",
@@ -84,6 +96,17 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "otherwise continue alternating expansions",
     ],
   },
+  "collision-solver": {
+    title: "Collision Solver",
+    summary: "Bidirectional wave collision from both endpoints.",
+    lines: [
+      "initialize frontier from start and frontier from goal",
+      "expand alternating (or smaller) frontier",
+      "when waves touch: collision point found",
+      "stitch both parent chains through collision",
+      "mark combined shortest route(s)",
+    ],
+  },
   "dead-end-filling": {
     title: "Dead-End Filling",
     summary: "Iteratively remove dead ends, leaving the solution corridor.",
@@ -93,6 +116,40 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "if queue exhausted: finalize remaining path",
       "remove one dead end cell from consideration",
       "update neighbor degrees and enqueue new dead ends",
+    ],
+  },
+  "cul-de-sac-filler": {
+    title: "Cul-de-sac Filler",
+    summary: "Prune dead ends and trap-like branches iteratively.",
+    lines: [
+      "scan graph for removable cul-de-sac starts",
+      "enqueue eligible cul-de-sac cells",
+      "pop one candidate and remove from active maze",
+      "update local degrees around removed node",
+      "enqueue newly exposed cul-de-sacs",
+      "remaining corridor encodes solution path(s)",
+    ],
+  },
+  "blind-alley-sealer": {
+    title: "Blind Alley Sealer",
+    summary: "Seal blind alleys by structural elimination.",
+    lines: [
+      "identify blind alley entry points",
+      "mark candidates for sealing",
+      "seal one candidate and update neighbors",
+      "propagate new blind alley candidates",
+      "stop when no additional blind alleys remain",
+    ],
+  },
+  "blind-alley-filler": {
+    title: "Blind Alley Filler",
+    summary: "Fill blind alleys progressively until route core remains.",
+    lines: [
+      "scan and queue blind alley cells",
+      "fill next blind alley cell",
+      "update adjacent topology state",
+      "enqueue new blind alley exposures",
+      "repeat until only viable routes remain",
     ],
   },
   "weighted-astar": {
@@ -118,6 +175,40 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "finish once trace reaches goal",
     ],
   },
+  "flood-fill": {
+    title: "Flood Fill",
+    summary: "Distance flood from goal and descending trace from start.",
+    lines: [
+      "initialize flood wave from goal",
+      "expand one wave layer and assign distances",
+      "once start is reached, switch to trace mode",
+      "walk to neighbor with strictly smaller distance",
+      "mark traced shortest route and finish",
+    ],
+  },
+  "shortest-path-finder": {
+    title: "Shortest Path Finder",
+    summary: "Single shortest route extraction on unweighted maze graph.",
+    lines: [
+      "run BFS from start",
+      "track parent for first discovery of each node",
+      "stop when goal is dequeued",
+      "reconstruct one shortest path via parents",
+      "mark path overlays and finish",
+    ],
+  },
+  "shortest-paths-finder": {
+    title: "Shortest Paths Finder (All)",
+    summary: "Compute and mark all cells belonging to shortest routes.",
+    lines: [
+      "run BFS distances from start",
+      "run BFS distances from goal",
+      "derive shortest length from start to goal",
+      "collect nodes where dStart + dGoal == shortest",
+      "mark all collected shortest-path nodes",
+      "finish after full shortest-set marking",
+    ],
+  },
   "wall-follower": {
     title: "Wall Follower (Right-Hand)",
     summary: "Local rule: keep right hand on wall while moving.",
@@ -138,6 +229,39 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "pick next step by left-hand priority",
       "if goal reached after move: reconstruct and finish",
       "otherwise continue following wall",
+    ],
+  },
+  pledge: {
+    title: "Pledge Algorithm",
+    summary: "Wall-follow variant for escaping loops/islands.",
+    lines: [
+      "set preferred heading and turn counter",
+      "move straight when heading is free",
+      "otherwise enter wall-follow mode",
+      "accumulate net turn count while tracing boundary",
+      "leave wall when heading restored and counter is zero",
+    ],
+  },
+  tremaux: {
+    title: "Tremaux",
+    summary: "Mark-based exploration that avoids over-traversed passages.",
+    lines: [
+      "mark traversed passage edges",
+      "prefer unmarked exits at junctions",
+      "if none, choose once-marked edge",
+      "avoid twice-marked edge unless forced",
+      "continue until goal discovered",
+    ],
+  },
+  chain: {
+    title: "Chain",
+    summary: "Global-map guided chaining between expanding fronts.",
+    lines: [
+      "initialize chained frontiers from both ends",
+      "expand and maintain chain links",
+      "detect link collision between chains",
+      "stitch chain segments into final route",
+      "mark resulting path and finish",
     ],
   },
 };
