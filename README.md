@@ -7,6 +7,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
 - Step-based maze generators:
   - Recursive Backtracker (DFS)
   - Randomized Prim
+  - Prim (Frontier Edges)
   - Randomized Kruskal
   - Binary Tree
   - Sidewinder
@@ -15,6 +16,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Growing Tree
   - Randomized BFS Tree
   - Eller
+  - Houston (AB + Wilson)
   - Wilson
 - Step-based maze solvers:
   - BFS
@@ -26,6 +28,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Bidirectional BFS
   - Dead-End Filling
   - Weighted A*
+  - Lee Wavefront
   - Wall Follower (Right-Hand)
   - Wall Follower (Left-Hand)
 - Runtime controls:

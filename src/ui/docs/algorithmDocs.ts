@@ -54,6 +54,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "It is inspired by Prim's minimum spanning tree method, but with randomized edge selection.",
   },
   {
+    id: "prim-frontier-edges",
+    name: "Prim (Frontier Edges)",
+    kind: "Generator",
+    summary: "Prim-style generation using explicit frontier edge sampling.",
+    howItWorks: [
+      "Start from one visited root cell.",
+      "Push all edges from visited cells to unvisited neighbors into a frontier list.",
+      "Pick a random frontier edge; if it connects to an unvisited cell, carve it.",
+      "Add new frontier edges from the newly visited cell and repeat.",
+    ],
+    timeComplexity: "O(E) expected",
+    spaceComplexity: "O(E)",
+    pros: ["Classic Prim interpretation", "Good branching and texture"],
+    cons: ["Frontier edge list can grow large", "Extra filtering for stale edges"],
+    bestFor: "When you want Prim behavior driven directly by edge randomness.",
+    interestingFact:
+      "Compared with frontier-cell Prim, edge-based Prim can emphasize different local branching statistics.",
+  },
+  {
     id: "kruskal",
     name: "Randomized Kruskal",
     kind: "Generator",
@@ -226,6 +245,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Wilson and Aldous-Broder both generate uniform spanning trees, but Wilson is usually much faster in practice.",
   },
   {
+    id: "houston",
+    name: "Houston (AB + Wilson)",
+    kind: "Generator",
+    summary: "Hybrid that starts with Aldous-Broder then switches to Wilson for speed.",
+    howItWorks: [
+      "Run Aldous-Broder random walk for an initial visited fraction.",
+      "Use the visited cells as an initial tree.",
+      "Switch to Wilson loop-erased walks for the remaining unvisited cells.",
+      "Finish when every cell is merged into the tree.",
+    ],
+    timeComplexity: "Expected faster than pure AB, near Wilson in late stage",
+    spaceComplexity: "O(V)",
+    pros: ["Practical speed boost", "Retains random-walk flavor early on"],
+    cons: ["More implementation complexity", "Hybrid behavior is less canonical"],
+    bestFor: "Balancing visual random-walk behavior with practical completion speed.",
+    interestingFact:
+      "Houston is a known optimization strategy specifically meant to mitigate Aldous-Broder's long tail.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
@@ -395,6 +433,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Teaching maze topology and pruning-based solving.",
     interestingFact:
       "This method solves by elimination, not by explicitly chasing the goal first.",
+  },
+  {
+    id: "lee-wavefront",
+    name: "Lee Wavefront",
+    kind: "Solver",
+    summary: "Distance-wave flood fill from goal, then gradient backtrace from start.",
+    howItWorks: [
+      "Run BFS-like wavefront from the goal and assign distance labels.",
+      "Stop once start is labeled (or all reachable nodes are processed).",
+      "Trace from start by repeatedly moving to a neighbor with smaller distance.",
+      "Mark traced cells as the final path.",
+    ],
+    timeComplexity: "O(V + E)",
+    spaceComplexity: "O(V)",
+    pros: ["Optimal in unweighted mazes", "Path extraction is simple and deterministic"],
+    cons: ["Needs full distance map storage", "Can explore broad regions like BFS"],
+    bestFor: "Wave-propagation visualizations and shortest-path extraction via gradients.",
+    interestingFact:
+      "Lee's algorithm is a classic in PCB routing and grid-based shortest-path problems.",
   },
   {
     id: "wall-follower",
