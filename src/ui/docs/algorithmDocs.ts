@@ -169,6 +169,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Using newest-only turns it into recursive backtracker; random-only makes it feel close to Prim.",
   },
   {
+    id: "bfs-tree",
+    name: "Randomized BFS Tree",
+    kind: "Generator",
+    summary: "Builds a spanning tree layer-by-layer from a queue frontier.",
+    howItWorks: [
+      "Choose a start cell and enqueue it.",
+      "Pop cells in BFS order and inspect neighbors.",
+      "For each unvisited neighbor, carve to it and enqueue it.",
+      "Continue until queue is exhausted.",
+    ],
+    timeComplexity: "O(V + E)",
+    spaceComplexity: "O(V)",
+    pros: ["Very stable progression", "Naturally broad, wave-like growth"],
+    cons: ["Can look less organic than DFS variants", "Needs queue/frontier bookkeeping"],
+    bestFor: "Clear breadth-first generation visuals and predictable expansion fronts.",
+    interestingFact:
+      "Unlike Prim, this variant commits tree parents by discovery order, creating BFS-depth layers.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
@@ -224,6 +243,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Fast near-optimal routing on grid mazes.",
     interestingFact:
       "Manhattan distance is a natural heuristic for 4-directional grids.",
+  },
+  {
+    id: "astar-euclidean",
+    name: "A* (Euclidean)",
+    kind: "Solver",
+    summary: "A* variant using straight-line distance heuristic.",
+    howItWorks: [
+      "Score candidates with f(n)=g(n)+h(n), where h is Euclidean distance.",
+      "Expand the lowest f-score node.",
+      "Relax neighbors with improved g-cost and update parents.",
+      "Stop and reconstruct when reaching goal.",
+    ],
+    timeComplexity: "O(E) to O(E log V), depending on queue",
+    spaceComplexity: "O(V)",
+    pros: ["Admissible and consistent on grid movement", "Often smooth directional guidance"],
+    cons: ["Can expand more than Manhattan A* on 4-neighbor grids", "Still more bookkeeping than BFS"],
+    bestFor: "Comparing heuristic behavior and exploring geometric distance cues.",
+    interestingFact:
+      "Euclidean is tighter for continuous geometry, while Manhattan better matches axis-only moves.",
   },
   {
     id: "weighted-astar",
@@ -319,6 +357,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Teaching maze topology and pruning-based solving.",
     interestingFact:
       "This method solves by elimination, not by explicitly chasing the goal first.",
+  },
+  {
+    id: "wall-follower",
+    name: "Wall Follower (Right-Hand)",
+    kind: "Solver",
+    summary: "Follows one wall consistently to eventually find the goal in simply connected mazes.",
+    howItWorks: [
+      "Keep a heading and prefer right turn, then straight, then left, then back.",
+      "Move through open passages while maintaining wall contact.",
+      "Record discovery parents for path reconstruction.",
+      "When goal is reached, reconstruct and display the route.",
+    ],
+    timeComplexity: "Input-dependent, typically O(E) in tree mazes",
+    spaceComplexity: "O(V) with parent tracking",
+    pros: ["Very intuitive", "Great for demonstrating local decision rules"],
+    cons: ["Not generally optimal", "Can fail in non-simply-connected wall topologies"],
+    bestFor: "Educational demos of local navigation strategies.",
+    interestingFact:
+      "In perfect mazes (tree mazes), wall following always reaches the goal because there are no isolated loops.",
   },
 ];
 

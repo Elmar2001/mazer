@@ -13,15 +13,18 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Aldous-Broder
   - Hunt-and-Kill
   - Growing Tree
+  - Randomized BFS Tree
 - Step-based maze solvers:
   - BFS
   - DFS
   - A*
+  - A* (Euclidean)
   - Dijkstra
   - Greedy Best-First
   - Bidirectional BFS
   - Dead-End Filling
   - Weighted A*
+  - Wall Follower (Right-Hand)
 - Runtime controls:
   - algorithm selection
   - speed (steps/sec)
