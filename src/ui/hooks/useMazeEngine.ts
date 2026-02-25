@@ -76,19 +76,48 @@ export function useMazeEngine(): UseMazeEngineResult {
             typeof meta?.line === "number" && Number.isFinite(meta.line)
               ? Math.max(1, Math.floor(meta.line))
               : undefined;
+          const solverRole = typeof meta?.solverRole === "string" ? meta.solverRole : undefined;
 
-          queueRuntimeUpdate({
+          const updates: Partial<MazeRuntime> = {
             metrics,
-            ...(typeof line === "number" ? { generatorActiveLine: line } : {}),
-          });
+          };
+
+          if (metrics.battle) {
+            updates.solverActiveLine = metrics.battle.solverA.activeLine;
+            updates.solverBActiveLine = metrics.battle.solverB.activeLine;
+          } else if (typeof line === "number" && solverRole) {
+            if (solverRole === "B") {
+              updates.solverBActiveLine = line;
+            } else {
+              updates.solverActiveLine = line;
+            }
+          } else if (typeof line === "number") {
+            updates.generatorActiveLine = line;
+          }
+
+          queueRuntimeUpdate(updates);
         },
         onPhaseChange: (phase) => {
           const paused = phase !== "Generating" && phase !== "Solving";
-          queueRuntimeUpdate({
+          const updates: Partial<MazeRuntime> = {
             phase,
             paused,
-            ...(phase === "Generating" ? {} : { generatorActiveLine: null }),
-          });
+          };
+
+          if (phase === "Idle") {
+            updates.generatorActiveLine = null;
+            updates.solverActiveLine = null;
+            updates.solverBActiveLine = null;
+          } else if (phase === "Generating") {
+            updates.solverActiveLine = null;
+            updates.solverBActiveLine = null;
+          } else if (phase === "Solving") {
+            updates.generatorActiveLine = null;
+            updates.solverActiveLine = null;
+            updates.solverBActiveLine = null;
+          }
+
+          queueRuntimeUpdate(updates);
         },
         onGridRebuilt: (grid) => {
           rendererRef.current?.setGrid(grid);
@@ -112,6 +141,8 @@ export function useMazeEngine(): UseMazeEngineResult {
       paused: true,
       metrics: engine.getMetrics(),
       generatorActiveLine: null,
+      solverActiveLine: null,
+      solverBActiveLine: null,
     });
 
     return () => {
@@ -174,6 +205,8 @@ export function useMazeEngine(): UseMazeEngineResult {
       paused: true,
       metrics: { ...DEFAULT_METRICS },
       generatorActiveLine: null,
+      solverActiveLine: null,
+      solverBActiveLine: null,
     });
   }, [settings.gridHeight, settings.gridWidth, queueRuntimeUpdate]);
 
@@ -221,6 +254,8 @@ export function useMazeEngine(): UseMazeEngineResult {
           paused: false,
           metrics: engine.getMetrics(),
           generatorActiveLine: null,
+          solverActiveLine: null,
+          solverBActiveLine: null,
         });
       },
       solve: () => {
@@ -234,6 +269,8 @@ export function useMazeEngine(): UseMazeEngineResult {
           paused: false,
           metrics: engine.getMetrics(),
           generatorActiveLine: null,
+          solverActiveLine: null,
+          solverBActiveLine: null,
         });
       },
       pauseResume: () => {

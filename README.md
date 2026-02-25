@@ -40,7 +40,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - play/pause/step/reset/generate/solve
   - deterministic seed input
   - visited/frontier/path visibility toggles
-  - live generator pseudocode trace with active-line highlighting
+  - live generator/solver pseudocode trace with active-line highlighting
 - speed slider range: `1..5000` steps/sec
 - Metrics panel:
   - step count

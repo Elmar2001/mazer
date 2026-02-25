@@ -760,6 +760,28 @@ canvas {
     );
 }
 
+.traceBattleGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  min-height: 0;
+}
+
+.traceCodeSection {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.35rem;
+}
+
+.traceCodeTitle {
+  margin: 0;
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.86);
+}
+
 .traceLine {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr);
@@ -846,6 +868,10 @@ canvas {
 
   .tracePanel {
     min-height: 340px;
+  }
+
+  .traceBattleGrid {
+    grid-template-columns: 1fr;
   }
 }
 .docsPage {
