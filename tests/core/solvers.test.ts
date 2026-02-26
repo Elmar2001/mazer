@@ -66,8 +66,12 @@ function shortestPathLength(grid: ReturnType<typeof createGrid>): number {
   return 0;
 }
 
-/** IDs of solvers that train over many episodes and need a higher step budget. */
-const HEURISTIC_SOLVER_IDS = new Set(["q-learning", "ant-colony"]);
+/** IDs of solvers that need a higher deterministic test budget. */
+const HEURISTIC_SOLVER_IDS = new Set([
+  "q-learning",
+  "ant-colony",
+  "random-mouse",
+]);
 
 function runSolver(
   plugin: SolverPlugin<SolverRunOptions, AlgorithmStepMeta>,

@@ -745,7 +745,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     howItWorks: [
       "Start at entrance and pick random open move each step.",
       "Record first-discovery parents for optional reconstruction.",
-      "Continue until goal is reached (or fallback solver is applied).",
+      "Continue wandering until the goal is reached.",
     ],
     timeComplexity: "Highly variable; can be very large",
     spaceComplexity: "O(V) with parent/discovery tracking",

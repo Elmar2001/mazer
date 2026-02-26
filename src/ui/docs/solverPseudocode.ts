@@ -9,14 +9,14 @@ export interface SolverPseudocodeDoc {
 export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
   "random-mouse": {
     title: "Random Mouse",
-    summary: "Random local walking with safety fallback path recovery.",
+    summary: "Pure random local walking until the goal is reached.",
     lines: [
       "initialize at start and mark visited/current",
       "if current is goal: reconstruct and finish",
       "pick random open neighbor and move",
       "record first-discovery parent edges",
       "if goal reached: mark path and finish",
-      "if random budget exhausted: switch to shortest-path fallback",
+      "if no open neighbors: no path",
     ],
   },
   bfs: {

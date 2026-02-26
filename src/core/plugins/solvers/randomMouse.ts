@@ -16,8 +16,6 @@ interface RandomMouseContext {
   discovered: Uint8Array;
   visited: Uint8Array;
   visitedCount: number;
-  randomSteps: number;
-  maxRandomSteps: number;
 }
 
 export const randomMouseSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
@@ -38,8 +36,6 @@ export const randomMouseSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta
       discovered: new Uint8Array(grid.cellCount),
       visited: new Uint8Array(grid.cellCount),
       visitedCount: 0,
-      randomSteps: 0,
-      maxRandomSteps: Math.max(16, grid.cellCount * 4),
     };
 
     return {
@@ -118,25 +114,6 @@ function stepRandomMouse(context: RandomMouseContext) {
     };
   }
 
-  if (context.randomSteps >= context.maxRandomSteps) {
-    const path = shortestPath(context.grid, context.startIndex, context.goalIndex);
-    for (const cell of path) {
-      patches.push({ index: cell, overlaySet: OverlayFlag.Path });
-    }
-
-    return {
-      done: true,
-      patches,
-      meta: {
-        line: 6,
-        solved: path.length > 0,
-        pathLength: path.length,
-        visitedCount: context.visitedCount,
-        frontierSize: 0,
-      },
-    };
-  }
-
   const options = getOpenNeighbors(context.grid, context.current);
   if (options.length === 0) {
     return {
@@ -154,7 +131,6 @@ function stepRandomMouse(context: RandomMouseContext) {
   const previous = context.current;
   const next = options[context.rng.nextInt(options.length)] as number;
   context.current = next;
-  context.randomSteps += 1;
 
   if (context.discovered[next] === 0) {
     context.discovered[next] = 1;
@@ -206,33 +182,4 @@ function stepRandomMouse(context: RandomMouseContext) {
       frontierSize: 1,
     },
   };
-}
-
-function shortestPath(grid: Grid, start: number, goal: number): number[] {
-  const queue = [start];
-  let head = 0;
-
-  const parents = new Int32Array(grid.cellCount);
-  parents.fill(-1);
-  parents[start] = start;
-
-  while (head < queue.length) {
-    const current = queue[head] as number;
-    head += 1;
-
-    if (current === goal) {
-      return buildPath(start, goal, parents);
-    }
-
-    for (const neighbor of getOpenNeighbors(grid, current)) {
-      if (parents[neighbor] !== -1) {
-        continue;
-      }
-
-      parents[neighbor] = current;
-      queue.push(neighbor);
-    }
-  }
-
-  return [];
 }
