@@ -250,6 +250,30 @@ export const GENERATOR_PSEUDOCODE: Record<
       "finish when stack is exhausted",
     ],
   },
+  "reverse-delete": {
+    title: "Reverse-Delete",
+    summary: "Start fully open, then add back walls only when safe.",
+    lines: [
+      "open all internal walls so every adjacent pair is connected",
+      "if no candidate edges remain: finish",
+      "take next randomized edge candidate",
+      "temporarily block that edge and test if endpoints stay connected",
+      "if still connected: keep wall (remove edge), else restore edge",
+      "continue until all candidates are processed",
+    ],
+  },
+  boruvka: {
+    title: "Randomized Boruvka",
+    summary: "Per component, pick cheapest outgoing edge and merge in rounds.",
+    lines: [
+      "if only one component remains: finish",
+      "for each component, find minimum-weight outgoing edge",
+      "deduplicate chosen edges across components",
+      "union and carve every chosen edge that joins different components",
+      "update component count and continue to next round",
+      "stop when one spanning-tree component remains",
+    ],
+  },
   "origin-shift": {
     title: "Origin Shift",
     summary: "Shift root of a directed spanning tree to rewire edges.",

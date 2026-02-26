@@ -74,6 +74,28 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "relax neighbor distances and enqueue improvements",
     ],
   },
+  "bellman-ford": {
+    title: "Bellman-Ford",
+    summary: "Repeated edge relaxation until distances converge.",
+    lines: [
+      "initialize distance(start)=0 and all others to infinity",
+      "for each pass, relax every open maze edge in both directions",
+      "record improved parent links and frontier updates",
+      "if a full pass makes no improvements: distances converged",
+      "reconstruct path from goal via parents and finish",
+    ],
+  },
+  "iterative-deepening-dfs": {
+    title: "Iterative Deepening DFS (IDDFS)",
+    summary: "Depth-limited DFS repeated with increasing limit.",
+    lines: [
+      "initialize depth limit to zero",
+      "run depth-limited DFS from start with current limit",
+      "if goal found: reconstruct path and finish",
+      "increase depth limit and repeat search",
+      "if limit exceeds safe cap without goal: no path",
+    ],
+  },
   "greedy-best-first": {
     title: "Greedy Best-First",
     summary: "Expand node closest to goal by heuristic only.",

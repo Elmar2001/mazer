@@ -27,12 +27,16 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Fractal Tessellation
   - Cellular Automata (Cave-Biased)
   - Origin Shift
+  - Reverse-Delete
+  - Randomized Boruvka
 - Step-based maze solvers:
   - Random Mouse
   - BFS
   - DFS
   - A*
   - A* (Euclidean)
+  - Bellman-Ford
+  - Iterative Deepening DFS (IDDFS)
   - Dijkstra
   - Greedy Best-First
   - Bidirectional BFS
@@ -51,6 +55,8 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Pledge Algorithm
   - Tremaux
   - Chain
+  - Q-Learning (RL)
+  - Ant Colony Optimization
 - Runtime controls:
   - algorithm selection
   - optional solver battle mode (Solver A vs Solver B)
@@ -109,7 +115,8 @@ Current tests cover:
 - deterministic RNG behavior
 - deterministic generator outputs for identical seeds
 - basic generator correctness (connectivity + tree edges)
-- solver correctness and BFS optimal path length
+- solver correctness and shortest-path optimality checks (BFS, Dijkstra, Bellman-Ford)
+- documentation/pseudocode coverage for all registered plugins
 
 ## Adding a New Generator Plugin
 

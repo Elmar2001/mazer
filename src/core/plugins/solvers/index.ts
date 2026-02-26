@@ -1,6 +1,7 @@
 import { aStarSolver } from "@/core/plugins/solvers/astar";
 import { aStarEuclideanSolver } from "@/core/plugins/solvers/aStarEuclidean";
 import { bfsSolver } from "@/core/plugins/solvers/bfs";
+import { bellmanFordSolver } from "@/core/plugins/solvers/bellmanFord";
 import { blindAlleyFillerSolver } from "@/core/plugins/solvers/blindAlleyFiller";
 import { blindAlleySealerSolver } from "@/core/plugins/solvers/blindAlleySealer";
 import { bidirectionalBfsSolver } from "@/core/plugins/solvers/bidirectionalBfs";
@@ -14,6 +15,7 @@ import { floodFillSolver } from "@/core/plugins/solvers/floodFill";
 import { greedyBestFirstSolver } from "@/core/plugins/solvers/greedyBestFirst";
 import { leftWallFollowerSolver } from "@/core/plugins/solvers/leftWallFollower";
 import { leeWavefrontSolver } from "@/core/plugins/solvers/leeWavefront";
+import { iterativeDeepeningDfsSolver } from "@/core/plugins/solvers/iterativeDeepeningDfs";
 import { pledgeSolver } from "@/core/plugins/solvers/pledge";
 import { randomMouseSolver } from "@/core/plugins/solvers/randomMouse";
 import { shortestPathFinderSolver } from "@/core/plugins/solvers/shortestPathFinder";
@@ -30,6 +32,8 @@ export const solverPlugins = [
   dfsSolver,
   aStarSolver,
   aStarEuclideanSolver,
+  bellmanFordSolver,
+  iterativeDeepeningDfsSolver,
   dijkstraSolver,
   greedyBestFirstSolver,
   bidirectionalBfsSolver,

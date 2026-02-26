@@ -1,6 +1,7 @@
 import { aldousBroderGenerator } from "@/core/plugins/generators/aldousBroder";
 import { bfsTreeGenerator } from "@/core/plugins/generators/bfsTree";
 import { binaryTreeGenerator } from "@/core/plugins/generators/binaryTree";
+import { boruvkaGenerator } from "@/core/plugins/generators/boruvka";
 import { cellularAutomataGenerator } from "@/core/plugins/generators/cellularAutomata";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
 import { ellerGenerator } from "@/core/plugins/generators/eller";
@@ -17,6 +18,7 @@ import { primModifiedGenerator } from "@/core/plugins/generators/primModified";
 import { primSimplifiedGenerator } from "@/core/plugins/generators/primSimplified";
 import { primTrueGenerator } from "@/core/plugins/generators/primTrue";
 import { recursiveDivisionGenerator } from "@/core/plugins/generators/recursiveDivision";
+import { reverseDeleteGenerator } from "@/core/plugins/generators/reverseDelete";
 import { sidewinderGenerator } from "@/core/plugins/generators/sidewinder";
 import { unicursalGenerator } from "@/core/plugins/generators/unicursal";
 import { wilsonGenerator } from "@/core/plugins/generators/wilson";
@@ -44,6 +46,8 @@ export const generatorPlugins = [
   fractalTessellationGenerator,
   cellularAutomataGenerator,
   originShiftGenerator,
+  reverseDeleteGenerator,
+  boruvkaGenerator,
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];

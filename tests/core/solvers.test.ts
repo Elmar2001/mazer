@@ -153,4 +153,20 @@ describe("solver plugins", () => {
 
     expect(result.lastMeta?.pathLength).toBe(optimalLength);
   });
+
+  it("bellman-ford finds an optimal shortest path", () => {
+    const bellmanFord = solverPlugins.find(
+      (plugin) => plugin.id === "bellman-ford",
+    );
+    if (!bellmanFord) {
+      throw new Error("Bellman-Ford plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    const result = runSolver(bellmanFord, grid);
+
+    expect(result.lastMeta?.pathLength).toBe(optimalLength);
+  });
 });

@@ -434,6 +434,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Each shift performs a local edge swap while preserving a valid spanning tree.",
   },
   {
+    id: "reverse-delete",
+    name: "Reverse-Delete",
+    kind: "Generator",
+    summary: "Begins fully open, then adds walls back only when connectivity is preserved.",
+    howItWorks: [
+      "Open all internal walls to start from a fully connected grid graph.",
+      "Process candidate edges in randomized order.",
+      "For each edge, test whether endpoints remain connected without that edge.",
+      "If an alternate route exists, remove the edge by restoring that wall.",
+    ],
+    timeComplexity: "O(E * (V + E)) with bridge checks",
+    spaceComplexity: "O(V)",
+    pros: ["Strong correctness intuition", "Distinct wall-adding visual style"],
+    cons: ["More expensive than carve-forward methods", "Needs repeated connectivity checks"],
+    bestFor: "Educational comparisons between edge-removal and edge-addition paradigms.",
+    interestingFact:
+      "Reverse-Delete is the conceptual mirror image of Kruskal: it removes non-bridge edges instead of adding acyclic edges.",
+  },
+  {
+    id: "boruvka",
+    name: "Randomized Boruvka",
+    kind: "Generator",
+    summary: "Builds a maze in rounds by merging components through cheapest outgoing edges.",
+    howItWorks: [
+      "Treat each cell as its own component.",
+      "Assign randomized edge priorities and find each component's best outgoing edge.",
+      "Carve all selected non-cycling edges in one round.",
+      "Repeat until a single connected component remains.",
+    ],
+    timeComplexity: "O(E log V) expected rounds with union-find",
+    spaceComplexity: "O(V + E)",
+    pros: ["Round-based growth is visually distinctive", "Efficient component convergence"],
+    cons: ["Heavier bookkeeping than DFS/Prim", "Less common in maze tooling"],
+    bestFor: "Comparing MST families and parallel-style component merging behavior.",
+    interestingFact:
+      "Boruvka predates Kruskal and Prim and naturally lends itself to parallel implementations.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
@@ -546,6 +584,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Reference optimal solver and weighted-path baselines.",
     interestingFact:
       "Dijkstra published his algorithm in 1956 and reportedly designed it in about twenty minutes.",
+  },
+  {
+    id: "bellman-ford",
+    name: "Bellman-Ford",
+    kind: "Solver",
+    summary: "Relaxes all open edges repeatedly until no shorter distances remain.",
+    howItWorks: [
+      "Initialize start distance to 0 and all others to infinity.",
+      "Run full relaxation passes over every open edge.",
+      "Update parent links whenever a shorter path to a node is found.",
+      "Stop when a pass makes no improvements and reconstruct the path.",
+    ],
+    timeComplexity: "O(VE)",
+    spaceComplexity: "O(V)",
+    pros: ["Provably optimal with nonnegative weights", "Simple global convergence criterion"],
+    cons: ["More work than BFS/Dijkstra on unweighted mazes", "Pass-based progress can feel coarse"],
+    bestFor: "Reference correctness checks and shortest-path algorithm comparisons.",
+    interestingFact:
+      "Bellman-Ford is a classic dynamic-programming shortest-path method and can handle negative edges in general graphs.",
+  },
+  {
+    id: "iterative-deepening-dfs",
+    name: "Iterative Deepening DFS (IDDFS)",
+    kind: "Solver",
+    summary: "Runs depth-limited DFS repeatedly with increasing depth limits.",
+    howItWorks: [
+      "Start with depth limit 0.",
+      "Perform DFS constrained to the current limit.",
+      "If goal is not found, increase limit and restart from the start node.",
+      "Reconstruct the path as soon as a depth-limited run reaches the goal.",
+    ],
+    timeComplexity: "O(b^d) node expansions in the worst case",
+    spaceComplexity: "O(d)",
+    pros: ["Low memory usage", "Finds shallow solutions early like BFS depth ordering"],
+    cons: ["Repeats work across limits", "Can be slower than BFS on broad mazes"],
+    bestFor: "Memory-constrained search demonstrations and DFS/BFS tradeoff education.",
+    interestingFact:
+      "IDDFS combines DFS memory behavior with increasing-depth completeness, making it a classic AI search baseline.",
   },
   {
     id: "greedy-best-first",
@@ -863,6 +939,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Practical shortest-route extraction.",
     interestingFact:
       "On unweighted grids, this is equivalent to BFS shortest-path recovery.",
+  },
+  {
+    id: "q-learning",
+    name: "Q-Learning (RL)",
+    kind: "Solver",
+    summary: "Learns action values through repeated episodes, then follows the learned greedy policy.",
+    howItWorks: [
+      "Initialize a Q-table for state-action values.",
+      "Run episodes with epsilon-greedy exploration.",
+      "Update Q-values from rewards and bootstrapped future estimates.",
+      "After training, follow highest-valued actions from start to goal.",
+    ],
+    timeComplexity: "Training-dependent; typically much higher than graph search",
+    spaceComplexity: "O(V * A)",
+    pros: ["Shows reinforcement-learning behavior", "Adapts through experience instead of hardcoded heuristic"],
+    cons: ["Needs many episodes", "No strict shortest-path guarantee without careful tuning"],
+    bestFor: "Educational RL comparisons against classical graph-search solvers.",
+    interestingFact:
+      "Unlike BFS/A*, Q-learning can improve policy quality over repeated runs on the same maze distribution.",
+  },
+  {
+    id: "ant-colony",
+    name: "Ant Colony Optimization",
+    kind: "Solver",
+    summary: "Uses pheromone-guided stochastic exploration where strong routes reinforce over time.",
+    howItWorks: [
+      "Spawn ants that probabilistically follow local pheromone signals.",
+      "Let ants explore, backtrack from dead ends, and record successful paths.",
+      "Evaporate pheromones globally and reinforce successful trails.",
+      "Extract the strongest discovered route as the final path.",
+    ],
+    timeComplexity: "Generation/ant-count dependent; typically high",
+    spaceComplexity: "O(E) pheromone storage",
+    pros: ["Strong emergent behavior visualization", "Good metaheuristic comparison baseline"],
+    cons: ["Heuristic/stochastic tuning sensitive", "No strict optimality guarantee"],
+    bestFor: "Metaheuristic solver demonstrations and exploration/exploitation tradeoff analysis.",
+    interestingFact:
+      "ACO was inspired by real ant foraging behavior where pheromone reinforcement biases collective path selection.",
   },
 ];
 
