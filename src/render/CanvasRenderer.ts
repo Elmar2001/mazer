@@ -110,142 +110,207 @@ export class CanvasRenderer {
     const row = Math.floor(index / this.grid.width);
     const col = index % this.grid.width;
 
+    // Base cell fill — edge-to-edge, no gaps
     this.ctx.fillStyle = ((row + col) & 1) === 0 ? this.colors.cellA : this.colors.cellB;
     this.ctx.fillRect(x, y, size, size);
+
+    // Cell inset highlight — subtle inner bevel
     if (size > 9 && this.settings.showCellInset !== false) {
       this.ctx.fillStyle = this.colors.cellInset;
-      this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
+      this.ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
     }
 
     const overlays = this.grid.overlays[index] as number;
 
+    // Visited overlays — full cell fill so adjacent cells connect seamlessly
     if (this.settings.showVisited && (overlays & OverlayFlag.Visited) !== 0) {
       this.ctx.fillStyle = this.colors.visitedA;
-      this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
+      this.ctx.fillRect(x, y, size, size);
     }
 
     if (this.settings.showVisited && (overlays & OverlayFlag.VisitedB) !== 0) {
       this.ctx.fillStyle = this.colors.visitedB;
-      this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
+      this.ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
     }
 
+    // Frontier overlays — full cell fill
     if (this.settings.showFrontier && (overlays & OverlayFlag.Frontier) !== 0) {
       this.ctx.fillStyle = this.colors.frontierA;
-      this.ctx.fillRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
+      this.ctx.fillRect(x, y, size, size);
     }
 
     if (this.settings.showFrontier && (overlays & OverlayFlag.FrontierB) !== 0) {
       this.ctx.strokeStyle = this.colors.frontierB;
-      this.ctx.lineWidth = 1.2;
-      this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
+      this.ctx.lineWidth = 1.5;
+      this.ctx.strokeRect(x + 2.5, y + 2.5, size - 5, size - 5);
     }
 
+    // Path overlays — full cell fill with glow for connected trail
     if (this.settings.showPath && (overlays & OverlayFlag.Path) !== 0) {
+      if (size >= 12) {
+        this.ctx.shadowColor = this.colors.pathA;
+        this.ctx.shadowBlur = size * 0.3;
+      }
       this.ctx.fillStyle = this.colors.pathA;
-      this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
+      this.ctx.fillRect(x, y, size, size);
+      this.ctx.shadowBlur = 0;
     }
 
     if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
+      if (size >= 12) {
+        this.ctx.shadowColor = this.colors.pathB;
+        this.ctx.shadowBlur = size * 0.25;
+      }
       this.ctx.fillStyle = this.colors.pathB;
-      this.ctx.fillRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
+      this.ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
+      this.ctx.shadowBlur = 0;
     }
 
+    // Current cell indicators — circles with glow
     if ((overlays & OverlayFlag.Current) !== 0) {
-      this.ctx.strokeStyle = this.colors.currentRingA;
-      this.ctx.lineWidth = Math.max(1.1, size * 0.08);
-      this.ctx.strokeRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
+      this.drawCurrentRing(x, y, size, this.colors.currentRingA, 0.35);
     }
 
     if ((overlays & OverlayFlag.CurrentB) !== 0) {
-      this.ctx.strokeStyle = this.colors.currentRingB;
-      this.ctx.lineWidth = Math.max(1.1, size * 0.07);
-      this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
+      this.drawCurrentRing(x, y, size, this.colors.currentRingB, 0.28);
     }
 
     this.drawWalls(index, x, y, size);
     this.drawEndpoints(index, x, y, size);
   }
 
+  private drawCurrentRing(
+    x: number,
+    y: number,
+    size: number,
+    color: string,
+    radiusFraction: number,
+  ): void {
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const radius = size * radiusFraction;
+    const lineW = Math.max(1.2, size * 0.07);
+
+    if (size >= 12) {
+      this.ctx.shadowColor = color;
+      this.ctx.shadowBlur = size * 0.3;
+    }
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = lineW;
+    this.ctx.stroke();
+    this.ctx.shadowBlur = 0;
+  }
+
   private drawWalls(index: number, x: number, y: number, size: number): void {
     const walls = this.grid.walls[index] as number;
-    const thickness = this.settings.wallThickness ?? 0.1;
-    const wallWidth = Math.max(1, Math.floor(size * thickness));
-
-    this.ctx.lineCap = "butt";
-    this.ctx.lineJoin = "miter";
-
-    if (this.settings.showWallShadow !== false) {
-      this.ctx.strokeStyle = this.colors.wallShadow;
-      this.ctx.lineWidth = wallWidth + 1.2;
-      this.ctx.beginPath();
-      this.traceWalls(walls, x, y, size);
-      this.ctx.stroke();
+    if (walls === 0) {
+      return;
     }
 
-    this.ctx.strokeStyle = this.colors.wall;
-    this.ctx.lineWidth = wallWidth;
-    this.ctx.beginPath();
-    this.traceWalls(walls, x, y, size);
-    this.ctx.stroke();
+    const thickness = this.settings.wallThickness ?? 0.1;
+    const wallWidth = Math.max(1, Math.floor(size * thickness));
+    const hw = wallWidth / 2;
+
+    // Draw walls as filled rectangles instead of stroked lines.
+    // This eliminates gaps at corners where perpendicular walls meet,
+    // since each wall rect extends fully into the corner pixel.
+
+    if (this.settings.showWallShadow !== false) {
+      const so = 0.6; // shadow offset
+      this.ctx.fillStyle = this.colors.wallShadow;
+      if ((walls & WallFlag.North) !== 0) {
+        this.ctx.fillRect(x - so, y - hw - so, size + so * 2, wallWidth + so * 2);
+      }
+      if ((walls & WallFlag.South) !== 0) {
+        this.ctx.fillRect(x - so, y + size - hw - so, size + so * 2, wallWidth + so * 2);
+      }
+      if ((walls & WallFlag.West) !== 0) {
+        this.ctx.fillRect(x - hw - so, y - so, wallWidth + so * 2, size + so * 2);
+      }
+      if ((walls & WallFlag.East) !== 0) {
+        this.ctx.fillRect(x + size - hw - so, y - so, wallWidth + so * 2, size + so * 2);
+      }
+    }
+
+    this.ctx.fillStyle = this.colors.wall;
+    if ((walls & WallFlag.North) !== 0) {
+      this.ctx.fillRect(x, y - hw, size, wallWidth);
+    }
+    if ((walls & WallFlag.South) !== 0) {
+      this.ctx.fillRect(x, y + size - hw, size, wallWidth);
+    }
+    if ((walls & WallFlag.West) !== 0) {
+      this.ctx.fillRect(x - hw, y, wallWidth, size);
+    }
+    if ((walls & WallFlag.East) !== 0) {
+      this.ctx.fillRect(x + size - hw, y, wallWidth, size);
+    }
   }
 
   private drawEndpoints(index: number, x: number, y: number, size: number): void {
-    const markerSize = Math.max(3, Math.floor(size * 0.36));
+    const radius = Math.max(2, Math.floor(size * 0.2));
 
     if (index === 0) {
-      const sx = x + 2;
-      const sy = y + 2;
+      const cx = x + 2 + radius;
+      const cy = y + 2 + radius;
+
+      // Glow
+      if (size >= 12) {
+        this.ctx.shadowColor = this.colors.start;
+        this.ctx.shadowBlur = size * 0.5;
+      }
+
+      // Outer circle
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
       this.ctx.fillStyle = this.colors.start;
-      this.ctx.fillRect(sx, sy, markerSize, markerSize);
+      this.ctx.fill();
       this.ctx.strokeStyle = this.colors.endpointStroke;
-      this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(sx, sy, markerSize, markerSize);
-      this.ctx.fillStyle = "rgba(10, 20, 34, 0.95)";
-      this.ctx.fillRect(
-        sx + Math.max(1, Math.floor(markerSize * 0.3)),
-        sy + Math.max(1, Math.floor(markerSize * 0.3)),
-        Math.max(1, Math.floor(markerSize * 0.4)),
-        Math.max(1, Math.floor(markerSize * 0.4)),
-      );
+      this.ctx.lineWidth = Math.max(0.8, size * 0.04);
+      this.ctx.stroke();
+      this.ctx.shadowBlur = 0;
+
+      // Inner dot
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, Math.max(1, radius * 0.35), 0, Math.PI * 2);
+      this.ctx.fillStyle = "rgba(10, 20, 34, 0.9)";
+      this.ctx.fill();
     }
 
     if (index === this.grid.cellCount - 1) {
-      const gx = x + size - markerSize - 2;
-      const gy = y + size - markerSize - 2;
-      this.ctx.fillStyle = this.colors.goal;
-      this.ctx.fillRect(gx, gy, markerSize, markerSize);
-      this.ctx.strokeStyle = this.colors.endpointStroke;
-      this.ctx.lineWidth = 1;
-      this.ctx.strokeRect(gx, gy, markerSize, markerSize);
+      const cx = x + size - 2 - radius;
+      const cy = y + size - 2 - radius;
 
+      // Glow
+      if (size >= 12) {
+        this.ctx.shadowColor = this.colors.goal;
+        this.ctx.shadowBlur = size * 0.5;
+      }
+
+      // Outer circle
       this.ctx.beginPath();
-      this.ctx.moveTo(gx + 1, gy + 1);
-      this.ctx.lineTo(gx + markerSize - 1, gy + markerSize - 1);
-      this.ctx.moveTo(gx + markerSize - 1, gy + 1);
-      this.ctx.lineTo(gx + 1, gy + markerSize - 1);
+      this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = this.colors.goal;
+      this.ctx.fill();
+      this.ctx.strokeStyle = this.colors.endpointStroke;
+      this.ctx.lineWidth = Math.max(0.8, size * 0.04);
       this.ctx.stroke();
-    }
-  }
+      this.ctx.shadowBlur = 0;
 
-  private traceWalls(walls: number, x: number, y: number, size: number): void {
-    if ((walls & WallFlag.North) !== 0) {
-      this.ctx.moveTo(x, y);
-      this.ctx.lineTo(x + size, y);
-    }
-
-    if ((walls & WallFlag.East) !== 0) {
-      this.ctx.moveTo(x + size, y);
-      this.ctx.lineTo(x + size, y + size);
-    }
-
-    if ((walls & WallFlag.South) !== 0) {
-      this.ctx.moveTo(x + size, y + size);
-      this.ctx.lineTo(x, y + size);
-    }
-
-    if ((walls & WallFlag.West) !== 0) {
-      this.ctx.moveTo(x, y + size);
-      this.ctx.lineTo(x, y);
+      // Cross mark
+      const armLen = Math.max(1, radius * 0.5);
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx - armLen, cy - armLen);
+      this.ctx.lineTo(cx + armLen, cy + armLen);
+      this.ctx.moveTo(cx + armLen, cy - armLen);
+      this.ctx.lineTo(cx - armLen, cy + armLen);
+      this.ctx.strokeStyle = this.colors.endpointStroke;
+      this.ctx.lineWidth = Math.max(0.8, size * 0.05);
+      this.ctx.lineCap = "round";
+      this.ctx.stroke();
+      this.ctx.lineCap = "butt";
     }
   }
 

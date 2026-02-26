@@ -20,9 +20,9 @@ export interface ColorTheme {
 
 export const DEFAULT_COLOR_THEME: ColorTheme = {
   background: "#060a11",
-  cellA: "#121a27",
-  cellB: "#172233",
-  cellInset: "rgba(255, 255, 255, 0.02)",
+  cellA: "#141c2b",
+  cellB: "#151d2c",
+  cellInset: "rgba(255, 255, 255, 0.008)",
   wallShadow: "#02060f",
   wall: "#e2e8f0",
   visitedA: "rgba(56, 189, 248, 0.30)",
@@ -40,9 +40,9 @@ export const DEFAULT_COLOR_THEME: ColorTheme = {
 
 const OCEAN: ColorTheme = {
   background: "#020c1b",
-  cellA: "#0a192f",
-  cellB: "#0d1f3c",
-  cellInset: "rgba(100, 200, 255, 0.03)",
+  cellA: "#0b1b34",
+  cellB: "#0c1c35",
+  cellInset: "rgba(100, 200, 255, 0.008)",
   wallShadow: "#010812",
   wall: "#64ffda",
   visitedA: "rgba(0, 188, 212, 0.28)",
@@ -60,9 +60,9 @@ const OCEAN: ColorTheme = {
 
 const FOREST: ColorTheme = {
   background: "#071108",
-  cellA: "#0f1f10",
-  cellB: "#142816",
-  cellInset: "rgba(180, 255, 180, 0.02)",
+  cellA: "#112312",
+  cellB: "#122413",
+  cellInset: "rgba(180, 255, 180, 0.008)",
   wallShadow: "#030805",
   wall: "#a7c4a0",
   visitedA: "rgba(76, 175, 80, 0.30)",
@@ -80,9 +80,9 @@ const FOREST: ColorTheme = {
 
 const NEON: ColorTheme = {
   background: "#0a0a0a",
-  cellA: "#141414",
-  cellB: "#1a1a1a",
-  cellInset: "rgba(255, 255, 255, 0.02)",
+  cellA: "#161616",
+  cellB: "#171717",
+  cellInset: "rgba(255, 255, 255, 0.008)",
   wallShadow: "#050505",
   wall: "#e040fb",
   visitedA: "rgba(0, 229, 255, 0.35)",
@@ -100,9 +100,9 @@ const NEON: ColorTheme = {
 
 const WARM: ColorTheme = {
   background: "#110a06",
-  cellA: "#1f1410",
-  cellB: "#271a14",
-  cellInset: "rgba(255, 200, 150, 0.03)",
+  cellA: "#221611",
+  cellB: "#231712",
+  cellInset: "rgba(255, 200, 150, 0.008)",
   wallShadow: "#0a0503",
   wall: "#ffb74d",
   visitedA: "rgba(255, 138, 101, 0.32)",
@@ -120,9 +120,9 @@ const WARM: ColorTheme = {
 
 const MONOCHROME: ColorTheme = {
   background: "#080808",
-  cellA: "#151515",
-  cellB: "#1c1c1c",
-  cellInset: "rgba(255, 255, 255, 0.02)",
+  cellA: "#181818",
+  cellB: "#191919",
+  cellInset: "rgba(255, 255, 255, 0.008)",
   wallShadow: "#040404",
   wall: "#e0e0e0",
   visitedA: "rgba(189, 189, 189, 0.25)",
@@ -197,9 +197,9 @@ export function randomizeTheme(): ColorTheme {
 
   return {
     background: hslToHex(base, 0.3, 0.04),
-    cellA: hslToHex(base, 0.25, 0.09),
-    cellB: hslToHex(base, 0.22, 0.12),
-    cellInset: hslToRgba(base, 0.15, 0.5, 0.02),
+    cellA: hslToHex(base, 0.2, 0.10),
+    cellB: hslToHex(base, 0.2, 0.105),
+    cellInset: hslToRgba(base, 0.15, 0.5, 0.008),
     wallShadow: hslToHex(base, 0.3, 0.02),
     wall: hslToHex(base + 20, 0.15, 0.88),
     visitedA: hslToRgba(base + 180, 0.75, 0.55, 0.30),
