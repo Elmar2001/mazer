@@ -218,7 +218,7 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.metrics.dirtyCellCount += result.dirtyCells.length;
     this.recomputeDerivedMetrics();
     this.syncBattleMetricsSnapshot();
-    this.emitPatches(result.dirtyCells, result.meta);
+    this.emitPatches(result.dirtyCells, result.patches, result.meta);
   }
 
   reset(): void {
@@ -318,6 +318,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       this.accumulatorMs += delta;
 
       const dirtySet = new Set<number>();
+      const patches: CellPatch[] = [];
       let latestMeta: StepMeta | undefined;
       let stepped = false;
       let iteration = 0;
@@ -334,6 +335,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
         stepped = true;
         latestMeta = result.meta;
+        patches.push(...result.patches);
         for (const cell of result.dirtyCells) {
           dirtySet.add(cell);
         }
@@ -350,7 +352,7 @@ export class MazeEngine implements MazeEnginePublicApi {
         this.metrics.dirtyCellCount += dirtySet.size;
         this.recomputeDerivedMetrics();
         this.syncBattleMetricsSnapshot();
-        this.emitPatches(Array.from(dirtySet), latestMeta);
+        this.emitPatches(Array.from(dirtySet), patches, latestMeta);
       }
     }
 
@@ -360,7 +362,7 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   private processStep():
-    | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
+    | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
     | null {
     if (this.phase === "Generating") {
       return this.processGenerationStep();
@@ -374,7 +376,7 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   private processGenerationStep():
-    | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
+    | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
     | null {
     const stepper = this.generatorStepper;
     if (!stepper) {
@@ -406,14 +408,16 @@ export class MazeEngine implements MazeEnginePublicApi {
     return {
       done: result.done,
       dirtyCells,
+      patches: result.patches,
       meta: result.meta,
     };
   }
 
   private processSolvingStep():
-    | { done: boolean; dirtyCells: number[]; meta?: StepMeta }
+    | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
     | null {
     const dirtySet = new Set<number>();
+    const patches: CellPatch[] = [];
     let latestMeta: StepMeta | undefined;
     let anyWork = false;
 
@@ -421,6 +425,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       const result = this.processSolverRuntime(this.solverPrimary);
       anyWork = true;
       latestMeta = result.meta;
+      patches.push(...result.patches);
       for (const cell of result.dirtyCells) {
         dirtySet.add(cell);
       }
@@ -430,6 +435,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       const result = this.processSolverRuntime(this.solverSecondary);
       anyWork = true;
       latestMeta = result.meta;
+      patches.push(...result.patches);
       for (const cell of result.dirtyCells) {
         dirtySet.add(cell);
       }
@@ -440,6 +446,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       return {
         done: true,
         dirtyCells: [],
+        patches: [],
         meta: latestMeta,
       };
     }
@@ -456,12 +463,14 @@ export class MazeEngine implements MazeEnginePublicApi {
     return {
       done,
       dirtyCells: Array.from(dirtySet),
+      patches,
       meta: latestMeta,
     };
   }
 
   private processSolverRuntime(runtime: SolverRuntime): {
     dirtyCells: number[];
+    patches: CellPatch[];
     meta?: AlgorithmStepMeta;
   } {
     const computeStart = nowMs();
@@ -525,6 +534,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     return {
       dirtyCells: Array.from(dirtySet),
+      patches,
       meta: {
         ...raw.meta,
         solverRole: runtime.role,
@@ -656,11 +666,15 @@ export class MazeEngine implements MazeEnginePublicApi {
 
   private emitAllDirty(): void {
     const all = Array.from({ length: this.grid.cellCount }, (_, index) => index);
-    this.emitPatches(all, undefined);
+    this.emitPatches(all, [], undefined);
   }
 
-  private emitPatches(cells: number[], meta: StepMeta | undefined): void {
-    this.callbacks.onPatchesApplied?.(cells, meta, this.getMetrics());
+  private emitPatches(
+    cells: number[],
+    patches: CellPatch[],
+    meta: StepMeta | undefined,
+  ): void {
+    this.callbacks.onPatchesApplied?.(cells, patches, meta, this.getMetrics());
   }
 
   private emitPhase(): void {

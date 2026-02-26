@@ -8,9 +8,24 @@ import {
   type RefObject,
 } from "react";
 
-import { MazeEngine } from "@/engine/MazeEngine";
+import { applyCellPatch, type Grid } from "@/core/grid";
+import type { MazeEngineOptions } from "@/engine/types";
+import {
+  deserializeGridSnapshot,
+  type MazeWorkerCommand,
+  type MazeWorkerEvent,
+} from "@/engine/mazeWorkerProtocol";
+import {
+  createMazeWorkerRuntime,
+  type MazeWorkerRuntime,
+} from "@/engine/mazeWorkerRuntime";
 import { CanvasRenderer } from "@/render/CanvasRenderer";
-import { DEFAULT_METRICS, type MazeRuntime, useMazeStore } from "@/ui/store/mazeStore";
+import {
+  DEFAULT_METRICS,
+  type MazeRuntime,
+  type MazeSettings,
+  useMazeStore,
+} from "@/ui/store/mazeStore";
 
 export interface MazeControls {
   generate: () => void;
@@ -25,16 +40,74 @@ export interface UseMazeEngineResult {
   controls: MazeControls;
 }
 
+type MazeTransport =
+  | {
+      kind: "worker";
+      worker: Worker;
+    }
+  | {
+      kind: "fallback";
+      runtime: MazeWorkerRuntime;
+    };
+
+function toEngineOptions(settings: MazeSettings): MazeEngineOptions {
+  return {
+    width: settings.gridWidth,
+    height: settings.gridHeight,
+    speed: settings.speed,
+    seed: settings.seed,
+    generatorId: settings.generatorId,
+    solverId: settings.solverId,
+    battleMode: settings.battleMode,
+    solverBId: settings.solverBId,
+  };
+}
+
+function toRendererSettings(settings: MazeSettings) {
+  return {
+    cellSize: settings.cellSize,
+    showVisited: settings.showVisited,
+    showFrontier: settings.showFrontier,
+    showPath: settings.showPath,
+    colors: settings.colorTheme,
+    wallThickness: settings.wallThickness,
+    showWallShadow: settings.showWallShadow,
+    showCellInset: settings.showCellInset,
+  };
+}
+
+function sendCommand(
+  transport: MazeTransport | null,
+  command: MazeWorkerCommand,
+): void {
+  if (!transport) {
+    return;
+  }
+
+  if (transport.kind === "worker") {
+    transport.worker.postMessage(command);
+    return;
+  }
+
+  transport.runtime.handleCommand(command);
+}
+
 export function useMazeEngine(): UseMazeEngineResult {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const engineRef = useRef<MazeEngine | null>(null);
+  const transportRef = useRef<MazeTransport | null>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
+  const gridRef = useRef<Grid | null>(null);
+  const settingsRef = useRef(useMazeStore.getState().settings);
   const pendingRuntimeRef = useRef<Partial<MazeRuntime>>({});
   const runtimeRafRef = useRef<number | null>(null);
+  const initializedRef = useRef(false);
+  const skipFirstGridSyncRef = useRef(true);
 
   const settings = useMazeStore((state) => state.settings);
   const setRuntimeSnapshot = useMazeStore((state) => state.setRuntimeSnapshot);
   const resetRuntime = useMazeStore((state) => state.resetRuntime);
+
+  settingsRef.current = settings;
 
   const queueRuntimeUpdate = useCallback(
     (next: Partial<MazeRuntime>) => {
@@ -56,140 +129,194 @@ export function useMazeEngine(): UseMazeEngineResult {
     [setRuntimeSnapshot],
   );
 
+  const handleEvent = useCallback(
+    (event: MazeWorkerEvent) => {
+      if (event.type === "gridRebuilt") {
+        const nextGrid = deserializeGridSnapshot(event.grid);
+        gridRef.current = nextGrid;
+
+        if (rendererRef.current) {
+          rendererRef.current.setGrid(nextGrid);
+          return;
+        }
+
+        if (canvasRef.current) {
+          rendererRef.current = new CanvasRenderer(
+            canvasRef.current,
+            nextGrid,
+            toRendererSettings(settingsRef.current),
+          );
+        }
+        return;
+      }
+
+      if (event.type === "patchesApplied") {
+        const grid = gridRef.current;
+        if (grid) {
+          for (const patch of event.patches) {
+            applyCellPatch(grid, patch);
+          }
+        }
+
+        rendererRef.current?.renderDirty(event.dirtyCells);
+        return;
+      }
+
+      if (event.type === "runtimeSnapshot") {
+        queueRuntimeUpdate(event.runtime);
+        return;
+      }
+
+      if (event.type === "phaseChange") {
+        queueRuntimeUpdate({
+          phase: event.phase,
+          paused: event.paused,
+        });
+        return;
+      }
+
+      if (event.type === "error") {
+        console.error("Maze worker error:", event.message);
+      }
+    },
+    [queueRuntimeUpdate],
+  );
+
+  const dispatchCommand = useCallback((command: MazeWorkerCommand) => {
+    sendCommand(transportRef.current, command);
+  }, []);
+
   useEffect(() => {
-    const engine = new MazeEngine(
-      {
-        width: settings.gridWidth,
-        height: settings.gridHeight,
-        speed: settings.speed,
-        seed: settings.seed,
-        generatorId: settings.generatorId,
-        solverId: settings.solverId,
-        battleMode: settings.battleMode,
-        solverBId: settings.solverBId,
-      },
-      {
-        onPatchesApplied: (dirtyCells, meta, metrics) => {
-          rendererRef.current?.renderDirty(dirtyCells);
+    let disposed = false;
 
-          const line =
-            typeof meta?.line === "number" && Number.isFinite(meta.line)
-              ? Math.max(1, Math.floor(meta.line))
-              : undefined;
-          const solverRole = typeof meta?.solverRole === "string" ? meta.solverRole : undefined;
+    const tryCreateWorkerTransport = (): MazeTransport | null => {
+      if (typeof Worker === "undefined") {
+        return null;
+      }
 
-          const updates: Partial<MazeRuntime> = {
-            metrics,
-          };
+      try {
+        const worker = new Worker(
+          new URL("../../engine/maze.worker.ts", import.meta.url),
+          { type: "module" },
+        );
 
-          if (metrics.battle) {
-            updates.solverActiveLine = metrics.battle.solverA.activeLine;
-            updates.solverBActiveLine = metrics.battle.solverB.activeLine;
-          } else if (typeof line === "number" && solverRole) {
-            if (solverRole === "B") {
-              updates.solverBActiveLine = line;
-            } else {
-              updates.solverActiveLine = line;
-            }
-          } else if (typeof line === "number") {
-            updates.generatorActiveLine = line;
+        worker.onmessage = (message: MessageEvent<MazeWorkerEvent>) => {
+          if (disposed) {
+            return;
           }
 
-          queueRuntimeUpdate(updates);
-        },
-        onPhaseChange: (phase) => {
-          const paused = phase !== "Generating" && phase !== "Solving";
-          const updates: Partial<MazeRuntime> = {
-            phase,
-            paused,
-          };
+          handleEvent(message.data);
+        };
 
-          if (phase === "Idle") {
-            updates.generatorActiveLine = null;
-            updates.solverActiveLine = null;
-            updates.solverBActiveLine = null;
-          } else if (phase === "Generating") {
-            updates.solverActiveLine = null;
-            updates.solverBActiveLine = null;
-          } else if (phase === "Solving") {
-            updates.generatorActiveLine = null;
-            updates.solverActiveLine = null;
-            updates.solverBActiveLine = null;
+        worker.onerror = (error) => {
+          console.error("Maze worker runtime error:", error.message);
+        };
+
+        return {
+          kind: "worker",
+          worker,
+        };
+      } catch (error) {
+        console.warn(
+          "Maze worker unavailable, using in-thread engine fallback.",
+          error,
+        );
+        return null;
+      }
+    };
+
+    const workerTransport = tryCreateWorkerTransport();
+    const transport =
+      workerTransport ?? {
+        kind: "fallback" as const,
+        runtime: createMazeWorkerRuntime((event) => {
+          if (!disposed) {
+            handleEvent(event);
           }
+        }),
+      };
 
-          queueRuntimeUpdate(updates);
-        },
-        onGridRebuilt: (grid) => {
-          rendererRef.current?.setGrid(grid);
-        },
-      },
-    );
+    transportRef.current = transport;
+    initializedRef.current = true;
+    skipFirstGridSyncRef.current = true;
 
-    engineRef.current = engine;
-
-    if (canvasRef.current) {
-      rendererRef.current = new CanvasRenderer(canvasRef.current, engine.getGrid(), {
-        cellSize: settings.cellSize,
-        showVisited: settings.showVisited,
-        showFrontier: settings.showFrontier,
-        showPath: settings.showPath,
-        colors: settings.colorTheme,
-        wallThickness: settings.wallThickness,
-        showWallShadow: settings.showWallShadow,
-        showCellInset: settings.showCellInset,
-      });
-    }
-
-    queueRuntimeUpdate({
-      phase: engine.getPhase(),
-      paused: true,
-      metrics: engine.getMetrics(),
-      generatorActiveLine: null,
-      solverActiveLine: null,
-      solverBActiveLine: null,
+    sendCommand(transport, {
+      type: "init",
+      options: toEngineOptions(settingsRef.current),
     });
 
     return () => {
+      disposed = true;
+      initializedRef.current = false;
+      skipFirstGridSyncRef.current = true;
+
       if (runtimeRafRef.current !== null) {
         cancelAnimationFrame(runtimeRafRef.current);
         runtimeRafRef.current = null;
       }
 
+      pendingRuntimeRef.current = {};
       rendererRef.current = null;
-      engine.destroy();
-      engineRef.current = null;
+      gridRef.current = null;
+
+      const currentTransport = transportRef.current;
+      transportRef.current = null;
+
+      if (!currentTransport) {
+        return;
+      }
+
+      if (currentTransport.kind === "worker") {
+        currentTransport.worker.postMessage({ type: "dispose" });
+        currentTransport.worker.terminate();
+        return;
+      }
+
+      currentTransport.runtime.dispose();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [handleEvent]);
 
   useEffect(() => {
-    if (!rendererRef.current && canvasRef.current && engineRef.current) {
-      rendererRef.current = new CanvasRenderer(canvasRef.current, engineRef.current.getGrid(), {
-        cellSize: settings.cellSize,
-        showVisited: settings.showVisited,
-        showFrontier: settings.showFrontier,
-        showPath: settings.showPath,
-        colors: settings.colorTheme,
-      });
+    if (!rendererRef.current && canvasRef.current && gridRef.current) {
+      rendererRef.current = new CanvasRenderer(
+        canvasRef.current,
+        gridRef.current,
+        toRendererSettings(settings),
+      );
     }
-  }, [settings.cellSize, settings.colorTheme, settings.showCellInset, settings.showFrontier, settings.showPath, settings.showVisited, settings.showWallShadow, settings.wallThickness]);
+  }, [
+    settings.cellSize,
+    settings.colorTheme,
+    settings.showCellInset,
+    settings.showFrontier,
+    settings.showPath,
+    settings.showVisited,
+    settings.showWallShadow,
+    settings.wallThickness,
+  ]);
 
   useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) {
+    if (!initializedRef.current) {
       return;
     }
 
-    engine.setOptions({
-      seed: settings.seed,
-      generatorId: settings.generatorId,
-      solverId: settings.solverId,
-      battleMode: settings.battleMode,
-      solverBId: settings.solverBId,
+    dispatchCommand({
+      type: "setOptions",
+      options: {
+        seed: settings.seed,
+        generatorId: settings.generatorId,
+        solverId: settings.solverId,
+        battleMode: settings.battleMode,
+        solverBId: settings.solverBId,
+        speed: settings.speed,
+      },
+    });
+    dispatchCommand({
+      type: "setSpeed",
       speed: settings.speed,
     });
-    engine.setSpeed(settings.speed);
   }, [
+    dispatchCommand,
     settings.battleMode,
     settings.generatorId,
     settings.seed,
@@ -199,12 +326,20 @@ export function useMazeEngine(): UseMazeEngineResult {
   ]);
 
   useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) {
+    if (!initializedRef.current) {
       return;
     }
 
-    engine.rebuildGrid(settings.gridWidth, settings.gridHeight);
+    if (skipFirstGridSyncRef.current) {
+      skipFirstGridSyncRef.current = false;
+      return;
+    }
+
+    dispatchCommand({
+      type: "rebuildGrid",
+      width: settings.gridWidth,
+      height: settings.gridHeight,
+    });
     queueRuntimeUpdate({
       phase: "Idle",
       paused: true,
@@ -213,112 +348,92 @@ export function useMazeEngine(): UseMazeEngineResult {
       solverActiveLine: null,
       solverBActiveLine: null,
     });
-  }, [settings.gridHeight, settings.gridWidth, queueRuntimeUpdate]);
+  }, [
+    dispatchCommand,
+    queueRuntimeUpdate,
+    settings.gridHeight,
+    settings.gridWidth,
+  ]);
 
   useEffect(() => {
-    rendererRef.current?.setSettings({
-      cellSize: settings.cellSize,
-      showVisited: settings.showVisited,
-      showFrontier: settings.showFrontier,
-      showPath: settings.showPath,
-      colors: settings.colorTheme,
-      wallThickness: settings.wallThickness,
-      showWallShadow: settings.showWallShadow,
-      showCellInset: settings.showCellInset,
-    });
-  }, [settings.cellSize, settings.colorTheme, settings.showCellInset, settings.showFrontier, settings.showPath, settings.showVisited, settings.showWallShadow, settings.wallThickness]);
+    rendererRef.current?.setSettings(toRendererSettings(settings));
+  }, [
+    settings.cellSize,
+    settings.colorTheme,
+    settings.showCellInset,
+    settings.showFrontier,
+    settings.showPath,
+    settings.showVisited,
+    settings.showWallShadow,
+    settings.wallThickness,
+  ]);
 
   const syncEngineOptions = useCallback(() => {
-    const engine = engineRef.current;
-    if (!engine) {
-      return null;
-    }
-
     const store = useMazeStore.getState().settings;
-    engine.setOptions({
-      width: store.gridWidth,
-      height: store.gridHeight,
-      speed: store.speed,
-      seed: store.seed,
-      generatorId: store.generatorId,
-      solverId: store.solverId,
-      battleMode: store.battleMode,
-      solverBId: store.solverBId,
-    });
-    engine.setSpeed(store.speed);
 
-    return engine;
-  }, []);
+    dispatchCommand({
+      type: "setOptions",
+      options: {
+        width: store.gridWidth,
+        height: store.gridHeight,
+        speed: store.speed,
+        seed: store.seed,
+        generatorId: store.generatorId,
+        solverId: store.solverId,
+        battleMode: store.battleMode,
+        solverBId: store.solverBId,
+      },
+    });
+    dispatchCommand({
+      type: "setSpeed",
+      speed: store.speed,
+    });
+  }, [dispatchCommand]);
 
   const controls = useMemo<MazeControls>(
     () => ({
       generate: () => {
-        const engine = syncEngineOptions();
-        if (!engine) {
-          return;
-        }
-
-        engine.startGeneration();
+        syncEngineOptions();
+        dispatchCommand({ type: "generate" });
         queueRuntimeUpdate({
           paused: false,
-          metrics: engine.getMetrics(),
           generatorActiveLine: null,
           solverActiveLine: null,
           solverBActiveLine: null,
         });
       },
       solve: () => {
-        const engine = syncEngineOptions();
-        if (!engine) {
-          return;
-        }
-
-        engine.startSolving();
+        syncEngineOptions();
+        dispatchCommand({ type: "solve" });
         queueRuntimeUpdate({
           paused: false,
-          metrics: engine.getMetrics(),
           generatorActiveLine: null,
           solverActiveLine: null,
           solverBActiveLine: null,
         });
       },
       pauseResume: () => {
-        const engine = engineRef.current;
-        if (!engine) {
-          return;
-        }
-
         const runtime = useMazeStore.getState().runtime;
         if (runtime.paused) {
-          engine.resume();
+          dispatchCommand({ type: "resume" });
           queueRuntimeUpdate({ paused: false });
           return;
         }
 
-        engine.pause();
+        dispatchCommand({ type: "pause" });
         queueRuntimeUpdate({ paused: true });
       },
       stepOnce: () => {
-        const engine = engineRef.current;
-        if (!engine) {
-          return;
-        }
-
-        engine.pause();
+        dispatchCommand({ type: "stepOnce" });
         queueRuntimeUpdate({ paused: true });
-        engine.stepOnce();
       },
       reset: () => {
-        const engine = syncEngineOptions();
-        if (!engine) {
-          return;
-        }
-
-        engine.reset();
+        syncEngineOptions();
+        dispatchCommand({ type: "reset" });
         resetRuntime();
       },
     }),
-    [queueRuntimeUpdate, resetRuntime, syncEngineOptions],
+    [dispatchCommand, queueRuntimeUpdate, resetRuntime, syncEngineOptions],
   );
 
   return {

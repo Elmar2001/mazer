@@ -1,5 +1,5 @@
 import type { Grid } from "@/core/grid";
-import type { StepMeta } from "@/core/patches";
+import type { CellPatch, StepMeta } from "@/core/patches";
 import type { GeneratorPluginId } from "@/core/plugins/generators";
 import type { SolverPluginId } from "@/core/plugins/solvers";
 
@@ -65,6 +65,7 @@ export interface MazeEngineOptions {
 export interface MazeEngineCallbacks {
   onPatchesApplied?: (
     dirtyCells: number[],
+    patches: CellPatch[],
     meta: StepMeta | undefined,
     metrics: MazeMetrics,
   ) => void;
