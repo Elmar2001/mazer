@@ -133,6 +133,10 @@ export function useMazeEngine(): UseMazeEngineResult {
         showVisited: settings.showVisited,
         showFrontier: settings.showFrontier,
         showPath: settings.showPath,
+        colors: settings.colorTheme,
+        wallThickness: settings.wallThickness,
+        showWallShadow: settings.showWallShadow,
+        showCellInset: settings.showCellInset,
       });
     }
 
@@ -165,9 +169,10 @@ export function useMazeEngine(): UseMazeEngineResult {
         showVisited: settings.showVisited,
         showFrontier: settings.showFrontier,
         showPath: settings.showPath,
+        colors: settings.colorTheme,
       });
     }
-  }, [settings.cellSize, settings.showFrontier, settings.showPath, settings.showVisited]);
+  }, [settings.cellSize, settings.colorTheme, settings.showCellInset, settings.showFrontier, settings.showPath, settings.showVisited, settings.showWallShadow, settings.wallThickness]);
 
   useEffect(() => {
     const engine = engineRef.current;
@@ -216,8 +221,12 @@ export function useMazeEngine(): UseMazeEngineResult {
       showVisited: settings.showVisited,
       showFrontier: settings.showFrontier,
       showPath: settings.showPath,
+      colors: settings.colorTheme,
+      wallThickness: settings.wallThickness,
+      showWallShadow: settings.showWallShadow,
+      showCellInset: settings.showCellInset,
     });
-  }, [settings.cellSize, settings.showFrontier, settings.showPath, settings.showVisited]);
+  }, [settings.cellSize, settings.colorTheme, settings.showCellInset, settings.showFrontier, settings.showPath, settings.showVisited, settings.showWallShadow, settings.wallThickness]);
 
   const syncEngineOptions = useCallback(() => {
     const engine = engineRef.current;

@@ -4,6 +4,7 @@ import type { GeneratorPluginId } from "@/core/plugins/generators";
 import type { SolverPluginId } from "@/core/plugins/solvers";
 import type { MazeMetrics, MazePhase } from "@/engine/types";
 import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
+import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
 export interface MazeSettings {
   generatorId: GeneratorPluginId;
@@ -18,6 +19,10 @@ export interface MazeSettings {
   showVisited: boolean;
   showFrontier: boolean;
   showPath: boolean;
+  colorTheme: ColorTheme;
+  wallThickness: number;
+  showWallShadow: boolean;
+  showCellInset: boolean;
 }
 
 export interface MazeUI {
@@ -52,6 +57,11 @@ interface MazeStore {
   setShowVisited: (value: boolean) => void;
   setShowFrontier: (value: boolean) => void;
   setShowPath: (value: boolean) => void;
+  setColorTheme: (theme: ColorTheme) => void;
+  setColorProperty: (key: keyof ColorTheme, value: string) => void;
+  setWallThickness: (value: number) => void;
+  setShowWallShadow: (value: boolean) => void;
+  setShowCellInset: (value: boolean) => void;
   setRuntimeSnapshot: (snapshot: Partial<MazeRuntime>) => void;
   resetRuntime: () => void;
   toggleSidebar: () => void;
@@ -89,6 +99,10 @@ const DEFAULT_SETTINGS: MazeSettings = {
   showVisited: true,
   showFrontier: true,
   showPath: true,
+  colorTheme: { ...DEFAULT_COLOR_THEME },
+  wallThickness: 0.1,
+  showWallShadow: true,
+  showCellInset: true,
 };
 
 const DEFAULT_RUNTIME: MazeRuntime = {
@@ -201,6 +215,44 @@ export const useMazeStore = create<MazeStore>((set) => ({
       settings: {
         ...state.settings,
         showPath: value,
+      },
+    })),
+  setColorTheme: (theme) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        colorTheme: theme,
+      },
+    })),
+  setColorProperty: (key, value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        colorTheme: {
+          ...state.settings.colorTheme,
+          [key]: value,
+        },
+      },
+    })),
+  setWallThickness: (value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        wallThickness: Math.max(0.02, Math.min(0.3, value)),
+      },
+    })),
+  setShowWallShadow: (value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        showWallShadow: value,
+      },
+    })),
+  setShowCellInset: (value) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        showCellInset: value,
       },
     })),
   setRuntimeSnapshot: (snapshot) =>

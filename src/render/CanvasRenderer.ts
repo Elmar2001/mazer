@@ -1,31 +1,16 @@
 import { OverlayFlag, WallFlag, type Grid } from "@/core/grid";
+import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
 export interface CanvasRendererSettings {
   cellSize: number;
   showVisited: boolean;
   showFrontier: boolean;
   showPath: boolean;
+  colors?: ColorTheme;
+  wallThickness?: number;
+  showWallShadow?: boolean;
+  showCellInset?: boolean;
 }
-
-const COLORS = {
-  background: "#060a11",
-  cellA: "#121a27",
-  cellB: "#172233",
-  cellInset: "rgba(255, 255, 255, 0.02)",
-  wallShadow: "#02060f",
-  wall: "#e2e8f0",
-  visitedA: "rgba(56, 189, 248, 0.30)",
-  frontierA: "rgba(250, 204, 21, 0.42)",
-  pathA: "rgba(16, 185, 129, 0.76)",
-  visitedB: "rgba(244, 114, 182, 0.32)",
-  frontierB: "rgba(251, 113, 133, 0.52)",
-  pathB: "rgba(249, 115, 22, 0.75)",
-  start: "#22d3ee",
-  goal: "#fb7185",
-  endpointStroke: "rgba(241, 245, 249, 0.9)",
-  currentRingA: "rgba(186, 230, 253, 0.95)",
-  currentRingB: "rgba(253, 186, 116, 0.95)",
-};
 
 export class CanvasRenderer {
   private readonly canvas: HTMLCanvasElement;
@@ -35,6 +20,8 @@ export class CanvasRenderer {
   private grid: Grid;
 
   private settings: CanvasRendererSettings;
+
+  private colors: ColorTheme;
 
   private dpr = 1;
 
@@ -52,6 +39,7 @@ export class CanvasRenderer {
     this.ctx = context;
     this.grid = grid;
     this.settings = settings;
+    this.colors = settings.colors ?? DEFAULT_COLOR_THEME;
 
     this.resize();
     this.renderAll();
@@ -68,6 +56,10 @@ export class CanvasRenderer {
       ...this.settings,
       ...settings,
     };
+
+    if (settings.colors) {
+      this.colors = settings.colors;
+    }
 
     this.resize();
     this.renderAll();
@@ -92,7 +84,7 @@ export class CanvasRenderer {
     const widthPx = this.grid.width * this.settings.cellSize;
     const heightPx = this.grid.height * this.settings.cellSize;
 
-    this.ctx.fillStyle = COLORS.background;
+    this.ctx.fillStyle = this.colors.background;
     this.ctx.fillRect(0, 0, widthPx, heightPx);
 
     for (let index = 0; index < this.grid.cellCount; index += 1) {
@@ -118,54 +110,54 @@ export class CanvasRenderer {
     const row = Math.floor(index / this.grid.width);
     const col = index % this.grid.width;
 
-    this.ctx.fillStyle = ((row + col) & 1) === 0 ? COLORS.cellA : COLORS.cellB;
+    this.ctx.fillStyle = ((row + col) & 1) === 0 ? this.colors.cellA : this.colors.cellB;
     this.ctx.fillRect(x, y, size, size);
-    if (size > 9) {
-      this.ctx.fillStyle = COLORS.cellInset;
+    if (size > 9 && this.settings.showCellInset !== false) {
+      this.ctx.fillStyle = this.colors.cellInset;
       this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
     }
 
     const overlays = this.grid.overlays[index] as number;
 
     if (this.settings.showVisited && (overlays & OverlayFlag.Visited) !== 0) {
-      this.ctx.fillStyle = COLORS.visitedA;
+      this.ctx.fillStyle = this.colors.visitedA;
       this.ctx.fillRect(x + 1, y + 1, Math.max(1, size - 2), Math.max(1, size - 2));
     }
 
     if (this.settings.showVisited && (overlays & OverlayFlag.VisitedB) !== 0) {
-      this.ctx.fillStyle = COLORS.visitedB;
+      this.ctx.fillStyle = this.colors.visitedB;
       this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
     }
 
     if (this.settings.showFrontier && (overlays & OverlayFlag.Frontier) !== 0) {
-      this.ctx.fillStyle = COLORS.frontierA;
+      this.ctx.fillStyle = this.colors.frontierA;
       this.ctx.fillRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
     }
 
     if (this.settings.showFrontier && (overlays & OverlayFlag.FrontierB) !== 0) {
-      this.ctx.strokeStyle = COLORS.frontierB;
+      this.ctx.strokeStyle = this.colors.frontierB;
       this.ctx.lineWidth = 1.2;
       this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
 
     if (this.settings.showPath && (overlays & OverlayFlag.Path) !== 0) {
-      this.ctx.fillStyle = COLORS.pathA;
+      this.ctx.fillStyle = this.colors.pathA;
       this.ctx.fillRect(x + 3, y + 3, Math.max(1, size - 6), Math.max(1, size - 6));
     }
 
     if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
-      this.ctx.fillStyle = COLORS.pathB;
+      this.ctx.fillStyle = this.colors.pathB;
       this.ctx.fillRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
 
     if ((overlays & OverlayFlag.Current) !== 0) {
-      this.ctx.strokeStyle = COLORS.currentRingA;
+      this.ctx.strokeStyle = this.colors.currentRingA;
       this.ctx.lineWidth = Math.max(1.1, size * 0.08);
       this.ctx.strokeRect(x + 2, y + 2, Math.max(1, size - 4), Math.max(1, size - 4));
     }
 
     if ((overlays & OverlayFlag.CurrentB) !== 0) {
-      this.ctx.strokeStyle = COLORS.currentRingB;
+      this.ctx.strokeStyle = this.colors.currentRingB;
       this.ctx.lineWidth = Math.max(1.1, size * 0.07);
       this.ctx.strokeRect(x + 4, y + 4, Math.max(1, size - 8), Math.max(1, size - 8));
     }
@@ -176,18 +168,21 @@ export class CanvasRenderer {
 
   private drawWalls(index: number, x: number, y: number, size: number): void {
     const walls = this.grid.walls[index] as number;
-    const wallWidth = Math.max(1, Math.floor(size * 0.1));
+    const thickness = this.settings.wallThickness ?? 0.1;
+    const wallWidth = Math.max(1, Math.floor(size * thickness));
 
     this.ctx.lineCap = "butt";
     this.ctx.lineJoin = "miter";
 
-    this.ctx.strokeStyle = COLORS.wallShadow;
-    this.ctx.lineWidth = wallWidth + 1.2;
-    this.ctx.beginPath();
-    this.traceWalls(walls, x, y, size);
-    this.ctx.stroke();
+    if (this.settings.showWallShadow !== false) {
+      this.ctx.strokeStyle = this.colors.wallShadow;
+      this.ctx.lineWidth = wallWidth + 1.2;
+      this.ctx.beginPath();
+      this.traceWalls(walls, x, y, size);
+      this.ctx.stroke();
+    }
 
-    this.ctx.strokeStyle = COLORS.wall;
+    this.ctx.strokeStyle = this.colors.wall;
     this.ctx.lineWidth = wallWidth;
     this.ctx.beginPath();
     this.traceWalls(walls, x, y, size);
@@ -200,9 +195,9 @@ export class CanvasRenderer {
     if (index === 0) {
       const sx = x + 2;
       const sy = y + 2;
-      this.ctx.fillStyle = COLORS.start;
+      this.ctx.fillStyle = this.colors.start;
       this.ctx.fillRect(sx, sy, markerSize, markerSize);
-      this.ctx.strokeStyle = COLORS.endpointStroke;
+      this.ctx.strokeStyle = this.colors.endpointStroke;
       this.ctx.lineWidth = 1;
       this.ctx.strokeRect(sx, sy, markerSize, markerSize);
       this.ctx.fillStyle = "rgba(10, 20, 34, 0.95)";
@@ -217,9 +212,9 @@ export class CanvasRenderer {
     if (index === this.grid.cellCount - 1) {
       const gx = x + size - markerSize - 2;
       const gy = y + size - markerSize - 2;
-      this.ctx.fillStyle = COLORS.goal;
+      this.ctx.fillStyle = this.colors.goal;
       this.ctx.fillRect(gx, gy, markerSize, markerSize);
-      this.ctx.strokeStyle = COLORS.endpointStroke;
+      this.ctx.strokeStyle = this.colors.endpointStroke;
       this.ctx.lineWidth = 1;
       this.ctx.strokeRect(gx, gy, markerSize, markerSize);
 

@@ -7,6 +7,7 @@ import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 import type { MazeControls } from "@/ui/hooks/useMazeEngine";
 import { GENERATOR_OPTIONS, SOLVER_OPTIONS } from "@/ui/constants/algorithms";
 import { useMazeStore } from "@/ui/store/mazeStore";
+import { MazeConfigPanel } from "@/ui/components/MazeConfigPanel";
 
 interface ControlPanelProps {
   controls: MazeControls;
@@ -68,6 +69,8 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   const toggleSidebar = useMazeStore((state) => state.toggleSidebar);
   const toggleMetricsHud = useMazeStore((state) => state.toggleMetricsHud);
   const toggleTraceHud = useMazeStore((state) => state.toggleTraceHud);
+
+  const [colorPopupOpen, setColorPopupOpen] = useState(false);
 
   const canSolve = runtime.phase === "Generated" || runtime.phase === "Solved";
   const canPlaybackControl =
@@ -227,9 +230,13 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           T
         </button>
         <div className="iconRailSpacer" />
+        <button type="button" className="iconRailBtn" onClick={() => setColorPopupOpen(true)} title="Maze Config">
+          &#x2699;
+        </button>
         <Link href="/docs" className="iconRailBtn" title="Documentation">
           ?
         </Link>
+        {colorPopupOpen && <MazeConfigPanel onClose={() => setColorPopupOpen(false)} />}
       </section>
     );
   }
@@ -393,8 +400,12 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       </AccordionSection>
 
       <div className="sidebarFooter">
+        <button type="button" className="csGearBtn" onClick={() => setColorPopupOpen(true)} title="Maze Config">
+          &#x2699; Maze Config
+        </button>
         <p className="shortcutHint">G generate  S solve  Space pause  N step  R reset  [ sidebar  M metrics  T trace</p>
       </div>
+      {colorPopupOpen && <MazeConfigPanel onClose={() => setColorPopupOpen(false)} />}
     </section>
   );
 }
