@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 
 import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
@@ -17,9 +17,41 @@ const GRID_MAX = 120;
 const CELL_MIN = 8;
 const CELL_MAX = 32;
 
+function AccordionSection({
+  title,
+  icon,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  icon: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <section className={`accordionSection ${open ? "accordionOpen" : ""}`}>
+      <button
+        type="button"
+        className="accordionTrigger"
+        onClick={() => setOpen(!open)}
+      >
+        <span className="accordionIcon">{icon}</span>
+        <span className="accordionLabel">{title}</span>
+        <span className={`accordionChevron ${open ? "chevronOpen" : ""}`}>
+          &#x25B8;
+        </span>
+      </button>
+      {open && <div className="accordionBody">{children}</div>}
+    </section>
+  );
+}
+
 export function ControlPanel({ controls }: ControlPanelProps) {
   const settings = useMazeStore((state) => state.settings);
   const runtime = useMazeStore((state) => state.runtime);
+  const ui = useMazeStore((state) => state.ui);
 
   const setGeneratorId = useMazeStore((state) => state.setGeneratorId);
   const setSolverId = useMazeStore((state) => state.setSolverId);
@@ -33,6 +65,9 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   const setShowVisited = useMazeStore((state) => state.setShowVisited);
   const setShowFrontier = useMazeStore((state) => state.setShowFrontier);
   const setShowPath = useMazeStore((state) => state.setShowPath);
+  const toggleSidebar = useMazeStore((state) => state.toggleSidebar);
+  const toggleMetricsHud = useMazeStore((state) => state.toggleMetricsHud);
+  const toggleTraceHud = useMazeStore((state) => state.toggleTraceHud);
 
   const canSolve = runtime.phase === "Generated" || runtime.phase === "Solved";
   const canPlaybackControl =
@@ -140,330 +175,226 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       if (event.key === " " && canPlaybackControl) {
         event.preventDefault();
         controls.pauseResume();
+        return;
+      }
+
+      if (key === "m") {
+        toggleMetricsHud();
+        return;
+      }
+
+      if (key === "t") {
+        toggleTraceHud();
+        return;
+      }
+
+      if (key === "[") {
+        toggleSidebar();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canPlaybackControl, canSolve, controls]);
+  }, [canPlaybackControl, canSolve, controls, toggleMetricsHud, toggleTraceHud, toggleSidebar]);
+
+  if (ui.sidebarCollapsed) {
+    return (
+      <section className="controlPanel controlPanelCollapsed">
+        <button type="button" className="iconRailBtn" onClick={toggleSidebar} title="Expand sidebar">
+          &#x25B6;
+        </button>
+        <div className="iconRailDivider" />
+        <button type="button" className="iconRailBtn iconRailPrimary" onClick={controls.generate} title="Generate (G)">
+          &#x25B6;
+        </button>
+        <button type="button" className="iconRailBtn iconRailAccent" onClick={controls.solve} disabled={!canSolve} title="Solve (S)">
+          &#x26A1;
+        </button>
+        <button type="button" className="iconRailBtn" onClick={controls.pauseResume} disabled={!canPlaybackControl} title="Pause/Resume">
+          {runtime.paused ? "\u23F5" : "\u23F8"}
+        </button>
+        <button type="button" className="iconRailBtn" onClick={controls.stepOnce} disabled={!canPlaybackControl} title="Step (N)">
+          &#x23ED;
+        </button>
+        <button type="button" className="iconRailBtn iconRailDanger" onClick={controls.reset} title="Reset (R)">
+          &#x21BB;
+        </button>
+        <div className="iconRailDivider" />
+        <button type="button" className={`iconRailBtn ${ui.showMetricsHud ? "iconRailActive" : ""}`} onClick={toggleMetricsHud} title="Toggle Metrics (M)">
+          M
+        </button>
+        <button type="button" className={`iconRailBtn ${ui.showTraceHud ? "iconRailActive" : ""}`} onClick={toggleTraceHud} title="Toggle Trace (T)">
+          T
+        </button>
+        <div className="iconRailSpacer" />
+        <Link href="/docs" className="iconRailBtn" title="Documentation">
+          ?
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section className="controlPanel">
-      <div className="panelTop">
-        <div>
+      <div className="sidebarHeader">
+        <div className="sidebarBrand">
           <h1>Mazer</h1>
-          <p className="subtitle">Deterministic canvas maze lab.</p>
+          <div className="sidebarPills">
+            <span className={`pill phase${runtime.phase}`}>{runtime.phase}</span>
+            <span className={`pill ${runtime.paused ? "pillMuted" : "pillLive"}`}>
+              {runtime.paused ? "Idle" : "Live"}
+            </span>
+            {settings.battleMode && <span className="pill pillBattle">VS</span>}
+          </div>
         </div>
-        <Link href="/docs" className="docsLink">
-          Docs
-        </Link>
-      </div>
-
-      <div className="panelTopMeta">
-        <span className={`statusPill status${runtime.phase}`}>{runtime.phase}</span>
-        <span className={`statusPill ${runtime.paused ? "statusPaused" : "statusRunning"}`}>
-          {runtime.paused ? "Paused" : "Running"}
-        </span>
-        {settings.battleMode ? <span className="modePill">Battle Mode</span> : null}
-      </div>
-
-      <div className="controlQuickStats">
-        <article>
-          <span>Generators</span>
-          <strong>{GENERATOR_OPTIONS.length}</strong>
-        </article>
-        <article>
-          <span>Solvers</span>
-          <strong>{SOLVER_OPTIONS.length}</strong>
-        </article>
-        <article>
-          <span>Grid</span>
-          <strong>
-            {settings.gridWidth} x {settings.gridHeight}
-          </strong>
-        </article>
-      </div>
-
-      <section className="actionDock">
-        <div className="actionDockGrid">
-          <button type="button" className="btnPrimary" onClick={controls.generate}>
-            Generate
-          </button>
-          <button
-            type="button"
-            className="btnAccent"
-            onClick={controls.solve}
-            disabled={!canSolve}
-          >
-            Solve
-          </button>
-          <button
-            type="button"
-            className="btnGhost"
-            onClick={controls.pauseResume}
-            disabled={!canPlaybackControl}
-          >
-            {runtime.paused ? "Resume" : "Pause"}
-          </button>
-          <button
-            type="button"
-            className="btnGhost"
-            onClick={controls.stepOnce}
-            disabled={!canPlaybackControl}
-          >
-            Step
-          </button>
-          <button type="button" className="btnDanger" onClick={controls.reset}>
-            Reset
+        <div className="sidebarActions">
+          <Link href="/docs" className="sidebarIconBtn" title="Documentation">?</Link>
+          <button type="button" className="sidebarIconBtn" onClick={toggleSidebar} title="Collapse sidebar ([)">
+            &#x25C0;
           </button>
         </div>
-      </section>
+      </div>
 
-      <section className="controlGroup">
-        <h4>Algorithms</h4>
-        <div className="controlFieldGrid">
-          <label>
-            Generator
-            <select
-              value={settings.generatorId}
-              onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
-            >
-              {GENERATOR_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Solver A
-            <select
-              value={settings.solverId}
-              onChange={onSolverAChange}
-            >
-              {SOLVER_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="labelWide">
-            Seed
-            <input
-              type="text"
-              value={settings.seed}
-              onChange={(event) => setSeed(event.currentTarget.value)}
-            />
-          </label>
-        </div>
-      </section>
+      <AccordionSection title="Algorithms" icon="&#x2699;" defaultOpen>
+        <label className="field">
+          <span className="fieldLabel">Generator</span>
+          <select
+            value={settings.generatorId}
+            onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
+          >
+            {GENERATOR_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="fieldLabel">Solver</span>
+          <select value={settings.solverId} onChange={onSolverAChange}>
+            {SOLVER_OPTIONS.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="fieldLabel">Seed</span>
+          <input
+            type="text"
+            value={settings.seed}
+            onChange={(event) => setSeed(event.currentTarget.value)}
+          />
+        </label>
+      </AccordionSection>
 
-      <fieldset className="controlGroup">
-        <legend>Battle Setup</legend>
-        <label className="toggleRow toggleRowAccent">
+      <AccordionSection title="Battle Mode" icon="&#x2694;" defaultOpen={false}>
+        <label className="toggleRow">
           <input
             type="checkbox"
             checked={settings.battleMode}
             onChange={onBattleModeChange}
           />
-          Compare two solvers side by side
+          <span>Compare two solvers</span>
         </label>
-        <label>
-          Solver B
+        <label className="field">
+          <span className="fieldLabel">Solver B</span>
           <select
             value={settings.solverBId}
             onChange={onSolverBChange}
             disabled={!settings.battleMode}
           >
             {SOLVER_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
+              <option key={option.id} value={option.id}>{option.label}</option>
             ))}
           </select>
         </label>
-        {settings.battleMode ? (
+        {settings.battleMode && (
           <div className="battleLegend">
             <span className="legendItem">
-              <i className="legendSwatch legendSwatchA" />
-              Solver A overlays
+              <i className="legendSwatch legendSwatchA" /> Solver A
             </span>
             <span className="legendItem">
-              <i className="legendSwatch legendSwatchB" />
-              Solver B overlays
+              <i className="legendSwatch legendSwatchB" /> Solver B
             </span>
           </div>
-        ) : null}
-      </fieldset>
+        )}
+      </AccordionSection>
 
-      <section className="controlGroup">
-        <h4>Grid + Speed</h4>
+      <AccordionSection title="Grid & Speed" icon="&#x2630;" defaultOpen>
         <div className="sliderField">
-          <div>
+          <div className="sliderHeader">
             <span>Speed</span>
-            <strong>{settings.speed} steps/s</strong>
+            <span className="sliderValue">{settings.speed} sps</span>
           </div>
           <div className="sliderRow">
-            <input
-              type="range"
-              min={SPEED_MIN}
-              max={SPEED_MAX}
-              value={settings.speed}
-              onChange={(event) => setSpeed(Number(event.currentTarget.value))}
-            />
-            <input
-              className="sliderNumber"
-              type="number"
-              min={SPEED_MIN}
-              max={SPEED_MAX}
-              value={settings.speed}
-              onChange={onNumberChange(setSpeed)}
-            />
+            <input type="range" min={SPEED_MIN} max={SPEED_MAX} value={settings.speed} onChange={(e) => setSpeed(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={SPEED_MIN} max={SPEED_MAX} value={settings.speed} onChange={onNumberChange(setSpeed)} />
           </div>
         </div>
         <div className="sliderField">
-          <div>
-            <span>Grid Width</span>
-            <strong>{settings.gridWidth}</strong>
+          <div className="sliderHeader">
+            <span>Width</span>
+            <span className="sliderValue">{settings.gridWidth}</span>
           </div>
           <div className="sliderRow">
-            <input
-              type="range"
-              min={GRID_MIN}
-              max={GRID_MAX}
-              value={settings.gridWidth}
-              onChange={(event) => setGridWidth(Number(event.currentTarget.value))}
-            />
-            <input
-              className="sliderNumber"
-              type="number"
-              min={GRID_MIN}
-              max={GRID_MAX}
-              value={settings.gridWidth}
-              onChange={onNumberChange(setGridWidth)}
-            />
+            <input type="range" min={GRID_MIN} max={GRID_MAX} value={settings.gridWidth} onChange={(e) => setGridWidth(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={GRID_MIN} max={GRID_MAX} value={settings.gridWidth} onChange={onNumberChange(setGridWidth)} />
           </div>
         </div>
         <div className="sliderField">
-          <div>
-            <span>Grid Height</span>
-            <strong>{settings.gridHeight}</strong>
+          <div className="sliderHeader">
+            <span>Height</span>
+            <span className="sliderValue">{settings.gridHeight}</span>
           </div>
           <div className="sliderRow">
-            <input
-              type="range"
-              min={GRID_MIN}
-              max={GRID_MAX}
-              value={settings.gridHeight}
-              onChange={(event) => setGridHeight(Number(event.currentTarget.value))}
-            />
-            <input
-              className="sliderNumber"
-              type="number"
-              min={GRID_MIN}
-              max={GRID_MAX}
-              value={settings.gridHeight}
-              onChange={onNumberChange(setGridHeight)}
-            />
+            <input type="range" min={GRID_MIN} max={GRID_MAX} value={settings.gridHeight} onChange={(e) => setGridHeight(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={GRID_MIN} max={GRID_MAX} value={settings.gridHeight} onChange={onNumberChange(setGridHeight)} />
           </div>
         </div>
         <div className="sliderField">
-          <div>
+          <div className="sliderHeader">
             <span>Cell Size</span>
-            <strong>{settings.cellSize}px</strong>
+            <span className="sliderValue">{settings.cellSize}px</span>
           </div>
           <div className="sliderRow">
-            <input
-              type="range"
-              min={CELL_MIN}
-              max={CELL_MAX}
-              value={settings.cellSize}
-              onChange={(event) => setCellSize(Number(event.currentTarget.value))}
-            />
-            <input
-              className="sliderNumber"
-              type="number"
-              min={CELL_MIN}
-              max={CELL_MAX}
-              value={settings.cellSize}
-              onChange={onNumberChange(setCellSize)}
-            />
+            <input type="range" min={CELL_MIN} max={CELL_MAX} value={settings.cellSize} onChange={(e) => setCellSize(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={CELL_MIN} max={CELL_MAX} value={settings.cellSize} onChange={onNumberChange(setCellSize)} />
           </div>
         </div>
         <div className="presetRow">
-          <button
-            type="button"
-            className="presetBtn"
-            onClick={() => {
-              setGridWidth(25);
-              setGridHeight(15);
-              setCellSize(20);
-            }}
-          >
-            Compact
-          </button>
-          <button
-            type="button"
-            className="presetBtn"
-            onClick={() => {
-              setGridWidth(40);
-              setGridHeight(25);
-              setCellSize(16);
-            }}
-          >
-            Default
-          </button>
-          <button
-            type="button"
-            className="presetBtn"
-            onClick={() => {
-              setGridWidth(72);
-              setGridHeight(42);
-              setCellSize(10);
-            }}
-          >
-            Dense
-          </button>
-          <button
-            type="button"
-            className="presetBtn"
-            onClick={() => setSpeed(1500)}
-          >
-            1500 sps
-          </button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(25); setGridHeight(15); setCellSize(20); }}>Compact</button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(40); setGridHeight(25); setCellSize(16); }}>Default</button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(72); setGridHeight(42); setCellSize(10); }}>Dense</button>
+          <button type="button" className="presetBtn" onClick={() => setSpeed(1500)}>Fast</button>
         </div>
-      </section>
+      </AccordionSection>
 
-      <fieldset className="controlGroup">
-        <legend>Overlays</legend>
-        <label className="toggleRow togglePill">
-          <input
-            type="checkbox"
-            checked={settings.showVisited}
-            onChange={onCheckboxChange(setShowVisited)}
-          />
-          Show visited
+      <AccordionSection title="Display" icon="&#x25C9;" defaultOpen={false}>
+        <label className="toggleRow">
+          <input type="checkbox" checked={settings.showVisited} onChange={onCheckboxChange(setShowVisited)} />
+          <span>Visited cells</span>
         </label>
-        <label className="toggleRow togglePill">
-          <input
-            type="checkbox"
-            checked={settings.showFrontier}
-            onChange={onCheckboxChange(setShowFrontier)}
-          />
-          Show frontier
+        <label className="toggleRow">
+          <input type="checkbox" checked={settings.showFrontier} onChange={onCheckboxChange(setShowFrontier)} />
+          <span>Frontier</span>
         </label>
-        <label className="toggleRow togglePill">
-          <input
-            type="checkbox"
-            checked={settings.showPath}
-            onChange={onCheckboxChange(setShowPath)}
-          />
-          Show final path
+        <label className="toggleRow">
+          <input type="checkbox" checked={settings.showPath} onChange={onCheckboxChange(setShowPath)} />
+          <span>Final path</span>
         </label>
-      </fieldset>
+        <div className="hudToggles">
+          <label className="toggleRow">
+            <input type="checkbox" checked={ui.showMetricsHud} onChange={() => toggleMetricsHud()} />
+            <span>Metrics HUD</span>
+          </label>
+          <label className="toggleRow">
+            <input type="checkbox" checked={ui.showTraceHud} onChange={() => toggleTraceHud()} />
+            <span>Trace HUD</span>
+          </label>
+        </div>
+      </AccordionSection>
 
-      <p className="shortcutHint">Shortcuts: G generate, S solve, Space pause/resume, N step, R reset.</p>
+      <div className="sidebarFooter">
+        <p className="shortcutHint">G generate  S solve  Space pause  N step  R reset  [ sidebar  M metrics  T trace</p>
+      </div>
     </section>
   );
 }

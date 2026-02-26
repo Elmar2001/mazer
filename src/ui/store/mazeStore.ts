@@ -20,6 +20,13 @@ export interface MazeSettings {
   showPath: boolean;
 }
 
+export interface MazeUI {
+  sidebarCollapsed: boolean;
+  showMetricsHud: boolean;
+  showTraceHud: boolean;
+  metricsExpanded: boolean;
+}
+
 export interface MazeRuntime {
   phase: MazePhase;
   paused: boolean;
@@ -32,6 +39,7 @@ export interface MazeRuntime {
 interface MazeStore {
   settings: MazeSettings;
   runtime: MazeRuntime;
+  ui: MazeUI;
   setGeneratorId: (id: GeneratorPluginId) => void;
   setSolverId: (id: SolverPluginId) => void;
   setSolverBId: (id: SolverPluginId) => void;
@@ -46,6 +54,10 @@ interface MazeStore {
   setShowPath: (value: boolean) => void;
   setRuntimeSnapshot: (snapshot: Partial<MazeRuntime>) => void;
   resetRuntime: () => void;
+  toggleSidebar: () => void;
+  toggleMetricsHud: () => void;
+  toggleTraceHud: () => void;
+  toggleMetricsExpanded: () => void;
 }
 
 export const DEFAULT_METRICS: MazeMetrics = {
@@ -96,9 +108,17 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+const DEFAULT_UI: MazeUI = {
+  sidebarCollapsed: false,
+  showMetricsHud: true,
+  showTraceHud: true,
+  metricsExpanded: false,
+};
+
 export const useMazeStore = create<MazeStore>((set) => ({
   settings: { ...DEFAULT_SETTINGS },
   runtime: { ...DEFAULT_RUNTIME },
+  ui: { ...DEFAULT_UI },
   setGeneratorId: (id) =>
     set((state) => ({
       settings: {
@@ -200,5 +220,21 @@ export const useMazeStore = create<MazeStore>((set) => ({
         solverActiveLine: null,
         solverBActiveLine: null,
       },
+    })),
+  toggleSidebar: () =>
+    set((state) => ({
+      ui: { ...state.ui, sidebarCollapsed: !state.ui.sidebarCollapsed },
+    })),
+  toggleMetricsHud: () =>
+    set((state) => ({
+      ui: { ...state.ui, showMetricsHud: !state.ui.showMetricsHud },
+    })),
+  toggleTraceHud: () =>
+    set((state) => ({
+      ui: { ...state.ui, showTraceHud: !state.ui.showTraceHud },
+    })),
+  toggleMetricsExpanded: () =>
+    set((state) => ({
+      ui: { ...state.ui, metricsExpanded: !state.ui.metricsExpanded },
     })),
 }));

@@ -15,53 +15,47 @@ function battleWinnerLabel(battle: SolverBattleMetrics): string {
   const { solverA, solverB } = battle;
 
   if (solverA.solved && !solverB.solved) {
-    return `${solverA.label} wins (solved)`;
+    return `${solverA.label} wins`;
   }
 
   if (solverB.solved && !solverA.solved) {
-    return `${solverB.label} wins (solved)`;
+    return `${solverB.label} wins`;
   }
 
   if (solverA.solved && solverB.solved) {
     if (solverA.elapsedMs < solverB.elapsedMs) {
-      return `${solverA.label} wins (faster)`;
+      return `${solverA.label} wins`;
     }
 
     if (solverB.elapsedMs < solverA.elapsedMs) {
-      return `${solverB.label} wins (faster)`;
+      return `${solverB.label} wins`;
     }
 
     if (solverA.visitedCount < solverB.visitedCount) {
-      return `${solverA.label} wins (fewer visited)`;
+      return `${solverA.label} wins`;
     }
 
     if (solverB.visitedCount < solverA.visitedCount) {
-      return `${solverB.label} wins (fewer visited)`;
+      return `${solverB.label} wins`;
     }
 
     return "Tie";
   }
 
   if (solverA.visitedCount < solverB.visitedCount) {
-    return `${solverA.label} leads (fewer visited)`;
+    return `${solverA.label} leads`;
   }
 
   if (solverB.visitedCount < solverA.visitedCount) {
-    return `${solverB.label} leads (fewer visited)`;
+    return `${solverB.label} leads`;
   }
 
   return "Tie";
 }
 
 function solverStatus(run: SolverRunMetrics): string {
-  if (run.solved) {
-    return "Solved";
-  }
-
-  if (run.done) {
-    return "No path";
-  }
-
+  if (run.solved) return "Solved";
+  if (run.done) return "No path";
   return "Running";
 }
 
@@ -73,126 +67,85 @@ function BattleSolverCard({
   tone: "A" | "B";
 }) {
   return (
-    <article className={`battleCard battle${tone}`}>
-      <header>
-        <h5>{run.label}</h5>
-        <span>{solverStatus(run)}</span>
-      </header>
-      <dl>
-        <div>
-          <dt>Steps</dt>
-          <dd>{run.stepCount}</dd>
-        </div>
-        <div>
-          <dt>Visited</dt>
-          <dd>{run.visitedCount}</dd>
-        </div>
-        <div>
-          <dt>Frontier</dt>
-          <dd>{run.frontierSize}</dd>
-        </div>
-        <div>
-          <dt>Path</dt>
-          <dd>{run.pathLength}</dd>
-        </div>
-        <div>
-          <dt>Elapsed</dt>
-          <dd>{formatElapsed(run.elapsedMs)}</dd>
-        </div>
-        <div>
-          <dt>Steps/s</dt>
-          <dd>{formatFloat(run.actualStepsPerSec, 1)}</dd>
-        </div>
-        <div>
-          <dt>Compute</dt>
-          <dd>{formatElapsed(run.computeMs)}</dd>
-        </div>
-        <div>
-          <dt>Patches</dt>
-          <dd>{run.patchCount}</dd>
-        </div>
-      </dl>
-    </article>
+    <div className={`battleCard battle${tone}`}>
+      <div className="battleCardHead">
+        <strong>{run.label}</strong>
+        <span className="battleStatus">{solverStatus(run)}</span>
+      </div>
+      <div className="battleStats">
+        <div><span>Steps</span><strong>{run.stepCount}</strong></div>
+        <div><span>Visited</span><strong>{run.visitedCount}</strong></div>
+        <div><span>Path</span><strong>{run.pathLength}</strong></div>
+        <div><span>Time</span><strong>{formatElapsed(run.elapsedMs)}</strong></div>
+      </div>
+    </div>
   );
 }
 
 export function MetricsPanel() {
   const runtime = useMazeStore((state) => state.runtime);
+  const metricsExpanded = useMazeStore((state) => state.ui.metricsExpanded);
+  const toggleMetricsExpanded = useMazeStore((state) => state.toggleMetricsExpanded);
+  const toggleMetricsHud = useMazeStore((state) => state.toggleMetricsHud);
   const battle = runtime.metrics.battle;
 
   return (
     <section className="metricsPanel">
-      <div className="metricsHead">
+      <div className="hudHeader">
         <h3>Metrics</h3>
-        <span>{runtime.phase}</span>
+        <div className="hudActions">
+          <button type="button" className="hudToggleBtn" onClick={toggleMetricsExpanded} title={metricsExpanded ? "Collapse" : "Expand"}>
+            {metricsExpanded ? "\u25B4" : "\u25BE"}
+          </button>
+          <button type="button" className="hudCloseBtn" onClick={toggleMetricsHud} title="Close (M)">
+            &#x2715;
+          </button>
+        </div>
       </div>
 
-      <div className="metricsKpiGrid">
-        <article>
-          <span>Steps</span>
-          <strong>{runtime.metrics.stepCount}</strong>
-        </article>
-        <article>
-          <span>Visited</span>
-          <strong>{runtime.metrics.visitedCount}</strong>
-        </article>
-        <article>
-          <span>Frontier</span>
-          <strong>{runtime.metrics.frontierSize}</strong>
-        </article>
-        <article>
-          <span>Elapsed</span>
-          <strong>{formatElapsed(runtime.metrics.elapsedMs)}</strong>
-        </article>
+      <div className="kpiGrid">
+        <div className="kpiItem">
+          <span className="kpiLabel">Steps</span>
+          <span className="kpiValue">{runtime.metrics.stepCount}</span>
+        </div>
+        <div className="kpiItem">
+          <span className="kpiLabel">Visited</span>
+          <span className="kpiValue">{runtime.metrics.visitedCount}</span>
+        </div>
+        <div className="kpiItem">
+          <span className="kpiLabel">Frontier</span>
+          <span className="kpiValue">{runtime.metrics.frontierSize}</span>
+        </div>
+        <div className="kpiItem">
+          <span className="kpiLabel">Elapsed</span>
+          <span className="kpiValue">{formatElapsed(runtime.metrics.elapsedMs)}</span>
+        </div>
       </div>
 
-      <dl className="metricsGrid">
-        <div>
-          <dt>Path Length</dt>
-          <dd>{runtime.metrics.pathLength}</dd>
-        </div>
-        <div>
-          <dt>Actual Steps/s</dt>
-          <dd>{formatFloat(runtime.metrics.actualStepsPerSec, 1)}</dd>
-        </div>
-        <div>
-          <dt>Patches Applied</dt>
-          <dd>{runtime.metrics.patchCount}</dd>
-        </div>
-        <div>
-          <dt>Dirty Cells Drawn</dt>
-          <dd>{runtime.metrics.dirtyCellCount}</dd>
-        </div>
-        <div>
-          <dt>Avg Patches/Step</dt>
-          <dd>{formatFloat(runtime.metrics.avgPatchesPerStep, 2)}</dd>
-        </div>
-        <div>
-          <dt>Avg Dirty/Step</dt>
-          <dd>{formatFloat(runtime.metrics.avgDirtyCellsPerStep, 2)}</dd>
-        </div>
-        <div>
-          <dt>Engine Compute</dt>
-          <dd>{formatElapsed(runtime.metrics.computeMs)}</dd>
-        </div>
-        <div>
-          <dt>Engine Utilization</dt>
-          <dd>{formatFloat(runtime.metrics.engineUtilizationPct, 1)}%</dd>
-        </div>
-      </dl>
+      {metricsExpanded && (
+        <>
+          <div className="metricsDetail">
+            <div className="metricRow"><span>Path Length</span><span>{runtime.metrics.pathLength}</span></div>
+            <div className="metricRow"><span>Steps/s</span><span>{formatFloat(runtime.metrics.actualStepsPerSec, 1)}</span></div>
+            <div className="metricRow"><span>Patches</span><span>{runtime.metrics.patchCount}</span></div>
+            <div className="metricRow"><span>Dirty Cells</span><span>{runtime.metrics.dirtyCellCount}</span></div>
+            <div className="metricRow"><span>Avg Patches/Step</span><span>{formatFloat(runtime.metrics.avgPatchesPerStep, 2)}</span></div>
+            <div className="metricRow"><span>Compute</span><span>{formatElapsed(runtime.metrics.computeMs)}</span></div>
+            <div className="metricRow"><span>Utilization</span><span>{formatFloat(runtime.metrics.engineUtilizationPct, 1)}%</span></div>
+          </div>
 
-      {battle ? (
-        <section className="battleMetrics">
-          <div className="battleHead">
-            <h4>Battle Comparison</h4>
-            <span>{battleWinnerLabel(battle)}</span>
-          </div>
-          <div className="battleCards">
-            <BattleSolverCard run={battle.solverA} tone="A" />
-            <BattleSolverCard run={battle.solverB} tone="B" />
-          </div>
-        </section>
-      ) : null}
+          {battle && (
+            <div className="battleSection">
+              <div className="battleHeader">
+                <span className="battleTitle">Battle</span>
+                <span className="battleWinner">{battleWinnerLabel(battle)}</span>
+              </div>
+              <BattleSolverCard run={battle.solverA} tone="A" />
+              <BattleSolverCard run={battle.solverB} tone="B" />
+            </div>
+          )}
+        </>
+      )}
     </section>
   );
 }

@@ -8,6 +8,7 @@ import type { GeneratorPseudocodeDoc } from "@/ui/docs/generatorPseudocode";
 export function GeneratorTracePanel() {
   const settings = useMazeStore((state) => state.settings);
   const runtime = useMazeStore((state) => state.runtime);
+  const toggleTraceHud = useMazeStore((state) => state.toggleTraceHud);
 
   const showSolverTrace =
     runtime.phase === "Solving" || runtime.phase === "Solved";
@@ -22,64 +23,42 @@ export function GeneratorTracePanel() {
   const activeSolverLineB =
     runtime.metrics.battle?.solverB.activeLine ?? runtime.solverBActiveLine;
 
+  const eyebrow = showSolverTrace ? "Solver Trace" : "Generator Trace";
+  const title = showSolverTrace
+    ? isBattleSolverTrace
+      ? "Battle Mode"
+      : solverDocA.title
+    : generatorDoc.title;
+
   return (
     <aside className="tracePanel">
-      <header className="traceHead">
+      <div className="hudHeader">
         <div>
-          <p className="traceEyebrow">
-            {showSolverTrace ? "Solver Trace" : "Generator Trace"}
-          </p>
-          <h3>
-            {showSolverTrace
-              ? isBattleSolverTrace
-                ? "Battle Solver Pseudocode"
-                : solverDocA.title
-              : generatorDoc.title}
-          </h3>
-          <p>
-            {showSolverTrace
-              ? isBattleSolverTrace
-                ? "Both solver traces are highlighted as each algorithm advances."
-                : solverDocA.summary
-              : generatorDoc.summary}
-          </p>
+          <span className="traceEyebrow">{eyebrow}</span>
+          <h3>{title}</h3>
         </div>
-        <div className="traceMeta">
-          {!showSolverTrace ? <span>{settings.generatorId}</span> : null}
-          {showSolverTrace && !isBattleSolverTrace ? <span>{settings.solverId}</span> : null}
-          {showSolverTrace && isBattleSolverTrace ? <span>{settings.solverId} vs {settings.solverBId}</span> : null}
-          {!showSolverTrace ? (
-            <span>
-              {typeof runtime.generatorActiveLine === "number"
-                ? `Line ${runtime.generatorActiveLine}`
-                : "Idle"}
-            </span>
-          ) : null}
-          {showSolverTrace && !isBattleSolverTrace ? (
-            <span>
-              {typeof activeSolverLineA === "number" ? `Line ${activeSolverLineA}` : "Idle"}
-            </span>
-          ) : null}
-        </div>
-      </header>
+        <button type="button" className="hudCloseBtn" onClick={toggleTraceHud} title="Close (T)">
+          &#x2715;
+        </button>
+      </div>
 
-      {!showSolverTrace ? (
+      {!showSolverTrace && (
         <TraceCodeList
           keyId={settings.generatorId}
           doc={generatorDoc}
           activeLine={runtime.generatorActiveLine}
         />
-      ) : null}
+      )}
 
-      {showSolverTrace && !isBattleSolverTrace ? (
+      {showSolverTrace && !isBattleSolverTrace && (
         <TraceCodeList
           keyId={settings.solverId}
           doc={solverDocA}
           activeLine={activeSolverLineA}
         />
-      ) : null}
+      )}
 
-      {showSolverTrace && isBattleSolverTrace ? (
+      {showSolverTrace && isBattleSolverTrace && (
         <div className="traceBattleGrid">
           <TraceCodeList
             keyId={`${settings.solverId}-A`}
@@ -94,11 +73,7 @@ export function GeneratorTracePanel() {
             label="Solver B"
           />
         </div>
-      ) : null}
-
-      <p className="traceHint">
-        Line highlighting follows live step metadata while algorithms run.
-      </p>
+      )}
     </aside>
   );
 }
@@ -116,7 +91,7 @@ function TraceCodeList({
 }) {
   return (
     <section className={label ? "traceCodeSection" : undefined}>
-      {label ? <h4 className="traceCodeTitle">{label}: {doc.title}</h4> : null}
+      {label && <h4 className="traceCodeTitle">{label}: {doc.title}</h4>}
       <ol className="traceCodeList">
         {doc.lines.map((line, index) => {
           const lineNumber = index + 1;

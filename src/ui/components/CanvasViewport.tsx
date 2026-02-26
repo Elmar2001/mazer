@@ -41,93 +41,11 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
     const x = Math.floor(localX / cellSize);
     const y = Math.floor(localY / cellSize);
     const index = y * gridWidth + x;
-    setHoverCell(`x:${x} y:${y} #${index}`);
+    setHoverCell(`${x},${y} #${index}`);
   };
 
   return (
     <section className="canvasViewport">
-      <header className="canvasHeader">
-        <div className="canvasHeaderMain">
-          <h2>Maze Arena</h2>
-          <p>
-            {gridWidth} x {gridHeight} cells at {cellSize}px ({viewportWidth} x {viewportHeight}
-            px)
-          </p>
-          <div className="canvasStatStrip">
-            <span>
-              <b>Steps:</b> {runtime.metrics.stepCount}
-            </span>
-            <span>
-              <b>Visited:</b> {runtime.metrics.visitedCount}
-            </span>
-            <span>
-              <b>Frontier:</b> {runtime.metrics.frontierSize}
-            </span>
-            <span>
-              <b>Rate:</b> {runtime.metrics.actualStepsPerSec.toFixed(0)} sps
-            </span>
-          </div>
-        </div>
-        <div className="canvasHeaderRight">
-          <div className="arenaActions">
-            <button type="button" className="arenaBtn arenaBtnGenerate" onClick={controls.generate}>
-              Generate
-            </button>
-            <button
-              type="button"
-              className="arenaBtn arenaBtnSolve"
-              onClick={controls.solve}
-              disabled={!canSolve}
-            >
-              Solve
-            </button>
-            <button
-              type="button"
-              className="arenaBtn"
-              onClick={controls.pauseResume}
-              disabled={!canPlaybackControl}
-            >
-              {runtime.paused ? "Resume" : "Pause"}
-            </button>
-            <button
-              type="button"
-              className="arenaBtn"
-              onClick={controls.stepOnce}
-              disabled={!canPlaybackControl}
-            >
-              Step
-            </button>
-            <button type="button" className="arenaBtn arenaBtnReset" onClick={controls.reset}>
-              Reset
-            </button>
-          </div>
-          <div className="canvasBadges">
-            <span className="canvasBadge">{runtime.phase}</span>
-            <span className="canvasBadge">{runtime.paused ? "Paused" : "Running"}</span>
-            {battleMode ? <span className="canvasBadge canvasBattleBadge">Battle</span> : null}
-            {hoverCell ? <span className="canvasBadge canvasCoordBadge">{hoverCell}</span> : null}
-          </div>
-        </div>
-      </header>
-      <div className="canvasLegend">
-        <span>
-          <i className="canvasSwatch swWall" /> Walls
-        </span>
-        <span>
-          <i className="canvasSwatch swStart" /> Start
-        </span>
-        <span>
-          <i className="canvasSwatch swGoal" /> Goal
-        </span>
-        <span>
-          <i className="canvasSwatch swPathA" /> Solver A Path
-        </span>
-        {battleMode ? (
-          <span>
-            <i className="canvasSwatch swPathB" /> Solver B Path
-          </span>
-        ) : null}
-      </div>
       <div className="canvasScroller">
         <div
           className="canvasFrame"
@@ -137,6 +55,38 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
         >
           <canvas ref={canvasRef} />
         </div>
+      </div>
+
+      <div className="canvasLegend">
+        <span><i className="canvasSwatch swWall" /> Walls</span>
+        <span><i className="canvasSwatch swStart" /> Start</span>
+        <span><i className="canvasSwatch swGoal" /> Goal</span>
+        <span><i className="canvasSwatch swPathA" /> Path A</span>
+        {battleMode && <span><i className="canvasSwatch swPathB" /> Path B</span>}
+        {hoverCell && <span className="coordBadge">{hoverCell}</span>}
+      </div>
+
+      <div className="playbackBar">
+        <button type="button" className="pbBtn pbGenerate" onClick={controls.generate}>
+          <span className="pbIcon">&#x25B6;</span> Generate
+        </button>
+        <button type="button" className="pbBtn pbSolve" onClick={controls.solve} disabled={!canSolve}>
+          <span className="pbIcon">&#x26A1;</span> Solve
+        </button>
+        <div className="pbDivider" />
+        <button type="button" className="pbBtn pbGhost" onClick={controls.pauseResume} disabled={!canPlaybackControl}>
+          {runtime.paused ? "\u23F5" : "\u23F8"}
+        </button>
+        <button type="button" className="pbBtn pbGhost" onClick={controls.stepOnce} disabled={!canPlaybackControl}>
+          &#x23ED;
+        </button>
+        <div className="pbDivider" />
+        <button type="button" className="pbBtn pbDanger" onClick={controls.reset}>
+          &#x21BB;
+        </button>
+        <div className="pbSpacer" />
+        <span className="pbStat">{runtime.metrics.stepCount} steps</span>
+        <span className="pbStat">{runtime.metrics.actualStepsPerSec.toFixed(0)} sps</span>
       </div>
     </section>
   );
