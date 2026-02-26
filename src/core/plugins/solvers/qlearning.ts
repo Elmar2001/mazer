@@ -8,19 +8,21 @@ import type { RandomSource } from "@/core/rng";
 /**
  * Reinforcement Learning solver using Q-Learning.
  *
- * Training is visualized step-by-step: each step() moves the agent one cell
- * within the current episode. Between episodes the overlay resets.
- * After training, the greedy policy is traced as the final path.
+ * Each step() runs one full training episode internally, then visualizes the
+ * path the agent took during that episode (Frontier overlay). Between episodes
+ * the trail clears. Visited overlay accumulates across episodes showing the
+ * exploration heatmap. After training the greedy policy is traced as Path.
  */
 
-const ALPHA = 0.2;
+const ALPHA = 0.3;
 const GAMMA = 0.95;
 const EPSILON_START = 1.0;
 const EPSILON_END = 0.05;
-const MIN_EPISODES = 200;
-const EPISODES_PER_CELL = 3;
 const GOAL_REWARD = 100;
 const STEP_PENALTY = -1;
+const MIN_EPISODES = 100;
+const EPISODES_PER_CELL = 2;
+const STALE_LIMIT = 20; // early-stop after this many episodes with no improvement
 
 type Phase = "training" | "greedy";
 
@@ -33,24 +35,25 @@ interface QLearningContext {
   qTable: Float64Array;
   neighborCache: number[][];
 
-  // Training
   phase: Phase;
   episode: number;
   maxEpisodes: number;
   epsilon: number;
-  agentPos: number;
-  episodeSteps: number;
-  maxEpisodeSteps: number;
-  // Track cells visited in current episode for overlay clearing
-  episodeCells: number[];
+
+  // Early stopping
+  bestGreedyLen: number;
+  staleCount: number;
+
+  // Cells drawn last episode (for clearing)
+  lastEpisodeCells: number[];
 
   // Greedy visualization
   greedyPath: number[];
   greedyStep: number;
 
-  // Global stats
+  // Stats
   visitedCount: number;
-  totalVisited: Uint8Array; // ever-visited across all episodes
+  totalVisited: Uint8Array;
 }
 
 function neighborSlot(neighbors: number[], neighbor: number): number {
@@ -123,6 +126,28 @@ function greedyAction(ctx: QLearningContext, cell: number): number {
   return neighbors[bestIdx]!;
 }
 
+/** Run one full episode internally, return the cells visited. */
+function runEpisode(ctx: QLearningContext): number[] {
+  const path: number[] = [ctx.startIndex];
+  let current = ctx.startIndex;
+  const maxSteps = ctx.grid.cellCount * 2;
+
+  for (let s = 0; s < maxSteps; s++) {
+    if (current === ctx.goalIndex) break;
+
+    const action = chooseAction(ctx, current);
+    const reward = action === ctx.goalIndex ? GOAL_REWARD : STEP_PENALTY;
+    const oldQ = getQ(ctx, current, action);
+    const newQ = oldQ + ALPHA * (reward + GAMMA * maxQ(ctx, action) - oldQ);
+    setQ(ctx, current, action, newQ);
+
+    current = action;
+    path.push(current);
+  }
+
+  return path;
+}
+
 function buildGreedyPath(ctx: QLearningContext): number[] {
   const path: number[] = [ctx.startIndex];
   const visited = new Uint8Array(ctx.grid.cellCount);
@@ -140,22 +165,10 @@ function buildGreedyPath(ctx: QLearningContext): number[] {
   return path;
 }
 
-/** Clear episode-specific overlays (Frontier + Current) for all episode cells. */
-function clearEpisodeOverlays(ctx: QLearningContext): CellPatch[] {
-  const patches: CellPatch[] = [];
-  for (const cell of ctx.episodeCells) {
-    patches.push({
-      index: cell,
-      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
-    });
-  }
-  return patches;
-}
-
-function startNewEpisode(ctx: QLearningContext): void {
-  ctx.agentPos = ctx.startIndex;
-  ctx.episodeSteps = 0;
-  ctx.episodeCells = [];
+function transitionToGreedy(ctx: QLearningContext): void {
+  ctx.phase = "greedy";
+  ctx.greedyPath = buildGreedyPath(ctx);
+  ctx.greedyStep = 0;
 }
 
 export const qLearningSolver: SolverPlugin<
@@ -172,7 +185,7 @@ export const qLearningSolver: SolverPlugin<
 
     const maxEpisodes = Math.max(
       MIN_EPISODES,
-      grid.cellCount * EPISODES_PER_CELL,
+      Math.ceil(grid.cellCount * EPISODES_PER_CELL),
     );
 
     const ctx: QLearningContext = {
@@ -186,10 +199,9 @@ export const qLearningSolver: SolverPlugin<
       episode: 0,
       maxEpisodes,
       epsilon: EPSILON_START,
-      agentPos: options.startIndex,
-      episodeSteps: 0,
-      maxEpisodeSteps: grid.cellCount * 2,
-      episodeCells: [],
+      bestGreedyLen: Infinity,
+      staleCount: 0,
+      lastEpisodeCells: [],
       greedyPath: [],
       greedyStep: 0,
       visitedCount: 0,
@@ -214,124 +226,67 @@ function stepTraining(
 ): StepResult<AlgorithmStepMeta> {
   const patches: CellPatch[] = [];
 
-  // Start of a new episode
-  if (ctx.episodeSteps === 0) {
-    startNewEpisode(ctx);
+  // Clear previous episode's Frontier/Current overlays
+  for (const cell of ctx.lastEpisodeCells) {
+    patches.push({
+      index: cell,
+      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
+    });
+  }
 
-    // Mark start cell
-    ctx.episodeCells.push(ctx.startIndex);
-    if (!ctx.totalVisited[ctx.startIndex]) {
-      ctx.totalVisited[ctx.startIndex] = 1;
+  // Run one full episode internally
+  const episodePath = runEpisode(ctx);
+  ctx.episode++;
+  ctx.epsilon =
+    EPSILON_START -
+    (EPSILON_START - EPSILON_END) * (ctx.episode / ctx.maxEpisodes);
+
+  // Visualize: mark cells visited during this episode
+  const episodeCellSet = new Set(episodePath);
+  const episodeCells = [...episodeCellSet];
+  ctx.lastEpisodeCells = episodeCells;
+
+  for (const cell of episodeCells) {
+    if (!ctx.totalVisited[cell]) {
+      ctx.totalVisited[cell] = 1;
       ctx.visitedCount++;
     }
     patches.push({
-      index: ctx.startIndex,
-      overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
+      index: cell,
+      overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
     });
-    ctx.episodeSteps++;
-
-    return {
-      done: false,
-      patches,
-      meta: {
-        line: 1,
-        visitedCount: ctx.visitedCount,
-        frontierSize: 0,
-        episode: ctx.episode + 1,
-      },
-    };
   }
 
-  // Check if episode should end (reached goal or step limit)
-  const shouldEndEpisode =
-    ctx.agentPos === ctx.goalIndex ||
-    ctx.episodeSteps >= ctx.maxEpisodeSteps;
+  // Mark agent's final position
+  const lastCell = episodePath[episodePath.length - 1]!;
+  patches.push({ index: lastCell, overlaySet: OverlayFlag.Current });
 
-  if (shouldEndEpisode) {
-    // Clear episode overlays
-    patches.push(...clearEpisodeOverlays(ctx));
-
-    // Advance to next episode
-    ctx.episode++;
-    ctx.epsilon =
-      EPSILON_START -
-      (EPSILON_START - EPSILON_END) * (ctx.episode / ctx.maxEpisodes);
-
-    if (ctx.episode >= ctx.maxEpisodes) {
-      // Training done — transition to greedy phase
-      ctx.phase = "greedy";
-      ctx.greedyPath = buildGreedyPath(ctx);
-      ctx.greedyStep = 0;
-
-      return {
-        done: false,
-        patches,
-        meta: {
-          line: 3,
-          visitedCount: ctx.visitedCount,
-          frontierSize: 0,
-          episode: ctx.episode,
-        },
-      };
-    }
-
-    // Reset for next episode
-    ctx.episodeSteps = 0;
-
-    return {
-      done: false,
-      patches,
-      meta: {
-        line: 2,
-        visitedCount: ctx.visitedCount,
-        frontierSize: 0,
-        episode: ctx.episode,
-      },
-    };
+  // Early stopping: check if greedy path improved
+  const greedyNow = buildGreedyPath(ctx);
+  const reachedGoal = greedyNow[greedyNow.length - 1] === ctx.goalIndex;
+  if (reachedGoal && greedyNow.length < ctx.bestGreedyLen) {
+    ctx.bestGreedyLen = greedyNow.length;
+    ctx.staleCount = 0;
+  } else if (reachedGoal) {
+    ctx.staleCount++;
   }
 
-  // Move agent one step within the episode
-  const current = ctx.agentPos;
-  const action = chooseAction(ctx, current);
+  const shouldStop =
+    ctx.episode >= ctx.maxEpisodes ||
+    (reachedGoal && ctx.staleCount >= STALE_LIMIT);
 
-  // Q-update
-  const reward = action === ctx.goalIndex ? GOAL_REWARD : STEP_PENALTY;
-  const oldQ = getQ(ctx, current, action);
-  const newQ = oldQ + ALPHA * (reward + GAMMA * maxQ(ctx, action) - oldQ);
-  setQ(ctx, current, action, newQ);
-
-  // Clear current marker from old position
-  patches.push({
-    index: current,
-    overlayClear: OverlayFlag.Current,
-  });
-
-  // Move agent
-  ctx.agentPos = action;
-  ctx.episodeSteps++;
-  ctx.episodeCells.push(action);
-
-  if (!ctx.totalVisited[action]) {
-    ctx.totalVisited[action] = 1;
-    ctx.visitedCount++;
-    // Visited overlay persists across episodes to show exploration coverage
-    patches.push({ index: action, overlaySet: OverlayFlag.Visited });
+  if (shouldStop) {
+    transitionToGreedy(ctx);
   }
-
-  // Frontier = current episode trail, Current = agent head
-  patches.push({
-    index: action,
-    overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
-  });
 
   return {
     done: false,
     patches,
     meta: {
-      line: 2,
+      line: shouldStop ? 3 : ctx.episode <= 1 ? 1 : 2,
       visitedCount: ctx.visitedCount,
-      frontierSize: ctx.episodeSteps,
-      episode: ctx.episode + 1,
+      frontierSize: episodeCells.length,
+      episode: ctx.episode,
     },
   };
 }
@@ -342,6 +297,17 @@ function stepGreedy(
   const patches: CellPatch[] = [];
   const path = ctx.greedyPath;
   const i = ctx.greedyStep;
+
+  // First greedy step: clear all Frontier/Current from training
+  if (i === 0) {
+    for (const cell of ctx.lastEpisodeCells) {
+      patches.push({
+        index: cell,
+        overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
+      });
+    }
+    ctx.lastEpisodeCells = [];
+  }
 
   if (i >= path.length) {
     for (const cell of path) {

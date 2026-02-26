@@ -8,21 +8,21 @@ import type { RandomSource } from "@/core/rng";
 /**
  * Ant Colony Optimization solver.
  *
- * Training is visualized: each ant walks cell-by-cell within a generation.
- * Between generations pheromones evaporate and deposit.
- * After training, the best path is traced as the final solution.
+ * Ants navigate using only pheromone trails — no global heuristic. Early ants
+ * explore widely; as pheromone concentrates on the solution path over
+ * generations, later ants follow it more directly. Each step() runs one full
+ * ant and visualizes the cells it explored (Frontier overlay). Visited overlay
+ * accumulates across all ants. After training the best path is traced as Path.
  */
 
 const NUM_ANTS = 10;
-const MIN_GENERATIONS = 50;
-const GENERATIONS_PER_CELL = 1;
-const PHEROMONE_ALPHA = 1;
-const HEURISTIC_BETA = 2;
-const EVAPORATION_RATE = 0.1;
-const INITIAL_PHEROMONE = 1.0;
-const ELITE_BONUS = 2.0;
+const NUM_GENERATIONS = 30;
+const PHEROMONE_ALPHA = 2; // strong pheromone influence for visible convergence
+const EVAPORATION_RATE = 0.15;
+const INITIAL_PHEROMONE = 0.1; // low so first generation is near-random
+const ELITE_BONUS = 3.0;
 
-type Phase = "ant-walking" | "generation-end" | "greedy";
+type Phase = "training" | "greedy";
 
 interface ACOContext {
   grid: Grid;
@@ -33,27 +33,27 @@ interface ACOContext {
   pheromone: Float64Array;
   neighborCache: number[][];
 
-  // Training state
   phase: Phase;
   generation: number;
-  maxGenerations: number;
   bestPath: number[];
   bestPathLength: number;
 
-  // Current ant state
-  antIndex: number; // which ant (0..NUM_ANTS-1)
-  antPos: number;
-  antPath: number[];
-  antVisited: Uint8Array;
-  antCells: number[]; // cells drawn for this ant (for clearing)
+  // Current generation
+  antIndex: number;
+  genPaths: number[][];
+  genExploredTotal: number; // sum of allVisited lengths this generation
 
-  // Generation results
-  genPaths: number[][]; // successful ant paths this generation
+  // Early stopping on exploration efficiency
+  prevAvgExplored: number;
+  staleCount: number;
+
+  // Viz: cells drawn for the last ant
+  lastAntCells: number[];
 
   // Greedy visualization
   vizStep: number;
 
-  // Global stats
+  // Stats
   visitedCount: number;
   totalVisited: Uint8Array;
 }
@@ -100,59 +100,106 @@ function depositPheromone(
   }
 }
 
-/** Pick next cell for current ant using pheromone-weighted probabilities. */
-function pickNextCell(ctx: ACOContext): number | null {
-  const current = ctx.antPos;
-  const neighbors = ctx.neighborCache[current]!;
+interface AntResult {
+  path: number[];       // clean path (backtracked) — used for pheromone deposit
+  allVisited: number[]; // every cell the ant touched — used for visualization
+}
 
-  const candidates: number[] = [];
-  for (const n of neighbors) {
-    if (!ctx.antVisited[n]) candidates.push(n);
+/** Run one ant using pheromone-weighted random walk with backtracking. */
+function runAnt(ctx: ACOContext): AntResult | null {
+  const path: number[] = [ctx.startIndex];
+  const visited = new Uint8Array(ctx.grid.cellCount);
+  visited[ctx.startIndex] = 1;
+  const allVisited: number[] = [ctx.startIndex];
+  let current = ctx.startIndex;
+  const maxSteps = ctx.grid.cellCount * 4;
+
+  for (let s = 0; s < maxSteps; s++) {
+    if (current === ctx.goalIndex) return { path, allVisited };
+
+    const neighbors = ctx.neighborCache[current]!;
+    const candidates: number[] = [];
+    for (const n of neighbors) {
+      if (!visited[n]) candidates.push(n);
+    }
+
+    // Dead end: backtrack
+    if (candidates.length === 0) {
+      if (path.length <= 1) return null;
+      path.pop();
+      current = path[path.length - 1]!;
+      continue;
+    }
+
+    // Pheromone-only weighted selection
+    const weights: number[] = new Array(candidates.length);
+    let totalWeight = 0;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const tau = Math.max(
+        getPheromone(ctx, current, candidates[i]!),
+        0.001,
+      );
+      const w = Math.pow(tau, PHEROMONE_ALPHA);
+      weights[i] = w;
+      totalWeight += w;
+    }
+
+    let r = ctx.rng.next() * totalWeight;
+    let chosen = candidates[candidates.length - 1]!;
+    for (let i = 0; i < candidates.length; i++) {
+      r -= weights[i]!;
+      if (r <= 0) {
+        chosen = candidates[i]!;
+        break;
+      }
+    }
+
+    visited[chosen] = 1;
+    path.push(chosen);
+    allVisited.push(chosen);
+    current = chosen;
   }
 
-  if (candidates.length === 0) return null; // dead end
+  return null;
+}
 
-  const weights: number[] = new Array(candidates.length);
-  let totalWeight = 0;
+function finishGeneration(ctx: ACOContext): boolean {
+  evaporatePheromones(ctx);
 
-  for (let i = 0; i < candidates.length; i++) {
-    const tau = Math.max(getPheromone(ctx, current, candidates[i]!), 0.001);
-    const w = Math.pow(tau, PHEROMONE_ALPHA) * Math.pow(1.0, HEURISTIC_BETA);
-    weights[i] = w;
-    totalWeight += w;
-  }
-
-  let r = ctx.rng.next() * totalWeight;
-  let chosen = candidates[candidates.length - 1]!;
-  for (let i = 0; i < candidates.length; i++) {
-    r -= weights[i]!;
-    if (r <= 0) {
-      chosen = candidates[i]!;
-      break;
+  for (const path of ctx.genPaths) {
+    depositPheromone(ctx, path, 0);
+    if (path.length < ctx.bestPathLength) {
+      ctx.bestPath = [...path];
+      ctx.bestPathLength = path.length;
     }
   }
 
-  return chosen;
-}
-
-function startNewAnt(ctx: ACOContext): void {
-  ctx.antPos = ctx.startIndex;
-  ctx.antPath = [ctx.startIndex];
-  ctx.antVisited = new Uint8Array(ctx.grid.cellCount);
-  ctx.antVisited[ctx.startIndex] = 1;
-  ctx.antCells = [];
-}
-
-/** Clear overlay marks from the current ant's trail. */
-function clearAntOverlays(ctx: ACOContext): CellPatch[] {
-  const patches: CellPatch[] = [];
-  for (const cell of ctx.antCells) {
-    patches.push({
-      index: cell,
-      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
-    });
+  if (ctx.bestPath.length > 0) {
+    depositPheromone(ctx, ctx.bestPath, ELITE_BONUS / ctx.bestPathLength);
   }
-  return patches;
+
+  // Check exploration efficiency convergence
+  const successfulAnts = ctx.genPaths.length;
+  const avgExplored =
+    successfulAnts > 0
+      ? ctx.genExploredTotal / successfulAnts
+      : ctx.prevAvgExplored;
+
+  if (avgExplored >= ctx.prevAvgExplored * 0.95) {
+    ctx.staleCount++;
+  } else {
+    ctx.staleCount = 0;
+  }
+  ctx.prevAvgExplored = avgExplored;
+
+  ctx.generation++;
+  ctx.genPaths = [];
+  ctx.genExploredTotal = 0;
+  ctx.antIndex = 0;
+
+  // Early stop: converged when exploration efficiency plateaus
+  return ctx.staleCount >= 5 && ctx.bestPath.length > 0;
 }
 
 export const antColonySolver: SolverPlugin<
@@ -170,11 +217,6 @@ export const antColonySolver: SolverPlugin<
     const pheromone = new Float64Array(grid.cellCount * 4);
     pheromone.fill(INITIAL_PHEROMONE);
 
-    const maxGenerations = Math.max(
-      MIN_GENERATIONS,
-      grid.cellCount * GENERATIONS_PER_CELL,
-    );
-
     const ctx: ACOContext = {
       grid,
       rng,
@@ -182,243 +224,100 @@ export const antColonySolver: SolverPlugin<
       goalIndex: options.goalIndex,
       pheromone,
       neighborCache,
-      phase: "ant-walking",
+      phase: "training",
       generation: 0,
-      maxGenerations,
       bestPath: [],
       bestPathLength: Infinity,
       antIndex: 0,
-      antPos: options.startIndex,
-      antPath: [options.startIndex],
-      antVisited: new Uint8Array(grid.cellCount),
-      antCells: [],
       genPaths: [],
+      genExploredTotal: 0,
+      prevAvgExplored: Infinity,
+      staleCount: 0,
+      lastAntCells: [],
       vizStep: 0,
       visitedCount: 0,
       totalVisited: new Uint8Array(grid.cellCount),
     };
-
-    ctx.antVisited[options.startIndex] = 1;
 
     return { step: () => stepACO(ctx) };
   },
 };
 
 function stepACO(ctx: ACOContext): StepResult<AlgorithmStepMeta> {
-  switch (ctx.phase) {
-    case "ant-walking":
-      return stepAntWalking(ctx);
-    case "generation-end":
-      return stepGenerationEnd(ctx);
-    case "greedy":
-      return stepGreedy(ctx);
+  if (ctx.phase === "training") {
+    return stepTraining(ctx);
   }
+  return stepGreedy(ctx);
 }
 
-function stepAntWalking(
+function stepTraining(
   ctx: ACOContext,
 ): StepResult<AlgorithmStepMeta> {
   const patches: CellPatch[] = [];
-  const maxSteps = ctx.grid.cellCount * 4;
 
-  // Ant reached goal or walked too long — finish this ant
-  if (
-    ctx.antPos === ctx.goalIndex ||
-    ctx.antPath.length >= maxSteps
-  ) {
-    // Record successful path
-    if (ctx.antPos === ctx.goalIndex) {
-      ctx.genPaths.push([...ctx.antPath]);
-    }
-
-    // Clear this ant's trail
-    patches.push(...clearAntOverlays(ctx));
-
-    // Advance to next ant or next generation
-    ctx.antIndex++;
-    if (ctx.antIndex >= NUM_ANTS) {
-      ctx.phase = "generation-end";
-      return {
-        done: false,
-        patches,
-        meta: {
-          line: 3,
-          visitedCount: ctx.visitedCount,
-          frontierSize: 0,
-          generation: ctx.generation + 1,
-          bestPathLength:
-            ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
-        },
-      };
-    }
-
-    // Start next ant
-    startNewAnt(ctx);
-    ctx.antCells.push(ctx.startIndex);
+  // Clear previous ant's Frontier/Current overlays
+  for (const cell of ctx.lastAntCells) {
     patches.push({
-      index: ctx.startIndex,
-      overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
+      index: cell,
+      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
     });
-
-    return {
-      done: false,
-      patches,
-      meta: {
-        line: 1,
-        visitedCount: ctx.visitedCount,
-        frontierSize: 1,
-        generation: ctx.generation + 1,
-        bestPathLength:
-          ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
-      },
-    };
   }
 
-  // Move ant one step
-  const next = pickNextCell(ctx);
+  // Run one full ant internally
+  const result = runAnt(ctx);
+  ctx.antIndex++;
 
-  if (next === null) {
-    // Dead end — backtrack
-    if (ctx.antPath.length <= 1) {
-      // Fully stuck, end this ant
-      ctx.antPos = ctx.goalIndex; // will trigger ant-end on next step
-      // Actually just mark as stuck so next call finishes this ant
-      patches.push(...clearAntOverlays(ctx));
-      ctx.antIndex++;
-      if (ctx.antIndex >= NUM_ANTS) {
-        ctx.phase = "generation-end";
-      } else {
-        startNewAnt(ctx);
-        ctx.antCells.push(ctx.startIndex);
-        patches.push({
-          index: ctx.startIndex,
-          overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
-        });
+  if (result) {
+    ctx.genPaths.push(result.path);
+    ctx.genExploredTotal += result.allVisited.length;
+
+    // Visualize: ALL cells the ant explored (including dead ends)
+    const cells = result.allVisited;
+    ctx.lastAntCells = cells;
+
+    for (const cell of cells) {
+      if (!ctx.totalVisited[cell]) {
+        ctx.totalVisited[cell] = 1;
+        ctx.visitedCount++;
       }
-      return {
-        done: false,
-        patches,
-        meta: {
-          line: 2,
-          visitedCount: ctx.visitedCount,
-          frontierSize: ctx.antPath.length,
-          generation: ctx.generation + 1,
-          bestPathLength:
-            ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
-        },
-      };
+      patches.push({
+        index: cell,
+        overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
+      });
     }
 
-    // Pop back
-    const old = ctx.antPath.pop()!;
-    patches.push({ index: old, overlayClear: OverlayFlag.Current });
-    ctx.antPos = ctx.antPath[ctx.antPath.length - 1]!;
-    patches.push({
-      index: ctx.antPos,
-      overlaySet: OverlayFlag.Current,
-    });
-
-    return {
-      done: false,
-      patches,
-      meta: {
-        line: 2,
-        visitedCount: ctx.visitedCount,
-        frontierSize: ctx.antPath.length,
-        generation: ctx.generation + 1,
-        bestPathLength:
-          ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
-      },
-    };
+    const lastCell = result.path[result.path.length - 1]!;
+    patches.push({ index: lastCell, overlaySet: OverlayFlag.Current });
+  } else {
+    ctx.lastAntCells = [];
   }
 
-  // Move forward
-  patches.push({ index: ctx.antPos, overlayClear: OverlayFlag.Current });
+  // End of generation?
+  if (ctx.antIndex >= NUM_ANTS) {
+    const converged = finishGeneration(ctx);
 
-  ctx.antVisited[next] = 1;
-  ctx.antPath.push(next);
-  ctx.antPos = next;
-  ctx.antCells.push(next);
+    if (ctx.generation >= NUM_GENERATIONS || converged) {
+      ctx.phase = "greedy";
+      ctx.vizStep = 0;
 
-  if (!ctx.totalVisited[next]) {
-    ctx.totalVisited[next] = 1;
-    ctx.visitedCount++;
-    patches.push({ index: next, overlaySet: OverlayFlag.Visited });
+      if (ctx.bestPath.length === 0) {
+        return {
+          done: true,
+          patches,
+          meta: { line: 6, visitedCount: ctx.visitedCount, solved: false },
+        };
+      }
+    }
   }
-
-  patches.push({
-    index: next,
-    overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
-  });
 
   return {
     done: false,
     patches,
     meta: {
-      line: 1,
+      line: ctx.antIndex === 0 ? 5 : 1,
       visitedCount: ctx.visitedCount,
-      frontierSize: ctx.antPath.length,
-      generation: ctx.generation + 1,
-      bestPathLength:
-        ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
-    },
-  };
-}
-
-function stepGenerationEnd(
-  ctx: ACOContext,
-): StepResult<AlgorithmStepMeta> {
-  // Evaporate + deposit pheromone
-  evaporatePheromones(ctx);
-
-  for (const path of ctx.genPaths) {
-    depositPheromone(ctx, path, 0);
-    if (path.length < ctx.bestPathLength) {
-      ctx.bestPath = path;
-      ctx.bestPathLength = path.length;
-    }
-  }
-
-  if (ctx.bestPath.length > 0) {
-    depositPheromone(ctx, ctx.bestPath, ELITE_BONUS / ctx.bestPathLength);
-  }
-
-  ctx.generation++;
-  ctx.genPaths = [];
-  ctx.antIndex = 0;
-
-  if (ctx.generation >= ctx.maxGenerations) {
-    // Training done
-    ctx.phase = "greedy";
-    ctx.vizStep = 0;
-
-    if (ctx.bestPath.length === 0) {
-      return {
-        done: true,
-        patches: [],
-        meta: { line: 6, visitedCount: ctx.visitedCount, solved: false },
-      };
-    }
-  } else {
-    // Start next generation
-    ctx.phase = "ant-walking";
-    startNewAnt(ctx);
-    ctx.antCells.push(ctx.startIndex);
-  }
-
-  return {
-    done: false,
-    patches: [
-      {
-        index: ctx.startIndex,
-        overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
-      },
-    ],
-    meta: {
-      line: 5,
-      visitedCount: ctx.visitedCount,
-      frontierSize: 0,
-      generation: ctx.generation,
+      frontierSize: ctx.lastAntCells.length,
+      generation: ctx.generation + (ctx.antIndex > 0 ? 1 : 0),
       bestPathLength:
         ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
     },
@@ -431,6 +330,17 @@ function stepGreedy(
   const patches: CellPatch[] = [];
   const path = ctx.bestPath;
   const i = ctx.vizStep;
+
+  // First greedy step: clear training overlays
+  if (i === 0) {
+    for (const cell of ctx.lastAntCells) {
+      patches.push({
+        index: cell,
+        overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
+      });
+    }
+    ctx.lastAntCells = [];
+  }
 
   if (i >= path.length) {
     for (const cell of path) {
