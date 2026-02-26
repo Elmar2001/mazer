@@ -8,8 +8,10 @@ import type { RandomSource } from "@/core/rng";
 const POPULATION_SIZE = 32;
 const ELITE_COUNT = 6;
 const MUTATION_RATE = 0.07;
-const MIN_GENERATIONS = 10;
+const MIN_GENERATIONS_FLOOR = 24;
 const MAX_GENERATIONS_CAP = 80;
+const STABLE_SOLVED_GENERATIONS = 6;
+const TRACE_TICKS_PER_CELL = 4;
 
 interface EvaluatedChromosome {
   genes: number[];
@@ -30,13 +32,19 @@ interface GeneticContext {
   phase: Phase;
 
   generation: number;
+  minGenerations: number;
   maxGenerations: number;
   geneLength: number;
 
   population: number[][];
+  generationEvaluations: EvaluatedChromosome[];
+  evaluationCursor: number;
   bestPath: number[];
   bestFitness: number;
   bestSolved: boolean;
+  solvedStreak: number;
+  traceCursor: number;
+  traceTick: number;
 
   lastHighlightedCells: number[];
   visited: Uint8Array;
@@ -51,6 +59,13 @@ export const geneticSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = 
       MAX_GENERATIONS_CAP,
       Math.max(30, Math.floor(grid.cellCount / 6)),
     );
+    const minGenerations = Math.min(
+      maxGenerations - 1,
+      Math.max(
+        MIN_GENERATIONS_FLOOR,
+        Math.floor(Math.sqrt(grid.cellCount) * 1.2),
+      ),
+    );
 
     const context: GeneticContext = {
       grid,
@@ -60,12 +75,18 @@ export const geneticSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = 
       started: false,
       phase: "training",
       generation: 0,
+      minGenerations,
       maxGenerations,
       geneLength: Math.max(24, Math.min(grid.cellCount * 2, 512)),
       population: [],
+      generationEvaluations: [],
+      evaluationCursor: 0,
       bestPath: [],
       bestFitness: Number.NEGATIVE_INFINITY,
       bestSolved: false,
+      solvedStreak: 0,
+      traceCursor: 0,
+      traceTick: 0,
       lastHighlightedCells: [],
       visited: new Uint8Array(grid.cellCount),
       visitedCount: 0,
@@ -96,7 +117,7 @@ function stepGenetic(
       meta: {
         line: 1,
         visitedCount: context.visitedCount,
-        frontierSize: context.population.length,
+        frontierSize: context.population.length - context.evaluationCursor,
         generation: 0,
       },
     };
@@ -121,19 +142,41 @@ function stepGenetic(
       };
     }
 
-    for (const index of context.bestPath) {
+    context.traceTick += 1;
+    const shouldAdvance = context.traceTick % TRACE_TICKS_PER_CELL === 0;
+
+    if (shouldAdvance && context.traceCursor < context.bestPath.length) {
+      if (context.traceCursor > 0) {
+        patches.push({
+          index: context.bestPath[context.traceCursor - 1] as number,
+          overlayClear: OverlayFlag.Current,
+        });
+      }
+
+      const index = context.bestPath[context.traceCursor] as number;
       patches.push({
         index,
-        overlaySet: OverlayFlag.Path,
+        overlaySet: OverlayFlag.Path | OverlayFlag.Current,
+      });
+
+      context.traceCursor += 1;
+    }
+
+    const done = context.traceCursor >= context.bestPath.length;
+
+    if (done && context.bestPath.length > 0) {
+      patches.push({
+        index: context.bestPath[context.bestPath.length - 1] as number,
+        overlayClear: OverlayFlag.Current,
       });
     }
 
     return {
-      done: true,
+      done,
       patches,
       meta: {
         line: 6,
-        solved: true,
+        solved: done,
         pathLength: context.bestPath.length,
         visitedCount: context.visitedCount,
         frontierSize: 0,
@@ -144,21 +187,47 @@ function stepGenetic(
 
   clearHighlights(context.lastHighlightedCells, patches);
 
-  const evaluated = evaluatePopulation(context);
-  const ranked = evaluated.slice().sort((a, b) => b.fitness - a.fitness);
+  if (context.evaluationCursor < context.population.length) {
+    const genes = context.population[context.evaluationCursor] as number[];
+    const simulation = simulateChromosome(context.grid, context, genes);
+    const evaluated: EvaluatedChromosome = {
+      genes,
+      path: simulation.path,
+      reachedGoal: simulation.reachedGoal,
+      fitness: simulation.fitness,
+    };
+
+    context.generationEvaluations.push(evaluated);
+    context.evaluationCursor += 1;
+    context.lastHighlightedCells = simulation.path;
+    markPathAsVisited(context, simulation.path, patches);
+
+    if (simulation.path.length > 0) {
+      const current = simulation.path[simulation.path.length - 1] as number;
+      patches.push({
+        index: current,
+        overlaySet: OverlayFlag.Current,
+      });
+    }
+
+    return {
+      done: false,
+      patches,
+      meta: {
+        line: 2,
+        visitedCount: context.visitedCount,
+        frontierSize: context.population.length - context.evaluationCursor,
+        generation: context.generation,
+      },
+    };
+  }
+
+  const ranked = context.generationEvaluations
+    .slice()
+    .sort((a, b) => b.fitness - a.fitness);
   const generationBest = ranked[0] as EvaluatedChromosome;
 
   context.generation += 1;
-  context.lastHighlightedCells = generationBest.path;
-  markPathAsVisited(context, generationBest.path, patches);
-
-  if (generationBest.path.length > 0) {
-    const current = generationBest.path[generationBest.path.length - 1] as number;
-    patches.push({
-      index: current,
-      overlaySet: OverlayFlag.Current,
-    });
-  }
 
   if (generationBest.fitness > context.bestFitness) {
     context.bestFitness = generationBest.fitness;
@@ -166,8 +235,16 @@ function stepGenetic(
     context.bestSolved = generationBest.reachedGoal;
   }
 
+  if (generationBest.reachedGoal) {
+    context.solvedStreak += 1;
+  } else {
+    context.solvedStreak = 0;
+  }
+
   const shouldTransitionToTrace =
-    (context.bestSolved && context.generation >= MIN_GENERATIONS) ||
+    (context.bestSolved &&
+      context.generation >= context.minGenerations &&
+      context.solvedStreak >= STABLE_SOLVED_GENERATIONS) ||
     context.generation >= context.maxGenerations;
 
   if (shouldTransitionToTrace) {
@@ -181,6 +258,8 @@ function stepGenetic(
     }
 
     context.phase = "trace";
+    context.traceCursor = 0;
+    context.traceTick = TRACE_TICKS_PER_CELL - 1;
 
     return {
       done: false,
@@ -188,7 +267,7 @@ function stepGenetic(
       meta: {
         line: 5,
         visitedCount: context.visitedCount,
-        frontierSize: context.population.length,
+        frontierSize: 0,
         generation: context.generation,
         solved: context.bestSolved,
         pathLength: context.bestPath.length,
@@ -201,6 +280,8 @@ function stepGenetic(
     context.rng,
     context.geneLength,
   );
+  context.generationEvaluations = [];
+  context.evaluationCursor = 0;
 
   return {
     done: false,
@@ -232,22 +313,6 @@ function createInitialPopulation(
   }
 
   return population;
-}
-
-function evaluatePopulation(context: GeneticContext): EvaluatedChromosome[] {
-  const evaluated: EvaluatedChromosome[] = [];
-
-  for (const genes of context.population) {
-    const simulation = simulateChromosome(context.grid, context, genes);
-    evaluated.push({
-      genes,
-      path: simulation.path,
-      reachedGoal: simulation.reachedGoal,
-      fitness: simulation.fitness,
-    });
-  }
-
-  return evaluated;
 }
 
 function simulateChromosome(

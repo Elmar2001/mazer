@@ -206,6 +206,43 @@ describe("solver plugins", () => {
     expect(finishedEarly).toBe(false);
   });
 
+  it("genetic progresses over multiple steps for visualization", () => {
+    const genetic = solverPlugins.find((plugin) => plugin.id === "genetic");
+    if (!genetic) {
+      throw new Error("Genetic plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    clearOverlays(grid);
+
+    const stepper = genetic.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 25; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
   it("bfs finds an optimal shortest path", () => {
     const bfs = solverPlugins.find((plugin) => plugin.id === "bfs");
     if (!bfs) {
