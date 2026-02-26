@@ -1,5 +1,6 @@
 import type { Grid } from "@/core/grid";
 import type { StepMeta, StepResult } from "@/core/patches";
+import type { PluginMetadata } from "@/core/plugins/pluginMetadata";
 import type { RandomSource } from "@/core/rng";
 
 export interface SolverCreateParams<TOptions extends object> {
@@ -15,7 +16,7 @@ export interface SolverStepper<TMeta extends StepMeta = StepMeta> {
 export interface SolverPlugin<
   TOptions extends object = Record<string, never>,
   TMeta extends StepMeta = StepMeta,
-> {
+> extends PluginMetadata {
   id: string;
   label: string;
   create(params: SolverCreateParams<TOptions>): SolverStepper<TMeta>;

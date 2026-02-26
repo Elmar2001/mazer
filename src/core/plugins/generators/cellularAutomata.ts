@@ -29,6 +29,7 @@ export const cellularAutomataGenerator: GeneratorPlugin<
 > = {
   id: "cellular-automata",
   label: "Cellular Automata (Cave-Biased)",
+  implementationKind: "hybrid",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&

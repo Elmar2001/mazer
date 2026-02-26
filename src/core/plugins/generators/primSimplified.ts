@@ -11,6 +11,8 @@ export const primSimplifiedGenerator: GeneratorPlugin<
 > = {
   id: "prim-simplified",
   label: "Prim (Simplified)",
+  implementationKind: "alias",
+  aliasOf: "prim",
   create(params) {
     return primGenerator.create(params);
   },

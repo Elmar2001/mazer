@@ -284,16 +284,7 @@ export function useMazeEngine(): UseMazeEngineResult {
         toRendererSettings(settings),
       );
     }
-  }, [
-    settings.cellSize,
-    settings.colorTheme,
-    settings.showCellInset,
-    settings.showFrontier,
-    settings.showPath,
-    settings.showVisited,
-    settings.showWallShadow,
-    settings.wallThickness,
-  ]);
+  }, [settings]);
 
   useEffect(() => {
     if (!initializedRef.current) {
@@ -357,16 +348,7 @@ export function useMazeEngine(): UseMazeEngineResult {
 
   useEffect(() => {
     rendererRef.current?.setSettings(toRendererSettings(settings));
-  }, [
-    settings.cellSize,
-    settings.colorTheme,
-    settings.showCellInset,
-    settings.showFrontier,
-    settings.showPath,
-    settings.showVisited,
-    settings.showWallShadow,
-    settings.wallThickness,
-  ]);
+  }, [settings]);
 
   const syncEngineOptions = useCallback(() => {
     const store = useMazeStore.getState().settings;

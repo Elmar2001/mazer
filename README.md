@@ -111,6 +111,17 @@ Algorithm reference page: [http://localhost:3000/docs](http://localhost:3000/doc
 npm test
 ```
 
+## Quality Gates
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+CI runs the same four commands on every push and pull request.
+
 Current tests cover:
 - deterministic RNG behavior
 - deterministic generator outputs for identical seeds

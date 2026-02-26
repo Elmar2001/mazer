@@ -42,4 +42,29 @@ describe("algorithm catalog coverage", () => {
       expect(solverPseudoIds.has(plugin.id)).toBe(true);
     }
   });
+
+  it("has valid alias metadata for generators and solvers", () => {
+    const generatorIds = new Set(generatorPlugins.map((plugin) => plugin.id));
+    const solverIds = new Set(solverPlugins.map((plugin) => plugin.id));
+
+    for (const plugin of generatorPlugins) {
+      if (plugin.implementationKind !== "alias") {
+        continue;
+      }
+
+      expect(typeof plugin.aliasOf).toBe("string");
+      expect(plugin.aliasOf).not.toBe(plugin.id);
+      expect(generatorIds.has(plugin.aliasOf as string)).toBe(true);
+    }
+
+    for (const plugin of solverPlugins) {
+      if (plugin.implementationKind !== "alias") {
+        continue;
+      }
+
+      expect(typeof plugin.aliasOf).toBe("string");
+      expect(plugin.aliasOf).not.toBe(plugin.id);
+      expect(solverIds.has(plugin.aliasOf as string)).toBe(true);
+    }
+  });
 });

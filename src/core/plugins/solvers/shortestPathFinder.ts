@@ -8,6 +8,8 @@ export const shortestPathFinderSolver: SolverPlugin<
 > = {
   id: "shortest-path-finder",
   label: "Shortest Path Finder",
+  implementationKind: "alias",
+  aliasOf: "bfs",
   create(params) {
     return bfsSolver.create(params);
   },

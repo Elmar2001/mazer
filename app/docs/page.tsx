@@ -1,27 +1,54 @@
 import Link from "next/link";
 
+import { generatorPlugins } from "@/core/plugins/generators";
+import { solverPlugins } from "@/core/plugins/solvers";
 import {
   GENERATOR_DOCS,
   SOLVER_DOCS,
   type AlgorithmDoc,
 } from "@/ui/docs/algorithmDocs";
 
+const GENERATOR_META_BY_ID = new Map(
+  generatorPlugins.map((plugin) => [plugin.id, plugin]),
+);
+const SOLVER_META_BY_ID = new Map(solverPlugins.map((plugin) => [plugin.id, plugin]));
+
 function AlgorithmCard({
   algorithm,
 }: {
   algorithm: AlgorithmDoc;
 }) {
+  const pluginMeta =
+    algorithm.kind === "Generator"
+      ? GENERATOR_META_BY_ID.get(algorithm.id)
+      : SOLVER_META_BY_ID.get(algorithm.id);
+  const aliasTargetLabel =
+    pluginMeta?.implementationKind === "alias" && pluginMeta.aliasOf
+      ? GENERATOR_META_BY_ID.get(pluginMeta.aliasOf)?.label ??
+        SOLVER_META_BY_ID.get(pluginMeta.aliasOf)?.label ??
+        pluginMeta.aliasOf
+      : null;
+
   return (
     <article className="algoCard" id={algorithm.id}>
       <div className="algoCardHead">
         <span className={`algoBadge ${algorithm.kind === "Generator" ? "algoGen" : "algoSolve"}`}>
           {algorithm.kind}
         </span>
+        {pluginMeta?.implementationKind === "alias" && (
+          <span className="algoBadge">Alias</span>
+        )}
+        {pluginMeta?.implementationKind === "hybrid" && (
+          <span className="algoBadge">Hybrid</span>
+        )}
         <code>{algorithm.id}</code>
       </div>
 
       <h3>{algorithm.name}</h3>
       <p className="algoSummary">{algorithm.summary}</p>
+      {pluginMeta?.implementationKind === "alias" && aliasTargetLabel && (
+        <p className="algoSummary">Implements the same runtime as {aliasTargetLabel}.</p>
+      )}
 
       <div className="algoComplexity">
         <span>Time: {algorithm.timeComplexity}</span>

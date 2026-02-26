@@ -11,6 +11,8 @@ export const primTrueGenerator: GeneratorPlugin<
 > = {
   id: "prim-true",
   label: "Prim (True Frontier Edges)",
+  implementationKind: "alias",
+  aliasOf: "prim-frontier-edges",
   create(params) {
     return primFrontierEdgesGenerator.create(params);
   },

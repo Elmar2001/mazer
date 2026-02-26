@@ -37,6 +37,7 @@ export const houstonGenerator: GeneratorPlugin<
 > = {
   id: "houston",
   label: "Houston (AB + Wilson)",
+  implementationKind: "hybrid",
   create({ grid, rng }) {
     const root = rng.nextInt(grid.cellCount);
 

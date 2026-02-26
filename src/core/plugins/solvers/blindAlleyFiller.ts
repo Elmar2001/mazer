@@ -8,6 +8,8 @@ export const blindAlleyFillerSolver: SolverPlugin<
 > = {
   id: "blind-alley-filler",
   label: "Blind Alley Filler",
+  implementationKind: "alias",
+  aliasOf: "dead-end-filling",
   create(params) {
     return deadEndFillingSolver.create(params);
   },
