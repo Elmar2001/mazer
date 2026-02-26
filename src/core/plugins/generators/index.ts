@@ -1,7 +1,9 @@
 import { aldousBroderGenerator } from "@/core/plugins/generators/aldousBroder";
 import { bfsTreeGenerator } from "@/core/plugins/generators/bfsTree";
 import { binaryTreeGenerator } from "@/core/plugins/generators/binaryTree";
+import { blobbyRecursiveSubdivisionGenerator } from "@/core/plugins/generators/blobbyRecursiveSubdivision";
 import { boruvkaGenerator } from "@/core/plugins/generators/boruvka";
+import { bspGenerator } from "@/core/plugins/generators/bsp";
 import { cellularAutomataGenerator } from "@/core/plugins/generators/cellularAutomata";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
 import { ellerGenerator } from "@/core/plugins/generators/eller";
@@ -21,6 +23,7 @@ import { recursiveDivisionGenerator } from "@/core/plugins/generators/recursiveD
 import { reverseDeleteGenerator } from "@/core/plugins/generators/reverseDelete";
 import { sidewinderGenerator } from "@/core/plugins/generators/sidewinder";
 import { unicursalGenerator } from "@/core/plugins/generators/unicursal";
+import { vortexGenerator } from "@/core/plugins/generators/vortex";
 import { wilsonGenerator } from "@/core/plugins/generators/wilson";
 
 export const generatorPlugins = [
@@ -45,6 +48,9 @@ export const generatorPlugins = [
   unicursalGenerator,
   fractalTessellationGenerator,
   cellularAutomataGenerator,
+  bspGenerator,
+  blobbyRecursiveSubdivisionGenerator,
+  vortexGenerator,
   originShiftGenerator,
   reverseDeleteGenerator,
   boruvkaGenerator,

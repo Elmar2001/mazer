@@ -71,6 +71,8 @@ const HEURISTIC_SOLVER_IDS = new Set([
   "q-learning",
   "ant-colony",
   "random-mouse",
+  "genetic",
+  "rrt-star",
 ]);
 
 function runSolver(

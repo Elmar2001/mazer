@@ -178,6 +178,30 @@ export const GENERATOR_PSEUDOCODE: Record<
       "stop when region cannot be divided further",
     ],
   },
+  bsp: {
+    title: "Binary Space Partitioning (BSP)",
+    summary: "Recursively split regions and connect partitions with one bridge.",
+    lines: [
+      "if region is a single cell: return",
+      "choose vertical or horizontal split by region aspect ratio",
+      "recurse on both child partitions",
+      "pick one connector crossing the split boundary",
+      "append connector edge to merge both partition trees",
+      "repeat until every partition collapses to single cells",
+    ],
+  },
+  "blobby-recursive-subdivision": {
+    title: "Blobby Recursive Subdivision",
+    summary: "Split connected regions into organic blobs, then recurse and bridge.",
+    lines: [
+      "if region is small: build local spanning tree directly",
+      "grow two blob sides from random seeds inside region",
+      "if split fails connectivity checks: fall back to local tree",
+      "recurse into both blob partitions",
+      "carve one boundary connector between blob partitions",
+      "finish when all recursive regions are reduced",
+    ],
+  },
   "fractal-tessellation": {
     title: "Fractal Tessellation",
     summary: "Recursively build quadrants, then connect with 3 bridges.",
@@ -248,6 +272,18 @@ export const GENERATOR_PSEUDOCODE: Record<
       "if stuck, backtrack stack",
       "carve selected edge and push next cell",
       "finish when stack is exhausted",
+    ],
+  },
+  vortex: {
+    title: "Vortex Maze (Xu/Kaplan-inspired)",
+    summary: "DFS-style growth with swirl-biased neighbor scoring around vortex centers.",
+    lines: [
+      "seed several random vortex centers",
+      "start DFS stack from initial cell",
+      "score unvisited neighbors by tangent (swirl) direction around nearest center",
+      "carve to the highest-scoring neighbor and push to stack",
+      "if no unvisited neighbors remain: pop/backtrack",
+      "finish when stack becomes empty",
     ],
   },
   "reverse-delete": {

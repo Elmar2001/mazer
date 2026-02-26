@@ -283,6 +283,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "This is the canonical wall-adder among classic maze generators.",
   },
   {
+    id: "bsp",
+    name: "Binary Space Partitioning (BSP)",
+    kind: "Generator",
+    summary: "Recursively partitions space into regions and connects region trees with bridge edges.",
+    howItWorks: [
+      "Recursively split a rectangular region horizontally or vertically.",
+      "Generate each child region subtree recursively.",
+      "Choose one connector crossing the split boundary.",
+      "Carve that connector so both child trees become one component.",
+    ],
+    timeComplexity: "O(V log V) typical recursive partitioning",
+    spaceComplexity: "O(log V) recursion + O(V) edge plan",
+    pros: ["Structured dungeon-like topology", "Deterministic partition hierarchy"],
+    cons: ["Can look too geometric", "Less organic than walk-based generators"],
+    bestFor: "Room/partition-flavored maze layouts and dungeon prototyping.",
+    interestingFact:
+      "BSP is commonly used in roguelike map generation where rooms and corridors are assembled from a split tree.",
+  },
+  {
+    id: "blobby-recursive-subdivision",
+    name: "Blobby Recursive Subdivision",
+    kind: "Generator",
+    summary: "Recursive subdivision variant that uses organic connected blob partitions instead of strict straight cuts.",
+    howItWorks: [
+      "Select two seeds inside a connected region.",
+      "Grow two blob partitions from those seeds until the region is assigned.",
+      "Recurse into each blob partition and build local subtrees.",
+      "Carve one connector between both blob partitions to preserve tree connectivity.",
+    ],
+    timeComplexity: "O(V log V) typical, with local fallback O(V)",
+    spaceComplexity: "O(V)",
+    pros: ["More organic than strict BSP/recursive-division", "Retains recursive controllability"],
+    cons: ["More complex split validation", "Harder to reason about visually"],
+    bestFor: "Hybrid aesthetic between structured partitioning and cave-like flow.",
+    interestingFact:
+      "Blob-first partitioning reduces long ruler-straight wall artifacts common in axis-aligned subdivision.",
+  },
+  {
     id: "prim-true",
     name: "Prim (True Frontier Edges)",
     kind: "Generator",
@@ -413,6 +451,25 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Hybrid cave-like style without losing spanning-tree guarantees.",
     interestingFact:
       "CA-inspired bias lets one algorithm bridge classic mazes and dungeon-like visuals.",
+  },
+  {
+    id: "vortex",
+    name: "Vortex Maze (Xu/Kaplan-inspired)",
+    kind: "Generator",
+    summary: "Swirl-biased depth-first carving guided by local vortex centers.",
+    howItWorks: [
+      "Sample several vortex centers across the grid.",
+      "Run a DFS-style carve with backtracking stack.",
+      "Score candidate neighbors by tangent direction around nearest center.",
+      "Prefer moves that continue local spiral flow while preserving spanning-tree rules.",
+    ],
+    timeComplexity: "O(V)",
+    spaceComplexity: "O(V)",
+    pros: ["Distinct spiral visual texture", "Deterministic with seeded randomness"],
+    cons: ["Heuristic-biased look may reduce uniformity", "More tuning-sensitive than vanilla DFS"],
+    bestFor: "High-obfuscation or artistic maze styles with curved-flow perception.",
+    interestingFact:
+      "Vortex-style constructions are designed to increase perceptual difficulty by packing locally parallel turning structures.",
   },
   {
     id: "origin-shift",
@@ -977,6 +1034,44 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "Metaheuristic solver demonstrations and exploration/exploitation tradeoff analysis.",
     interestingFact:
       "ACO was inspired by real ant foraging behavior where pheromone reinforcement biases collective path selection.",
+  },
+  {
+    id: "genetic",
+    name: "Genetic Algorithm",
+    kind: "Solver",
+    summary: "Evolves path-encoding chromosomes and keeps fittest candidates across generations.",
+    howItWorks: [
+      "Generate an initial random population of move chromosomes.",
+      "Simulate each chromosome and score fitness by goal reachability and path quality.",
+      "Keep elite candidates and produce offspring with crossover/mutation.",
+      "Repeat until convergence or generation budget, then trace best path.",
+    ],
+    timeComplexity: "O(G * P * L), generations * population * chromosome length",
+    spaceComplexity: "O(P * L)",
+    pros: ["Handles large noisy search spaces", "Shows exploration vs exploitation behavior"],
+    cons: ["No strict optimality guarantee", "Performance depends on hyperparameters"],
+    bestFor: "Metaheuristic comparisons and stochastic solver experiments.",
+    interestingFact:
+      "Genetic solvers trade deterministic guarantees for adaptive search pressure shaped by a fitness function.",
+  },
+  {
+    id: "rrt-star",
+    name: "RRT* (Grid Approximation)",
+    kind: "Solver",
+    summary: "Builds a sampled tree from start and locally rewires for lower-cost parent chains.",
+    howItWorks: [
+      "Initialize a search tree rooted at start.",
+      "Repeatedly sample targets and expand the tree toward promising frontier nodes.",
+      "Rewire nearby nodes when the new node yields lower path cost.",
+      "Once goal is connected (or budget is exhausted), trace tree path to goal.",
+    ],
+    timeComplexity: "Sampling-dependent; often near O(K * d) for K expansions",
+    spaceComplexity: "O(V) tree state",
+    pros: ["Anytime-style sampled exploration", "Natural bridge toward robotics planning concepts"],
+    cons: ["Approximation on discrete grids", "Requires iteration budget / fallback policy"],
+    bestFor: "Bringing continuous-space planning ideas into grid maze comparisons.",
+    interestingFact:
+      "RRT* is asymptotically optimal in continuous settings; grid adaptations mimic that behavior with discrete rewiring.",
   },
 ];
 

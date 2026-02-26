@@ -312,4 +312,28 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "after training: trace best path found and finish",
     ],
   },
+  genetic: {
+    title: "Genetic Algorithm",
+    summary: "Evolve populations of movement chromosomes and keep the fittest path candidates.",
+    lines: [
+      "initialize a random chromosome population",
+      "simulate each chromosome and score by goal proximity/path quality",
+      "select elite chromosomes",
+      "create next generation via crossover + mutation",
+      "if solved or generation cap reached: pick best/fallback path",
+      "trace final best path and finish",
+    ],
+  },
+  "rrt-star": {
+    title: "RRT* (Grid Approximation)",
+    summary: "Grow a sampled search tree from start, with local rewiring for lower-cost parents.",
+    lines: [
+      "initialize tree at start with frontier edges",
+      "sample random target (goal-biased) and pick best frontier expansion",
+      "insert new node into tree",
+      "attempt local rewiring to reduce path costs",
+      "if goal reached or budget exhausted: finalize best/fallback path",
+      "trace final path and finish",
+    ],
+  },
 };

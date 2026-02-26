@@ -12,12 +12,14 @@ import { deadEndFillingSolver } from "@/core/plugins/solvers/deadEndFilling";
 import { dijkstraSolver } from "@/core/plugins/solvers/dijkstra";
 import { dfsSolver } from "@/core/plugins/solvers/dfs";
 import { floodFillSolver } from "@/core/plugins/solvers/floodFill";
+import { geneticSolver } from "@/core/plugins/solvers/genetic";
 import { greedyBestFirstSolver } from "@/core/plugins/solvers/greedyBestFirst";
 import { leftWallFollowerSolver } from "@/core/plugins/solvers/leftWallFollower";
 import { leeWavefrontSolver } from "@/core/plugins/solvers/leeWavefront";
 import { iterativeDeepeningDfsSolver } from "@/core/plugins/solvers/iterativeDeepeningDfs";
 import { pledgeSolver } from "@/core/plugins/solvers/pledge";
 import { randomMouseSolver } from "@/core/plugins/solvers/randomMouse";
+import { rrtStarSolver } from "@/core/plugins/solvers/rrtStar";
 import { shortestPathFinderSolver } from "@/core/plugins/solvers/shortestPathFinder";
 import { shortestPathsFinderSolver } from "@/core/plugins/solvers/shortestPathsFinder";
 import { tremauxSolver } from "@/core/plugins/solvers/tremaux";
@@ -44,6 +46,8 @@ export const solverPlugins = [
   weightedAStarSolver,
   floodFillSolver,
   leeWavefrontSolver,
+  geneticSolver,
+  rrtStarSolver,
   shortestPathFinderSolver,
   shortestPathsFinderSolver,
   collisionSolver,
