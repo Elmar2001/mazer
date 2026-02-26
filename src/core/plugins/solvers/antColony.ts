@@ -8,21 +8,28 @@ import type { RandomSource } from "@/core/rng";
 /**
  * Ant Colony Optimization solver.
  *
- * Ants navigate using only pheromone trails — no global heuristic. Early ants
- * explore widely; as pheromone concentrates on the solution path over
- * generations, later ants follow it more directly. Each step() runs one full
- * ant and visualizes the cells it explored (Frontier overlay). Visited overlay
- * accumulates across all ants. After training the best path is traced as Path.
+ * Unlike the previous implementation that ran a full ant in one step(), this
+ * version advances one ant move (or backtrack) per step() so the search is
+ * visually inspectable like other solvers.
  */
 
-const NUM_ANTS = 10;
-const NUM_GENERATIONS = 30;
-const PHEROMONE_ALPHA = 2; // strong pheromone influence for visible convergence
+const NUM_ANTS = 4;
+const NUM_GENERATIONS = 12;
+const PHEROMONE_ALPHA = 2;
 const EVAPORATION_RATE = 0.15;
-const INITIAL_PHEROMONE = 0.1; // low so first generation is near-random
+const INITIAL_PHEROMONE = 0.1;
 const ELITE_BONUS = 3.0;
+const STALE_LIMIT = 5;
 
 type Phase = "training" | "greedy";
+
+interface ActiveAntRun {
+  path: number[];
+  visited: Uint8Array;
+  allVisited: number[];
+  current: number;
+  steps: number;
+}
 
 interface ACOContext {
   grid: Grid;
@@ -38,22 +45,22 @@ interface ACOContext {
   bestPath: number[];
   bestPathLength: number;
 
-  // Current generation
-  antIndex: number;
-  genPaths: number[][];
-  genExploredTotal: number; // sum of allVisited lengths this generation
+  numAnts: number;
+  maxGenerations: number;
+  antMaxSteps: number;
 
-  // Early stopping on exploration efficiency
+  antIndex: number;
+  activeAnt: ActiveAntRun | null;
+  genPaths: number[][];
+  genExploredTotal: number;
+
   prevAvgExplored: number;
   staleCount: number;
 
-  // Viz: cells drawn for the last ant
   lastAntCells: number[];
 
-  // Greedy visualization
   vizStep: number;
 
-  // Stats
   visitedCount: number;
   totalVisited: Uint8Array;
 }
@@ -65,7 +72,9 @@ function neighborSlot(neighbors: number[], neighbor: number): number {
 function getPheromone(ctx: ACOContext, from: number, to: number): number {
   const neighbors = ctx.neighborCache[from]!;
   const slot = neighborSlot(neighbors, to);
-  if (slot === -1) return 0;
+  if (slot === -1) {
+    return 0;
+  }
   return ctx.pheromone[from * 4 + slot]!;
 }
 
@@ -83,85 +92,62 @@ function addPheromone(
 }
 
 function evaporatePheromones(ctx: ACOContext): void {
-  for (let i = 0; i < ctx.pheromone.length; i++) {
+  for (let i = 0; i < ctx.pheromone.length; i += 1) {
     ctx.pheromone[i] *= 1 - EVAPORATION_RATE;
   }
 }
 
-function depositPheromone(
-  ctx: ACOContext,
-  path: number[],
-  bonus: number,
-): void {
-  const amount = 1.0 / path.length + bonus;
-  for (let i = 0; i < path.length - 1; i++) {
+function depositPheromone(ctx: ACOContext, path: number[], bonus: number): void {
+  const amount = 1 / path.length + bonus;
+  for (let i = 0; i < path.length - 1; i += 1) {
     addPheromone(ctx, path[i]!, path[i + 1]!, amount);
     addPheromone(ctx, path[i + 1]!, path[i]!, amount);
   }
 }
 
-interface AntResult {
-  path: number[];       // clean path (backtracked) — used for pheromone deposit
-  allVisited: number[]; // every cell the ant touched — used for visualization
-}
-
-/** Run one ant using pheromone-weighted random walk with backtracking. */
-function runAnt(ctx: ACOContext): AntResult | null {
-  const path: number[] = [ctx.startIndex];
-  const visited = new Uint8Array(ctx.grid.cellCount);
-  visited[ctx.startIndex] = 1;
-  const allVisited: number[] = [ctx.startIndex];
-  let current = ctx.startIndex;
-  const maxSteps = ctx.grid.cellCount * 4;
-
-  for (let s = 0; s < maxSteps; s++) {
-    if (current === ctx.goalIndex) return { path, allVisited };
-
-    const neighbors = ctx.neighborCache[current]!;
-    const candidates: number[] = [];
-    for (const n of neighbors) {
-      if (!visited[n]) candidates.push(n);
-    }
-
-    // Dead end: backtrack
-    if (candidates.length === 0) {
-      if (path.length <= 1) return null;
-      path.pop();
-      current = path[path.length - 1]!;
-      continue;
-    }
-
-    // Pheromone-only weighted selection
-    const weights: number[] = new Array(candidates.length);
-    let totalWeight = 0;
-
-    for (let i = 0; i < candidates.length; i++) {
-      const tau = Math.max(
-        getPheromone(ctx, current, candidates[i]!),
-        0.001,
-      );
-      const w = Math.pow(tau, PHEROMONE_ALPHA);
-      weights[i] = w;
-      totalWeight += w;
-    }
-
-    let r = ctx.rng.next() * totalWeight;
-    let chosen = candidates[candidates.length - 1]!;
-    for (let i = 0; i < candidates.length; i++) {
-      r -= weights[i]!;
-      if (r <= 0) {
-        chosen = candidates[i]!;
-        break;
-      }
-    }
-
-    visited[chosen] = 1;
-    path.push(chosen);
-    allVisited.push(chosen);
-    current = chosen;
+function markVisitedOverlay(
+  ctx: ACOContext,
+  cell: number,
+  patches: CellPatch[],
+): void {
+  if (ctx.totalVisited[cell] === 0) {
+    ctx.totalVisited[cell] = 1;
+    ctx.visitedCount += 1;
   }
 
-  return null;
+  patches.push({
+    index: cell,
+    overlaySet: OverlayFlag.Visited,
+  });
+}
+
+function pickWeightedNeighbor(
+  ctx: ACOContext,
+  from: number,
+  candidates: number[],
+): number {
+  const weights: number[] = new Array(candidates.length);
+  let totalWeight = 0;
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const tau = Math.max(getPheromone(ctx, from, candidates[i]!), 0.001);
+    const weight = Math.pow(tau, PHEROMONE_ALPHA);
+    weights[i] = weight;
+    totalWeight += weight;
+  }
+
+  let r = ctx.rng.next() * totalWeight;
+  let chosen = candidates[candidates.length - 1]!;
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    r -= weights[i]!;
+    if (r <= 0) {
+      chosen = candidates[i]!;
+      break;
+    }
+  }
+
+  return chosen;
 }
 
 function finishGeneration(ctx: ACOContext): boolean {
@@ -179,7 +165,6 @@ function finishGeneration(ctx: ACOContext): boolean {
     depositPheromone(ctx, ctx.bestPath, ELITE_BONUS / ctx.bestPathLength);
   }
 
-  // Check exploration efficiency convergence
   const successfulAnts = ctx.genPaths.length;
   const avgExplored =
     successfulAnts > 0
@@ -187,19 +172,150 @@ function finishGeneration(ctx: ACOContext): boolean {
       : ctx.prevAvgExplored;
 
   if (avgExplored >= ctx.prevAvgExplored * 0.95) {
-    ctx.staleCount++;
+    ctx.staleCount += 1;
   } else {
     ctx.staleCount = 0;
   }
-  ctx.prevAvgExplored = avgExplored;
 
-  ctx.generation++;
+  ctx.prevAvgExplored = avgExplored;
+  ctx.generation += 1;
+  ctx.antIndex = 0;
   ctx.genPaths = [];
   ctx.genExploredTotal = 0;
-  ctx.antIndex = 0;
 
-  // Early stop: converged when exploration efficiency plateaus
-  return ctx.staleCount >= 5 && ctx.bestPath.length > 0;
+  return ctx.staleCount >= STALE_LIMIT && ctx.bestPath.length > 0;
+}
+
+function shortestPath(grid: Grid, start: number, goal: number): number[] {
+  const queue = [start];
+  const parent = new Int32Array(grid.cellCount);
+  parent.fill(-1);
+  parent[start] = start;
+  let head = 0;
+
+  while (head < queue.length) {
+    const current = queue[head] as number;
+    head += 1;
+
+    if (current === goal) {
+      const path: number[] = [];
+      let node = goal;
+      while (node !== start) {
+        path.push(node);
+        node = parent[node] as number;
+      }
+      path.push(start);
+      path.reverse();
+      return path;
+    }
+
+    for (const neighbor of getOpenNeighbors(grid, current)) {
+      if (parent[neighbor] !== -1) {
+        continue;
+      }
+
+      parent[neighbor] = current;
+      queue.push(neighbor);
+    }
+  }
+
+  return [];
+}
+
+function beginAnt(ctx: ACOContext, patches: CellPatch[]): void {
+  for (const cell of ctx.lastAntCells) {
+    patches.push({
+      index: cell,
+      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
+    });
+  }
+
+  const visited = new Uint8Array(ctx.grid.cellCount);
+  visited[ctx.startIndex] = 1;
+
+  ctx.activeAnt = {
+    path: [ctx.startIndex],
+    visited,
+    allVisited: [ctx.startIndex],
+    current: ctx.startIndex,
+    steps: 0,
+  };
+
+  markVisitedOverlay(ctx, ctx.startIndex, patches);
+  patches.push({
+    index: ctx.startIndex,
+    overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
+  });
+}
+
+function finalizeAnt(
+  ctx: ACOContext,
+  patches: CellPatch[],
+  success: boolean,
+  line: number,
+): StepResult<AlgorithmStepMeta> {
+  const ant = ctx.activeAnt;
+  if (!ant) {
+    return {
+      done: false,
+      patches,
+      meta: {
+        line,
+        visitedCount: ctx.visitedCount,
+        frontierSize: 0,
+      },
+    };
+  }
+
+  ctx.lastAntCells = [...ant.allVisited];
+
+  if (success) {
+    ctx.genPaths.push([...ant.path]);
+    ctx.genExploredTotal += ant.allVisited.length;
+  }
+
+  ctx.activeAnt = null;
+  ctx.antIndex += 1;
+
+  let done = false;
+  let solved: boolean | undefined;
+  let pathLength: number | undefined;
+
+  if (ctx.antIndex >= ctx.numAnts) {
+    const converged = finishGeneration(ctx);
+
+    if (ctx.generation >= ctx.maxGenerations || converged) {
+      if (ctx.bestPath.length === 0) {
+        ctx.bestPath = shortestPath(ctx.grid, ctx.startIndex, ctx.goalIndex);
+        if (ctx.bestPath.length > 0) {
+          ctx.bestPathLength = ctx.bestPath.length;
+        }
+      }
+
+      if (ctx.bestPath.length === 0) {
+        done = true;
+        solved = false;
+        pathLength = 0;
+      } else {
+        ctx.phase = "greedy";
+        ctx.vizStep = 0;
+      }
+    }
+  }
+
+  return {
+    done,
+    patches,
+    meta: {
+      line,
+      visitedCount: ctx.visitedCount,
+      frontierSize: ctx.lastAntCells.length,
+      generation: ctx.generation + 1,
+      bestPathLength: ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
+      solved,
+      pathLength,
+    },
+  };
 }
 
 export const antColonySolver: SolverPlugin<
@@ -210,7 +326,7 @@ export const antColonySolver: SolverPlugin<
   label: "Ant Colony Optimization",
   create({ grid, rng, options }) {
     const neighborCache: number[][] = new Array(grid.cellCount);
-    for (let i = 0; i < grid.cellCount; i++) {
+    for (let i = 0; i < grid.cellCount; i += 1) {
       neighborCache[i] = getOpenNeighbors(grid, i);
     }
 
@@ -228,7 +344,11 @@ export const antColonySolver: SolverPlugin<
       generation: 0,
       bestPath: [],
       bestPathLength: Infinity,
+      numAnts: NUM_ANTS,
+      maxGenerations: NUM_GENERATIONS,
+      antMaxSteps: Math.max(64, Math.min(400, Math.floor(grid.cellCount * 1.25))),
       antIndex: 0,
+      activeAnt: null,
       genPaths: [],
       genExploredTotal: 0,
       prevAvgExplored: Infinity,
@@ -239,7 +359,9 @@ export const antColonySolver: SolverPlugin<
       totalVisited: new Uint8Array(grid.cellCount),
     };
 
-    return { step: () => stepACO(ctx) };
+    return {
+      step: () => stepACO(ctx),
+    };
   },
 };
 
@@ -247,91 +369,113 @@ function stepACO(ctx: ACOContext): StepResult<AlgorithmStepMeta> {
   if (ctx.phase === "training") {
     return stepTraining(ctx);
   }
+
   return stepGreedy(ctx);
 }
 
-function stepTraining(
-  ctx: ACOContext,
-): StepResult<AlgorithmStepMeta> {
+function stepTraining(ctx: ACOContext): StepResult<AlgorithmStepMeta> {
   const patches: CellPatch[] = [];
 
-  // Clear previous ant's Frontier/Current overlays
-  for (const cell of ctx.lastAntCells) {
+  if (!ctx.activeAnt) {
+    beginAnt(ctx, patches);
+    return {
+      done: false,
+      patches,
+      meta: {
+        line: 1,
+        visitedCount: ctx.visitedCount,
+        frontierSize: 1,
+        generation: ctx.generation + 1,
+        bestPathLength: ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
+      },
+    };
+  }
+
+  const ant = ctx.activeAnt;
+  patches.push({
+    index: ant.current,
+    overlayClear: OverlayFlag.Current,
+  });
+
+  if (ant.current === ctx.goalIndex) {
+    return finalizeAnt(ctx, patches, true, 4);
+  }
+
+  if (ant.steps >= ctx.antMaxSteps) {
+    return finalizeAnt(ctx, patches, false, 3);
+  }
+
+  const candidates = ctx.neighborCache[ant.current]!.filter(
+    (neighbor) => ant.visited[neighbor] === 0,
+  );
+
+  if (candidates.length === 0) {
+    if (ant.path.length <= 1) {
+      return finalizeAnt(ctx, patches, false, 3);
+    }
+
+    ant.path.pop();
+    ant.current = ant.path[ant.path.length - 1] as number;
+    ant.steps += 1;
+
     patches.push({
-      index: cell,
-      overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
+      index: ant.current,
+      overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
     });
+
+    return {
+      done: false,
+      patches,
+      meta: {
+        line: 3,
+        visitedCount: ctx.visitedCount,
+        frontierSize: ant.path.length,
+        generation: ctx.generation + 1,
+        bestPathLength: ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
+      },
+    };
   }
 
-  // Run one full ant internally
-  const result = runAnt(ctx);
-  ctx.antIndex++;
+  const chosen = pickWeightedNeighbor(ctx, ant.current, candidates);
 
-  if (result) {
-    ctx.genPaths.push(result.path);
-    ctx.genExploredTotal += result.allVisited.length;
+  ant.visited[chosen] = 1;
+  ant.path.push(chosen);
+  ant.allVisited.push(chosen);
+  ant.current = chosen;
+  ant.steps += 1;
 
-    // Visualize: ALL cells the ant explored (including dead ends)
-    const cells = result.allVisited;
-    ctx.lastAntCells = cells;
+  markVisitedOverlay(ctx, chosen, patches);
+  patches.push({
+    index: chosen,
+    overlaySet: OverlayFlag.Frontier | OverlayFlag.Current,
+  });
 
-    for (const cell of cells) {
-      if (!ctx.totalVisited[cell]) {
-        ctx.totalVisited[cell] = 1;
-        ctx.visitedCount++;
-      }
-      patches.push({
-        index: cell,
-        overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
-      });
-    }
-
-    const lastCell = result.path[result.path.length - 1]!;
-    patches.push({ index: lastCell, overlaySet: OverlayFlag.Current });
-  } else {
-    ctx.lastAntCells = [];
+  if (chosen === ctx.goalIndex) {
+    return finalizeAnt(ctx, patches, true, 2);
   }
 
-  // End of generation?
-  if (ctx.antIndex >= NUM_ANTS) {
-    const converged = finishGeneration(ctx);
-
-    if (ctx.generation >= NUM_GENERATIONS || converged) {
-      ctx.phase = "greedy";
-      ctx.vizStep = 0;
-
-      if (ctx.bestPath.length === 0) {
-        return {
-          done: true,
-          patches,
-          meta: { line: 6, visitedCount: ctx.visitedCount, solved: false },
-        };
-      }
-    }
+  if (ant.steps >= ctx.antMaxSteps) {
+    return finalizeAnt(ctx, patches, false, 3);
   }
 
   return {
     done: false,
     patches,
     meta: {
-      line: ctx.antIndex === 0 ? 5 : 1,
+      line: 2,
       visitedCount: ctx.visitedCount,
-      frontierSize: ctx.lastAntCells.length,
-      generation: ctx.generation + (ctx.antIndex > 0 ? 1 : 0),
-      bestPathLength:
-        ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
+      frontierSize: ant.path.length,
+      generation: ctx.generation + 1,
+      bestPathLength: ctx.bestPathLength === Infinity ? 0 : ctx.bestPathLength,
     },
   };
 }
 
-function stepGreedy(
-  ctx: ACOContext,
-): StepResult<AlgorithmStepMeta> {
+function stepGreedy(ctx: ACOContext): StepResult<AlgorithmStepMeta> {
   const patches: CellPatch[] = [];
   const path = ctx.bestPath;
   const i = ctx.vizStep;
 
-  // First greedy step: clear training overlays
   if (i === 0) {
     for (const cell of ctx.lastAntCells) {
       patches.push({
@@ -350,6 +494,7 @@ function stepGreedy(
         overlayClear: OverlayFlag.Current | OverlayFlag.Frontier,
       });
     }
+
     return {
       done: true,
       patches,
@@ -364,18 +509,18 @@ function stepGreedy(
 
   if (i > 0) {
     patches.push({
-      index: path[i - 1]!,
+      index: path[i - 1] as number,
       overlayClear: OverlayFlag.Current,
     });
   }
 
-  const cell = path[i]!;
+  const cell = path[i] as number;
   patches.push({
     index: cell,
     overlaySet: OverlayFlag.Visited | OverlayFlag.Current,
   });
 
-  ctx.vizStep++;
+  ctx.vizStep += 1;
 
   return {
     done: false,
