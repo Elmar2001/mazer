@@ -66,6 +66,9 @@ function shortestPathLength(grid: ReturnType<typeof createGrid>): number {
   return 0;
 }
 
+/** IDs of solvers that train over many episodes and need a higher step budget. */
+const HEURISTIC_SOLVER_IDS = new Set(["q-learning", "ant-colony"]);
+
 function runSolver(
   plugin: SolverPlugin<SolverRunOptions, AlgorithmStepMeta>,
   grid: ReturnType<typeof createGrid>,
@@ -81,10 +84,13 @@ function runSolver(
     },
   });
 
+  const isHeuristic = HEURISTIC_SOLVER_IDS.has(plugin.id);
+  const maxSteps = isHeuristic ? grid.cellCount * 5000 : grid.cellCount * 20;
+
   let done = false;
   let lastMeta: AlgorithmStepMeta | undefined;
 
-  for (let i = 0; i < grid.cellCount * 20; i += 1) {
+  for (let i = 0; i < maxSteps; i += 1) {
     const result = stepper.step();
     for (const patch of result.patches) {
       applyCellPatch(grid, patch);

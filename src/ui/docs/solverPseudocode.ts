@@ -264,4 +264,27 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "mark resulting path and finish",
     ],
   },
+  "q-learning": {
+    title: "Q-Learning (RL)",
+    summary: "Reinforcement learning agent explores repeatedly, updating a Q-table until optimal path is learned.",
+    lines: [
+      "run training episode: agent walks maze with ε-greedy policy",
+      "update Q(s,a) ← Q(s,a) + α·(r + γ·max Q(s') − Q(s,a))",
+      "decay ε from exploration toward exploitation",
+      "after training: follow greedy policy from start",
+      "mark learned path and finish",
+    ],
+  },
+  "ant-colony": {
+    title: "Ant Colony Optimization",
+    summary: "Simulated ants deposit pheromones; shorter paths get stronger trails guiding future ants.",
+    lines: [
+      "release ants: each walks maze weighted by pheromone intensity",
+      "ants backtrack from dead ends to find alternate routes",
+      "evaporate pheromones globally by decay factor ρ",
+      "successful ants deposit pheromone inversely proportional to path length",
+      "elite bonus: reinforce global best path each generation",
+      "after training: trace best path found and finish",
+    ],
+  },
 };

@@ -21,6 +21,8 @@ import { shortestPathsFinderSolver } from "@/core/plugins/solvers/shortestPathsF
 import { tremauxSolver } from "@/core/plugins/solvers/tremaux";
 import { wallFollowerSolver } from "@/core/plugins/solvers/wallFollower";
 import { weightedAStarSolver } from "@/core/plugins/solvers/weightedAstar";
+import { qLearningSolver } from "@/core/plugins/solvers/qlearning";
+import { antColonySolver } from "@/core/plugins/solvers/antColony";
 
 export const solverPlugins = [
   randomMouseSolver,
@@ -46,6 +48,8 @@ export const solverPlugins = [
   pledgeSolver,
   tremauxSolver,
   chainSolver,
+  qLearningSolver,
+  antColonySolver,
 ] as const;
 
 export type SolverPluginId = (typeof solverPlugins)[number]["id"];
