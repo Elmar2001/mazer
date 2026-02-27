@@ -10,6 +10,7 @@ import type {
     AlgorithmStepMeta,
     GeneratorRunOptions,
 } from "@/core/plugins/types";
+import type { RandomSource } from "@/core/rng";
 
 interface FractureTip {
     index: number;
@@ -17,6 +18,7 @@ interface FractureTip {
 
 interface QuantumSeismogenesisContext {
     grid: Grid;
+    rng: RandomSource;
     stress: Float32Array;
     parent: Int32Array;
     rank: Uint8Array;
@@ -31,7 +33,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 > = {
     id: "quantum-seismogenesis",
     label: "Quantum Seismogenesis",
-    create({ grid }) {
+    create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {
             parent[i] = i;
@@ -39,6 +41,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 
         const context: QuantumSeismogenesisContext = {
             grid,
+            rng,
             stress: new Float32Array(grid.cellCount),
             parent,
             rank: new Uint8Array(grid.cellCount),
@@ -54,7 +57,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 };
 
 function stepQuantumSeismogenesis(context: QuantumSeismogenesisContext) {
-    const { grid, stress, parent, rank, activeFractures } = context;
+    const { grid, rng, stress, parent, rank, activeFractures } = context;
     const patches: CellPatch[] = [];
 
     if (context.components <= 1) {
@@ -115,12 +118,12 @@ function stepQuantumSeismogenesis(context: QuantumSeismogenesisContext) {
         // Select N random cells to add stress to
         const N = Math.max(1, Math.floor(grid.cellCount * 0.01));
         for (let i = 0; i < N; i++) {
-            const idx = Math.floor(Math.random() * grid.cellCount);
+            const idx = rng.nextInt(grid.cellCount);
             // Only stress disjoint cells (not fully integrated into the single tree)
             // A simple heuristic: if it has all its walls, it's definitely unintegrated. 
             // More accurately, if it's the root of its own set.
 
-            stress[idx] += 0.2 + Math.random() * 0.3;
+            stress[idx] += 0.2 + rng.next() * 0.3;
 
             if (stress[idx] >= 1.0) {
                 // Ignition

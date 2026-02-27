@@ -669,6 +669,64 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "This is a novel algorithm that combines terrain hydrology with spanning-tree construction. The erosion feedback mechanism — where carving a passage lowers nearby terrain — has no precedent in published maze generation literature.",
   },
   {
+    id: "quantum-seismogenesis",
+    name: "Quantum Seismogenesis",
+    kind: "Generator",
+    summary:
+      "Accumulates synthetic stress and propagates fracture tips that carve only when they connect disjoint components.",
+    howItWorks: [
+      "Track per-cell stress and union-find connectivity across all cells.",
+      "When no fracture is active, add random stress pulses to random cells until one ignites.",
+      "Process one active fracture tip: rank neighbors by stress and attempt to carve the first non-cycling edge.",
+      "On a successful carve, transfer stress toward the new tip and keep propagating the fracture front.",
+      "If a tip cannot carve without creating a cycle, dissipate it and wait for the next ignition.",
+    ],
+    timeComplexity: "O(V²) expected due repeated stress diffusion and frontier rescoring",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Produces sharp branching phases with clear fracture-wave behavior",
+      "Union-find keeps output cycle-safe (perfect maze)",
+      "Distinct visual rhythm versus standard frontier methods",
+    ],
+    cons: [
+      "More stateful and arithmetic-heavy than classic generators",
+      "Performance can lag on very large grids",
+    ],
+    bestFor:
+      "Experimental generation where you want tectonic crack-like growth rather than smooth expansion fronts.",
+    interestingFact:
+      "This project-specific generator blends stress-threshold ignition with spanning-tree constraints, so fractures look chaotic while still guaranteeing connectivity without loops.",
+  },
+  {
+    id: "mycelial-anastomosis",
+    name: "Mycelial Anastomosis",
+    kind: "Generator",
+    summary:
+      "Simulates fungal hyphae that grow from multiple spores, branch, and occasionally merge separate growth networks.",
+    howItWorks: [
+      "Seed multiple starting spores and treat each as an active growth tip.",
+      "Pick a random active tip and shuffle its neighbors to choose a growth direction.",
+      "If an unvisited neighbor is found, carve into it and continue from the new tip (sometimes branch).",
+      "If a visited neighbor belongs to a different union-find component, carve an anastomosis merge edge.",
+      "Retire dead-end tips and spawn fallback growth only when all tips die before completion.",
+    ],
+    timeComplexity: "O(V) expected with near-constant-time union-find merges",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Multi-source growth creates organic, network-like structure",
+      "Branching and merging phases are visually expressive",
+      "Maintains perfect-maze guarantees via component checks",
+    ],
+    cons: [
+      "Behavior tuning is more complex than single-frontier algorithms",
+      "Output style can vary strongly with branching probability",
+    ],
+    bestFor:
+      "Organic maze aesthetics that resemble biological growth and network fusion.",
+    interestingFact:
+      "Anastomosis is a real fungal behavior where separate hyphae fuse; this algorithm adapts that idea into cycle-safe maze construction.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
