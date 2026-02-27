@@ -30,6 +30,7 @@ import { primFrontierEdgesGenerator } from "@/core/plugins/generators/primFronti
 import { primModifiedGenerator } from "@/core/plugins/generators/primModified";
 import { primSimplifiedGenerator } from "@/core/plugins/generators/primSimplified";
 import { primTrueGenerator } from "@/core/plugins/generators/primTrue";
+import { resonantPhaseLockGenerator } from "@/core/plugins/generators/resonantPhaseLock";
 import { recursiveDivisionGenerator } from "@/core/plugins/generators/recursiveDivision";
 import { reverseDeleteGenerator } from "@/core/plugins/generators/reverseDelete";
 import { sidewinderGenerator } from "@/core/plugins/generators/sidewinder";
@@ -116,6 +117,7 @@ export const generatorPlugins = [
   withGeneratorMetadata(originShiftGenerator),
   withGeneratorMetadata(reverseDeleteGenerator),
   withGeneratorMetadata(boruvkaGenerator),
+  withGeneratorMetadata(resonantPhaseLockGenerator),
   withGeneratorMetadata(braidGenerator),
   withGeneratorMetadata(weaveGrowingTreeGenerator),
   withGeneratorMetadata(erosionGenerator),

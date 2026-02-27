@@ -358,6 +358,18 @@ export const GENERATOR_PSEUDOCODE: Record<
       "stop when one spanning-tree component remains",
     ],
   },
+  "resonant-phase-lock": {
+    title: "Resonant Phase-Lock",
+    summary: "Frontier growth guided by a dynamic interference-phase resonance score.",
+    lines: [
+      "initialize interference field, seed visited root, and add frontier",
+      "if frontier is empty: finish",
+      "pick frontier cell with highest (resonance + parent alignment) score",
+      "carve to best visited parent and assign blended phase to new cell",
+      "pulse nearby frontier resonance and add newly exposed frontier cells",
+      "repeat until every cell is visited",
+    ],
+  },
   "origin-shift": {
     title: "Origin Shift",
     summary: "Shift root of a directed spanning tree to rewire edges.",

@@ -609,6 +609,36 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Boruvka predates Kruskal and Prim and naturally lends itself to parallel implementations.",
   },
   {
+    id: "resonant-phase-lock",
+    name: "Resonant Phase-Lock",
+    kind: "Generator",
+    summary:
+      "Builds a spanning tree by choosing frontier cells using a self-updating resonance field derived from synthetic wave interference.",
+    howItWorks: [
+      "Generate a bounded interference phase field from multiple radial + directional wave emitters.",
+      "Seed one root cell, then maintain a classic visited/unvisited frontier boundary.",
+      "For each frontier candidate, score the best visited parent by phase alignment and local field continuity.",
+      "Choose the globally best frontier candidate, carve that parent edge, and assign the new cell a blended phase.",
+      "Emit a local resonance pulse that re-weights nearby frontier cells before the next pick.",
+      "Repeat until all cells join one connected tree.",
+    ],
+    timeComplexity: "O(V²) with full frontier rescoring per step",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Creates coherent macro-structures without strict geometric partitioning",
+      "Dynamic pulse feedback gives noticeably different flow than static-weight Prim variants",
+      "Deterministic and tree-safe under seeded execution",
+    ],
+    cons: [
+      "More arithmetic-heavy than baseline DFS/Prim",
+      "Frontier rescoring is slower than O(V)-style generators",
+    ],
+    bestFor:
+      "Experimental maze aesthetics where you want coherent wave-like structure but still need a perfect planar maze.",
+    interestingFact:
+      "This project-specific algorithm combines interference synthesis and phase-entrainment feedback inside a strict spanning-tree frontier loop.",
+  },
+  {
     id: "erosion",
     name: "Erosion (Hydraulic)",
     kind: "Generator",

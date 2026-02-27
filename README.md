@@ -33,6 +33,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Origin Shift
   - Reverse-Delete
   - Randomized Boruvka
+  - Resonant Phase-Lock
 - Step-based maze solvers:
   - Random Mouse
   - BFS
