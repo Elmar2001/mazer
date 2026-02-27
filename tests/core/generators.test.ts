@@ -147,6 +147,44 @@ describe("generator plugins", () => {
     expect(crossingCount).toBeGreaterThan(0);
   });
 
+  it("boruvka advances across multiple steps for visualization", () => {
+    const boruvka = generatorPlugins.find((plugin) => plugin.id === "boruvka");
+    if (!boruvka) {
+      throw new Error("Missing boruvka generator plugin");
+    }
+
+    const grid = createGrid(18, 12);
+    const stepper = boruvka.create({
+      grid,
+      rng: createSeededRandom("boruvka-visual-seed"),
+      options: {},
+    });
+
+    const firstStep = stepper.step();
+    for (const patch of firstStep.patches) {
+      applyCellPatch(grid, patch);
+    }
+
+    expect(firstStep.done).toBe(false);
+
+    let done = firstStep.done;
+    let steps = 1;
+    const maxSteps = grid.cellCount * 4;
+
+    while (!done && steps < maxSteps) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      done = result.done;
+      steps += 1;
+    }
+
+    expect(done).toBe(true);
+    expect(steps).toBeGreaterThan(1);
+  });
+
   it("blobby recursive subdivision stays connected across multiple seeds", () => {
     const blobby = generatorPlugins.find(
       (plugin) => plugin.id === "blobby-recursive-subdivision",

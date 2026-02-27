@@ -25,6 +25,8 @@ interface BoruvkaContext {
   touched: Uint8Array;
   visitedCount: number;
   currentNodes: number[];
+  pendingEdges: number[];
+  pendingCursor: number;
 }
 
 export const boruvkaGenerator: GeneratorPlugin<
@@ -49,6 +51,8 @@ export const boruvkaGenerator: GeneratorPlugin<
       touched: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       currentNodes: [],
+      pendingEdges: [],
+      pendingCursor: 0,
     };
 
     return {
@@ -74,6 +78,73 @@ function stepBoruvka(context: BoruvkaContext) {
     };
   }
 
+  if (context.pendingCursor >= context.pendingEdges.length) {
+    context.pendingEdges = collectRoundEdges(context);
+    context.pendingCursor = 0;
+
+    if (context.pendingEdges.length === 0) {
+      return {
+        done: true,
+        patches,
+        meta: {
+          line: 6,
+          visitedCount: context.visitedCount,
+          frontierSize: 0,
+        },
+      };
+    }
+  }
+
+  while (context.pendingCursor < context.pendingEdges.length) {
+    const edgeIndex = context.pendingEdges[context.pendingCursor] as number;
+    context.pendingCursor += 1;
+
+    const edge = context.edges[edgeIndex] as Edge;
+    if (!union(edge.a, edge.b, context.parent, context.rank)) {
+      continue;
+    }
+
+    context.components -= 1;
+    context.carvedEdges += 1;
+    patches.push(...carvePatch(edge.a, edge.b, edge.wallA, edge.wallB));
+
+    markTouched(context, edge.a, patches);
+    markTouched(context, edge.b, patches);
+
+    context.currentNodes = edge.a === edge.b ? [edge.a] : [edge.a, edge.b];
+    for (const index of context.currentNodes) {
+      patches.push({
+        index,
+        overlaySet: OverlayFlag.Current,
+      });
+    }
+
+    return {
+      done: context.components <= 1,
+      patches,
+      meta: {
+        line: 4,
+        visitedCount: context.visitedCount,
+        frontierSize: context.pendingEdges.length - context.pendingCursor,
+      },
+    };
+  }
+
+  context.pendingEdges = [];
+  context.pendingCursor = 0;
+
+  return {
+    done: context.components <= 1,
+    patches,
+    meta: {
+      line: 5,
+      visitedCount: context.visitedCount,
+      frontierSize: 0,
+    },
+  };
+}
+
+function collectRoundEdges(context: BoruvkaContext): number[] {
   const bestByRoot = new Int32Array(context.grid.cellCount);
   bestByRoot.fill(-1);
 
@@ -90,54 +161,7 @@ function stepBoruvka(context: BoruvkaContext) {
     chooseBestEdge(bestByRoot, rootB, i, context.edges);
   }
 
-  const chosen = collectChosenEdges(bestByRoot);
-  if (chosen.length === 0) {
-    return {
-      done: true,
-      patches,
-      meta: {
-        line: 1,
-        visitedCount: context.visitedCount,
-        frontierSize: 0,
-      },
-    };
-  }
-
-  const currentNodeSet = new Set<number>();
-
-  for (const edgeIndex of chosen) {
-    const edge = context.edges[edgeIndex] as Edge;
-    if (!union(edge.a, edge.b, context.parent, context.rank)) {
-      continue;
-    }
-
-    context.components -= 1;
-    context.carvedEdges += 1;
-    patches.push(...carvePatch(edge.a, edge.b, edge.wallA, edge.wallB));
-
-    markTouched(context, edge.a, patches);
-    markTouched(context, edge.b, patches);
-    currentNodeSet.add(edge.a);
-    currentNodeSet.add(edge.b);
-  }
-
-  context.currentNodes = Array.from(currentNodeSet);
-  for (const index of context.currentNodes) {
-    patches.push({
-      index,
-      overlaySet: OverlayFlag.Current,
-    });
-  }
-
-  return {
-    done: context.components <= 1,
-    patches,
-    meta: {
-      line: 4,
-      visitedCount: context.visitedCount,
-      frontierSize: chosen.length,
-    },
-  };
+  return collectChosenEdges(bestByRoot);
 }
 
 function clearCurrentMarkers(context: BoruvkaContext, patches: CellPatch[]): void {
