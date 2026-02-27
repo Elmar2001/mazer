@@ -81,7 +81,9 @@ function AlgorithmCard({
         </p>
       )}
       {pluginMeta?.implementationKind === "alias" && aliasTargetLabel && (
-        <p className="algoSummary">Implements the same runtime as {aliasTargetLabel}.</p>
+        <p className="algoSummary">
+          <strong>Alias of:</strong> {aliasTargetLabel} (same runtime behavior).
+        </p>
       )}
       {algorithm.kind === "Generator" && pluginMeta?.topologyOut && (
         <p className="algoSummary">
