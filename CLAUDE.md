@@ -24,10 +24,12 @@ Mazer is a maze algorithm visualizer built with Next.js 15 (App Router), React 1
 
 1. **Core (`src/core/`)** — Pure algorithm logic with no UI dependencies.
    - `grid.ts`: Grid model using typed arrays (Uint8Array for walls, Uint16Array for overlays). Row-major indexing: `idx = y * width + x`. Wall flags are 4-bit (N/E/S/W). Overlay flags are bit-packed (8 bits per solver role for battle mode).
+   - `analysis/graphMetrics.ts`: graph richness analysis (`edgeCount`, `cycleCount`, dead ends, junctions, shortest-route count with cap).
    - `plugins/generators/` and `plugins/solvers/`: All algorithms are iterative steppers. Each `step()` returns a `StepResult` containing `CellPatch` mutations and metadata. Never recursive, never clone full grids.
    - `rng.ts`: Deterministic Mulberry32 PRNG seeded from string hash.
 
 2. **Engine (`src/engine/MazeEngine.ts`)** — Phase state machine (Idle → Generating → Generated → Solving → Solved) with RAF-based frame loop. Accumulates elapsed time, executes steps in batches, applies patches, tracks dirty cells, collects metrics. Supports battle mode (two solvers in parallel with separate overlay flags and metrics).
+   - Computes graph metrics once when generation completes and keeps that snapshot visible through solving.
 
 3. **Renderer (`src/render/CanvasRenderer.ts`)** — DPR-aware 2D canvas. Only redraws dirty cells + neighbors, not the full grid.
 
@@ -42,13 +44,14 @@ User input → Zustand store → useMazeEngine hook → MazeEngine (runs stepper
 
 ### Plugin system
 
-Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `SolverPlugin<TOptions, TMeta>`. Both are registered in their respective `index.ts` files. UI dropdown options are defined in `src/ui/constants/algorithms.ts`. To add a new algorithm: create the plugin file, register it in the index, and add a dropdown entry. Generators advertise output topology (`perfect-planar`, `loopy-planar`, `weave`) and solver dropdowns auto-filter to compatible algorithms.
+Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `SolverPlugin<TOptions, TMeta>`. Both are registered in their respective `index.ts` files. UI dropdown options are defined in `src/ui/constants/algorithms.ts`. To add a new algorithm: create the plugin file, register it in the index, and add a dropdown entry. Generators advertise output topology (`perfect-planar`, `loopy-planar`, `weave`) and solver dropdowns auto-filter to compatible algorithms. Generators can optionally expose UI controls via `generatorParamsSchema` metadata.
 
 ## Key conventions
 
 - **Patch-based updates**: Algorithms emit `CellPatch` objects describing cell-level wall/overlay mutations. No full-grid cloning.
 - **Deterministic**: Same seed string produces identical mazes via Mulberry32 PRNG.
 - **Step metadata**: Algorithms return `line` numbers for pseudocode tracing and `solverRole` for battle mode identification.
+- **Visualization pacing**: Bellman-Ford runs pass-by-pass (snapshot relaxation) to avoid instant convergence on highly connected/open mazes.
 - **Path alias**: `@/*` maps to project root in tsconfig.
 - **Speed range**: 1–5000 steps/sec, configured in `src/config/limits.ts`.
 
@@ -61,4 +64,4 @@ Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `Solv
 
 ## Testing
 
-Tests live in `tests/core/`. They verify generator determinism/connectivity, solver correctness (BFS optimal path validation), and PRNG behavior. Vitest with Node environment.
+Tests live under `tests/` (`core`, `engine`, `config`). They verify generator determinism/connectivity/topology, solver correctness + visualization pacing regressions, worker/engine behavior, and documentation coverage. Vitest with Node environment.

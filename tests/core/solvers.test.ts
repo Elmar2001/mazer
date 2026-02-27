@@ -526,6 +526,43 @@ describe("solver plugins", () => {
     expect((grid.overlays[8] & OverlayFlag.Path) !== 0).toBe(false);
   });
 
+  it("dead-end-filling visualizes final path over multiple steps when no dead ends exist", () => {
+    const deadEnd = solverPlugins.find(
+      (plugin) => plugin.id === "dead-end-filling",
+    );
+    if (!deadEnd) {
+      throw new Error("Dead-End Filling plugin not found");
+    }
+
+    const grid = buildOpenGrid(12, 8);
+    clearOverlays(grid);
+
+    const stepper = deadEnd.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 4; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
   it.each(["wall-follower", "left-wall-follower"] as const)(
     "%s terminates when no path exists",
     (solverId) => {

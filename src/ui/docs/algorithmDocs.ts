@@ -966,20 +966,24 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     id: "bellman-ford",
     name: "Bellman-Ford",
     kind: "Solver",
-    summary: "Relaxes all open edges repeatedly until no shorter distances remain.",
+    summary:
+      "Relaxes all open edges in repeated passes until no shorter distances remain.",
     howItWorks: [
       "Initialize start distance to 0 and all others to infinity.",
-      "Run full relaxation passes over every open edge.",
+      "Run full relaxation passes over every open edge using previous-pass distances.",
       "Update parent links whenever a shorter path to a node is found.",
       "Stop when a pass makes no improvements and reconstruct the path.",
     ],
     timeComplexity: "O(VE)",
     spaceComplexity: "O(V)",
     pros: ["Provably optimal with nonnegative weights", "Simple global convergence criterion"],
-    cons: ["More work than BFS/Dijkstra on unweighted mazes", "Pass-based progress can feel coarse"],
+    cons: [
+      "More work than BFS/Dijkstra on unweighted mazes",
+      "Global pass updates are still heavier than frontier-only methods",
+    ],
     bestFor: "Reference correctness checks and shortest-path algorithm comparisons.",
     interestingFact:
-      "Bellman-Ford is a classic dynamic-programming shortest-path method and can handle negative edges in general graphs.",
+      "This visualizer uses pass-snapshot relaxation so Bellman-Ford progression remains visible instead of collapsing in one cascaded pass.",
   },
   {
     id: "iterative-deepening-dfs",

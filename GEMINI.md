@@ -18,9 +18,10 @@ The project is structured to strictly separate algorithmic logic, execution, and
     *   `grid.ts`: Represents the maze using highly efficient typed arrays (`Uint8Array` for walls, `Uint16Array` for overlays) and bitmask operations.
     *   `patches.ts`: Defines `CellPatch` types used to record and transmit state changes incrementally.
     *   `rng.ts`: Implements a deterministic pseudo-random number generator.
+    *   `analysis/graphMetrics.ts`: Computes graph richness metrics (cycles, dead ends, junctions, shortest-route counts).
     *   `plugins/`: Defines interfaces and implementations for generators and solvers.
 *   **`src/engine/`**: The core runtime execution layer.
-    *   `MazeEngine.ts`: Manages a state machine (`Idle`, `Generating`, `Generated`, `Solving`, `Solved`). It uses a decoupled `requestAnimationFrame` loop to step algorithms at a requested speed (up to 5000 steps/sec) and emits dirty-cell patches rather than full grid clones. Supports "battle mode" between two solvers.
+    *   `MazeEngine.ts`: Manages a state machine (`Idle`, `Generating`, `Generated`, `Solving`, `Solved`). It uses a decoupled `requestAnimationFrame` loop to step algorithms at a requested speed (up to 5000 steps/sec) and emits dirty-cell patches rather than full grid clones. Supports "battle mode" between two solvers and computes graph metrics at generation completion.
 *   **`src/render/`**: Handles drawing.
     *   `CanvasRenderer.ts`: Efficiently redraws only the "dirty" cells (and their immediate neighbors) communicated by the engine.
 *   **`src/ui/`**: React integration.
@@ -43,7 +44,7 @@ The project is structured to strictly separate algorithmic logic, execution, and
     ```bash
     npm test
     ```
-    (Runs the Vitest test suite, verifying RNG behavior, generator output consistency, and solver path correctness)
+    (Runs the Vitest suite, verifying RNG behavior, generator output consistency/topology invariants, solver correctness, and visualization regressions)
 *   **Linting:**
     ```bash
     npm run lint
@@ -54,6 +55,7 @@ The project is structured to strictly separate algorithmic logic, execution, and
 *   **Performance First:** The architecture heavily emphasizes performance. Algorithms **must never** clone the full grid per step. Instead, they must yield `CellPatch` objects describing incremental changes to wall configurations or visual overlays.
 *   **Deterministic Execution:** All random behavior within algorithms must utilize the provided deterministic RNG (seeded via the UI) to ensure visual consistency and reproducible battles.
 *   **Plugin System:** 
-    *   **Generators:** Adding a new generator involves creating a `GeneratorPlugin` in `src/core/plugins/generators/`, implementing a stepper that yields patches, and exporting it from `index.ts`.
+    *   **Generators:** Adding a new generator involves creating a `GeneratorPlugin` in `src/core/plugins/generators/`, implementing a stepper that yields patches, and exporting it from `index.ts`. Generators can also expose configurable UI parameters via `generatorParamsSchema`.
     *   **Solvers:** Solvers follow a similar pattern in `src/core/plugins/solvers/`, emitting `OverlayFlag.Path` when a path is found.
 *   **Bitmasks:** Grid walls and overlays (visited, frontier, path, current) are managed using bitwise operations for memory efficiency and speed. Ensure you use the provided masks (e.g., `WallFlag`, `OverlayFlag`) in `src/core/grid.ts`.
+*   **Visualization pacing:** Bellman-Ford intentionally relaxes from per-pass snapshots so animation remains stepwise on dense/open graphs.

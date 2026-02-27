@@ -4,37 +4,12 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
 
 ## Features
 
-- Step-based maze generators:
-  - Recursive Backtracker (DFS)
-  - Recursive Division
-  - Randomized Prim
-  - Prim (True Frontier Edges)
-  - Prim (Simplified)
-  - Prim (Modified)
-  - Prim (Frontier Edges)
-  - Randomized Kruskal
-  - Binary Tree
-  - Sidewinder
-  - Aldous-Broder
-  - Hunt-and-Kill
-  - Growing Tree
-  - Growing Forest
-  - Randomized BFS Tree
-  - Eller
-  - Houston (AB + Wilson)
-  - Wilson
-  - Unicursal
-  - Fractal Tessellation
-  - Cellular Automata (Cave-Biased)
-  - Maze CA (B3/S12345)
-  - Mazectric CA (B3/S1234)
-  - Braid (Dead-End Reduction)
-  - Weave Growing Tree
-  - Origin Shift
-  - Reverse-Delete
-  - Randomized Boruvka
-  - Resonant Phase-Lock
-- Step-based maze solvers:
+- Step-based generator catalog with `40` algorithms (research-core + advanced + aliases), including:
+  - classic perfect mazes: DFS Backtracker, Prim variants, Kruskal, Wilson, Eller, Recursive Division
+  - loop-capable mazes: Braid, Prim (Loopy), Kruskal (Loopy), Recursive Division (Multi-Gap)
+  - weave topology: Weave Growing Tree
+  - advanced/experimental variants: Resonant Phase-Lock, Erosion, Quantum Seismogenesis, Mycelial Anastomosis, Counterfactual Cycle Annealing, Sandpile Avalanche
+- Step-based solver catalog with `29` algorithms, including:
   - Random Mouse
   - BFS
   - DFS
@@ -64,6 +39,9 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Ant Colony Optimization
 - Runtime controls:
   - algorithm selection
+  - topology workspace filter (`All`, `Perfect`, `Loopy`, `Weave`)
+  - dynamic generator parameter controls from plugin metadata schemas
+  - loop-density presets for loopy generators (`20`, `35`, `60`)
   - optional solver battle mode (Solver A vs Solver B)
   - speed (steps/sec)
   - grid width/height
@@ -83,7 +61,9 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - actual throughput (steps/s)
   - patch + dirty-cell volume
   - engine compute time + utilization estimate
+  - graph richness stats after generation (`edgeCount`, `cycleCount`, `deadEndCount`, `junctionCount`, `shortestPathCount`)
   - per-solver comparison cards in battle mode (status, throughput, visited/frontier/path, patches)
+- Full algorithm list, pseudocode, complexity, and topology/compatibility notes: `/docs`
 
 ## Architecture
 
@@ -91,9 +71,10 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - `grid.ts`: typed-array grid model (`walls`, `overlays`) and helpers
   - `rng.ts`: deterministic PRNG + string-to-seed hashing
   - `patches.ts`: cell patch and step result types
+  - `analysis/graphMetrics.ts`: topology/graph richness metrics + shortest-route counting
   - `plugins/*`: generator/solver interfaces and plugin implementations
 - `src/engine/`
-  - `MazeEngine.ts`: phase state machine, RAF scheduler, patch application, dirty-cell emission
+  - `MazeEngine.ts`: phase state machine, RAF scheduler, patch application, dirty-cell emission, graph metric snapshotting at `Generated`
 - `src/render/`
   - `CanvasRenderer.ts`: DPR-aware canvas rendering + dirty-cell redraw
 - `src/ui/`
@@ -133,6 +114,8 @@ Current tests cover:
 - deterministic generator outputs for identical seeds
 - basic generator correctness (connectivity + topology-specific invariants)
 - solver correctness and shortest-path optimality checks (BFS, Dijkstra, Bellman-Ford)
+- graph metric correctness (cycles, dead ends, shortest-route counting, tunnel traversal)
+- visualization pacing regressions (including Bellman-Ford progression on open/loopy graphs)
 - documentation/pseudocode coverage for all registered plugins
 
 ## Topology + Weights Notes
@@ -140,6 +123,8 @@ Current tests cover:
 - Maze edges are unit-cost (unweighted) across every generator.
 - Weighted A* is retained as an advanced heuristic-priority variant; it does **not** introduce weighted maze edges.
 - Generators now advertise output topology (`perfect-planar`, `loopy-planar`, `weave`) and solver dropdowns auto-filter to compatible algorithms.
+- Loopy generators expose `loopDensity` through UI metadata schemas to tune cycle frequency.
+- Bellman-Ford relaxation is pass-snapshot based (not in-pass cascading) to preserve stepwise visualization clarity.
 
 ## Adding a New Generator Plugin
 
@@ -147,8 +132,10 @@ Current tests cover:
 2. Implement `GeneratorPlugin`:
    - `create(...)` returns a stepper with `step(): StepResult`
    - mutate only through returned `patches`
+   - optionally add `generatorParamsSchema` in plugin metadata for UI controls
 3. Export plugin in `src/core/plugins/generators/index.ts`.
-4. It will appear in the UI dropdown via `src/ui/constants/algorithms.ts`.
+4. Register topology (`perfect-planar` / `loopy-planar` / `weave`) in generator metadata wiring.
+5. It will appear in the UI dropdown via `src/ui/constants/algorithms.ts`.
 
 Example patch usage:
 

@@ -16,6 +16,9 @@ interface DeadEndContext {
   head: number;
   current: number;
   frontierSize: number;
+  finalizing: boolean;
+  finalPath: number[];
+  finalPathCursor: number;
 }
 
 export const deadEndFillingSolver: SolverPlugin<
@@ -37,6 +40,9 @@ export const deadEndFillingSolver: SolverPlugin<
       head: 0,
       current: -1,
       frontierSize: 0,
+      finalizing: false,
+      finalPath: [],
+      finalPathCursor: 0,
     };
 
     return {
@@ -68,15 +74,28 @@ function stepDeadEndFilling(context: DeadEndContext) {
     }
 
     if (context.queue.length === 0) {
-      const final = setFinalPath(context, patches);
+      const final = initializeFinalPath(context);
+      if (!final.solved) {
+        return {
+          done: true,
+          patches,
+          meta: {
+            line: 2,
+            solved: false,
+            pathLength: 0,
+            frontierSize: 0,
+          },
+        };
+      }
+
       return {
-        done: true,
+        done: false,
         patches,
         meta: {
           line: 2,
-          solved: final.solved,
+          solved: false,
           pathLength: final.pathLength,
-          frontierSize: 0,
+          frontierSize: final.pathLength,
         },
       };
     }
@@ -99,16 +118,33 @@ function stepDeadEndFilling(context: DeadEndContext) {
     context.current = -1;
   }
 
+  if (context.finalizing) {
+    return stepFinalPath(context, patches);
+  }
+
   if (context.head >= context.queue.length) {
-    const final = setFinalPath(context, patches);
+    const final = initializeFinalPath(context);
+    if (!final.solved) {
+      return {
+        done: true,
+        patches,
+        meta: {
+          line: 3,
+          solved: false,
+          pathLength: 0,
+          frontierSize: 0,
+        },
+      };
+    }
+
     return {
-      done: true,
+      done: false,
       patches,
       meta: {
         line: 3,
-        solved: final.solved,
+        solved: false,
         pathLength: final.pathLength,
-        frontierSize: 0,
+        frontierSize: final.pathLength,
       },
     };
   }
@@ -177,31 +213,54 @@ function stepDeadEndFilling(context: DeadEndContext) {
   };
 }
 
-function setFinalPath(
+function initializeFinalPath(
   context: DeadEndContext,
-  patches: CellPatch[],
 ): { pathLength: number; solved: boolean } {
-  if (context.current !== -1) {
-    patches.push({
-      index: context.current,
-      overlayClear: OverlayFlag.Current,
-    });
-    context.current = -1;
-  }
-
   const path = findPathOnRemainingGraph(context);
-
-  for (const index of path) {
-    patches.push({
-      index,
-      overlaySet: OverlayFlag.Path,
-      overlayClear: OverlayFlag.Frontier,
-    });
-  }
+  context.finalPath = path;
+  context.finalPathCursor = 0;
+  context.finalizing = path.length > 0;
 
   return {
     pathLength: path.length,
     solved: path.length > 0,
+  };
+}
+
+function stepFinalPath(context: DeadEndContext, patches: CellPatch[]) {
+  if (context.finalPathCursor >= context.finalPath.length) {
+    context.finalizing = false;
+    return {
+      done: true,
+      patches,
+      meta: {
+        line: 3,
+        solved: true,
+        pathLength: context.finalPath.length,
+        frontierSize: 0,
+      },
+    };
+  }
+
+  const index = context.finalPath[context.finalPathCursor] as number;
+  context.finalPathCursor += 1;
+  context.current = index;
+
+  patches.push({
+    index,
+    overlaySet: OverlayFlag.Path | OverlayFlag.Current,
+    overlayClear: OverlayFlag.Frontier,
+  });
+
+  return {
+    done: false,
+    patches,
+    meta: {
+      line: 3,
+      solved: false,
+      pathLength: context.finalPath.length,
+      frontierSize: Math.max(0, context.finalPath.length - context.finalPathCursor),
+    },
   };
 }
 

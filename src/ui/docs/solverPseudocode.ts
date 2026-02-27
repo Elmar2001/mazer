@@ -76,10 +76,10 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
   },
   "bellman-ford": {
     title: "Bellman-Ford",
-    summary: "Repeated edge relaxation until distances converge.",
+    summary: "Repeated pass-snapshot edge relaxation until distances converge.",
     lines: [
       "initialize distance(start)=0 and all others to infinity",
-      "for each pass, relax every open maze edge in both directions",
+      "for each pass, relax every open maze edge against previous-pass distances",
       "record improved parent links and frontier updates",
       "if a full pass makes no improvements: distances converged",
       "reconstruct path from goal via parents and finish",
