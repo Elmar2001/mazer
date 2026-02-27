@@ -406,4 +406,28 @@ export const GENERATOR_PSEUDOCODE: Record<
       "finish when all cells are in tree",
     ],
   },
+  "quantum-seismogenesis": {
+    title: "Quantum Seismogenesis",
+    summary: "Build stress in the grid until a rapid fracture connects disjoint sets.",
+    lines: [
+      "if all components merged: finish",
+      "process active fracture tips and propagate to highest stress neighbors",
+      "if a fracture hits a different component: union and carve path",
+      "if no active fractures: add random stress to cells",
+      "if cell stress reaches critical threshold: ignite new fracture",
+      "wait for next step",
+    ],
+  },
+  "mycelial-anastomosis": {
+    title: "Mycelial Anastomosis",
+    summary: "Concurrent organic growth from multiple spores, merging on contact.",
+    lines: [
+      "if all components merged: clear frontiers and finish",
+      "if no active hyphae: spawn a new hypha in unvisited cell",
+      "pick a random active hypha tip and shuffle its valid neighbors",
+      "if neighbor unvisited: grow into it and branch occasionally",
+      "if neighbor visited by different network: merge and terminate tip",
+      "wait for next step",
+    ],
+  },
 };

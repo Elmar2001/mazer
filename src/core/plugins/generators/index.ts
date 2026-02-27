@@ -39,6 +39,9 @@ import { vortexGenerator } from "@/core/plugins/generators/vortex";
 import { weaveGrowingTreeGenerator } from "@/core/plugins/generators/weaveGrowingTree";
 import { wilsonGenerator } from "@/core/plugins/generators/wilson";
 
+import { quantumSeismogenesisGenerator } from "@/core/plugins/generators/quantumSeismogenesis";
+import { mycelialAnastomosisGenerator } from "@/core/plugins/generators/mycelialAnastomosis";
+
 const RESEARCH_CORE_GENERATORS = new Set<string>([
   "dfs-backtracker",
   "recursive-division",
@@ -121,6 +124,8 @@ export const generatorPlugins = [
   withGeneratorMetadata(braidGenerator),
   withGeneratorMetadata(weaveGrowingTreeGenerator),
   withGeneratorMetadata(erosionGenerator),
+  withGeneratorMetadata(quantumSeismogenesisGenerator),
+  withGeneratorMetadata(mycelialAnastomosisGenerator),
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];
