@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { applyCellPatch, createGrid, traversableNeighbors } from "@/core/grid";
+import {
+  applyCellPatch,
+  createGrid,
+  OverlayFlag,
+  traversableNeighbors,
+} from "@/core/grid";
 import { generatorPlugins } from "@/core/plugins/generators";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
 import type {
@@ -140,5 +145,39 @@ describe("generator plugins", () => {
     const grid = runGenerator(weave, "weave-seed", 36, 22);
     const crossingCount = Array.from(grid.crossings).filter((value) => value !== 0).length;
     expect(crossingCount).toBeGreaterThan(0);
+  });
+
+  it("blobby recursive subdivision stays connected across multiple seeds", () => {
+    const blobby = generatorPlugins.find(
+      (plugin) => plugin.id === "blobby-recursive-subdivision",
+    );
+    if (!blobby) {
+      throw new Error("Missing blobby-recursive-subdivision plugin");
+    }
+
+    for (let i = 0; i < 16; i += 1) {
+      const grid = runGenerator(blobby, `blobby-seed-${i}`, 30, 18);
+      expect(reachableCellCount(grid)).toBe(grid.cellCount);
+    }
+  });
+
+  it("blobby recursive subdivision clears in-progress overlays on completion", () => {
+    const blobby = generatorPlugins.find(
+      (plugin) => plugin.id === "blobby-recursive-subdivision",
+    );
+    if (!blobby) {
+      throw new Error("Missing blobby-recursive-subdivision plugin");
+    }
+
+    const grid = runGenerator(blobby, "blobby-overlay-seed", 30, 18);
+    const hasFrontier = Array.from(grid.overlays).some(
+      (value) => (value & OverlayFlag.Frontier) !== 0,
+    );
+    const hasCurrent = Array.from(grid.overlays).some(
+      (value) => (value & OverlayFlag.Current) !== 0,
+    );
+
+    expect(hasFrontier).toBe(false);
+    expect(hasCurrent).toBe(false);
   });
 });

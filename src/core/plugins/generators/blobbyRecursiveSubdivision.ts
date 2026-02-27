@@ -46,6 +46,9 @@ export const blobbyRecursiveSubdivisionGenerator: GeneratorPlugin<
     const edges: BlobbyEdge[] = [];
     const cells = Array.from({ length: grid.cellCount }, (_, i) => i);
     buildBlobbyTree(grid, rng, cells, edges);
+    if (edges.length === 0 && grid.cellCount > 1) {
+      buildLocalBlobTree(grid, rng, cells, edges);
+    }
 
     const context: BlobbyContext = {
       edges,
@@ -86,19 +89,22 @@ function stepBlobby(context: BlobbyContext) {
 
   const edge = context.edges[context.cursor] as BlobbyEdge;
   context.cursor += 1;
+  const done = context.cursor >= context.edges.length;
 
   patches.push(...carvePatch(edge.from, edge.to, edge.wallFrom, edge.wallTo));
   markTouched(context, edge.from, patches);
   markTouched(context, edge.to, patches);
 
-  context.current = edge.to;
-  patches.push({
-    index: edge.to,
-    overlaySet: OverlayFlag.Current,
-  });
+  if (!done) {
+    context.current = edge.to;
+    patches.push({
+      index: edge.to,
+      overlaySet: OverlayFlag.Current,
+    });
+  }
 
   return {
-    done: context.cursor >= context.edges.length,
+    done,
     patches,
     meta: {
       line: 5,
@@ -121,7 +127,7 @@ function markTouched(
   context.visitedCount += 1;
   patches.push({
     index,
-    overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
+    overlaySet: OverlayFlag.Visited,
   });
 }
 
@@ -212,6 +218,17 @@ function splitBlobbyRegion(
     });
   }
 
+  if (!assignRemainingCells(grid, rng, cells, inRegion, side)) {
+    const shuffled = [...cells];
+    shuffleNumbers(shuffled, rng);
+    const cut = Math.max(1, Math.floor(shuffled.length / 2));
+    return {
+      left: shuffled.slice(0, cut),
+      right: shuffled.slice(cut),
+      connector: null,
+    };
+  }
+
   const left: number[] = [];
   const right: number[] = [];
 
@@ -296,6 +313,46 @@ function growFromFrontier(
     frontier.push(neighbor.index);
     onAssign();
   }
+}
+
+function assignRemainingCells(
+  grid: Grid,
+  rng: RandomSource,
+  cells: number[],
+  inRegion: Uint8Array,
+  side: Int8Array,
+): boolean {
+  let progressed = true;
+
+  while (progressed) {
+    progressed = false;
+
+    for (const cell of cells) {
+      if (side[cell] !== -1) {
+        continue;
+      }
+
+      const assignedNeighbors = neighbors(grid, cell).filter(
+        (neighbor) => inRegion[neighbor.index] === 1 && side[neighbor.index] !== -1,
+      );
+
+      if (assignedNeighbors.length === 0) {
+        continue;
+      }
+
+      const pick = assignedNeighbors[rng.nextInt(assignedNeighbors.length)]!;
+      side[cell] = side[pick.index] as number;
+      progressed = true;
+    }
+  }
+
+  for (const cell of cells) {
+    if (side[cell] === -1) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function buildLocalBlobTree(
