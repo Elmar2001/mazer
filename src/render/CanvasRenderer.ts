@@ -1,4 +1,8 @@
 import { OverlayFlag, WallFlag, type Grid } from "@/core/grid";
+import {
+  CANVAS_MAX_BACKING_DIMENSION,
+  CANVAS_MAX_BACKING_PIXELS,
+} from "@/config/limits";
 import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
 export interface CanvasRendererSettings {
@@ -69,15 +73,28 @@ export class CanvasRenderer {
     const widthPx = this.grid.width * this.settings.cellSize;
     const heightPx = this.grid.height * this.settings.cellSize;
 
-    this.dpr = Math.max(1, Math.floor(globalThis.devicePixelRatio ?? 1));
+    this.dpr = this.computeSafeDpr(widthPx, heightPx);
 
     this.canvas.style.width = `${widthPx}px`;
     this.canvas.style.height = `${heightPx}px`;
-    this.canvas.width = Math.floor(widthPx * this.dpr);
-    this.canvas.height = Math.floor(heightPx * this.dpr);
+    this.canvas.width = Math.max(1, Math.floor(widthPx * this.dpr));
+    this.canvas.height = Math.max(1, Math.floor(heightPx * this.dpr));
 
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.ctx.imageSmoothingEnabled = false;
+  }
+
+  private computeSafeDpr(widthPx: number, heightPx: number): number {
+    const rawDpr = globalThis.devicePixelRatio ?? 1;
+    const nativeDpr =
+      Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
+    const maxByWidth = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, widthPx);
+    const maxByHeight = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, heightPx);
+    const maxByPixels = Math.sqrt(
+      CANVAS_MAX_BACKING_PIXELS / Math.max(1, widthPx * heightPx),
+    );
+
+    return Math.max(0.1, Math.min(nativeDpr, maxByWidth, maxByHeight, maxByPixels));
   }
 
   renderAll(): void {

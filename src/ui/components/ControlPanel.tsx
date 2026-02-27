@@ -3,7 +3,15 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 
-import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
+import {
+  CELL_MIN,
+  GRID_MIN,
+  SPEED_MAX,
+  SPEED_MIN,
+  getCellSizeMax,
+  getGridHeightMax,
+  getGridWidthMax,
+} from "@/config/limits";
 import type { MazeControls } from "@/ui/hooks/useMazeEngine";
 import { GENERATOR_OPTIONS, SOLVER_OPTIONS } from "@/ui/constants/algorithms";
 import { useMazeStore } from "@/ui/store/mazeStore";
@@ -12,11 +20,6 @@ import { MazeConfigPanel } from "@/ui/components/MazeConfigPanel";
 interface ControlPanelProps {
   controls: MazeControls;
 }
-
-const GRID_MIN = 10;
-const GRID_MAX = 120;
-const CELL_MIN = 8;
-const CELL_MAX = 32;
 
 function AccordionSection({
   title,
@@ -75,6 +78,9 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   const canSolve = runtime.phase === "Generated" || runtime.phase === "Solved";
   const canPlaybackControl =
     runtime.phase === "Generating" || runtime.phase === "Solving";
+  const gridWidthMax = getGridWidthMax(settings.gridHeight, settings.cellSize);
+  const gridHeightMax = getGridHeightMax(settings.gridWidth, settings.cellSize);
+  const cellSizeMax = getCellSizeMax(settings.gridWidth, settings.gridHeight);
 
   const onCheckboxChange =
     (setter: (value: boolean) => void) =>
@@ -342,8 +348,8 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             <span className="sliderValue">{settings.gridWidth}</span>
           </div>
           <div className="sliderRow">
-            <input type="range" min={GRID_MIN} max={GRID_MAX} value={settings.gridWidth} onChange={(e) => setGridWidth(Number(e.currentTarget.value))} />
-            <input className="sliderNumber" type="number" min={GRID_MIN} max={GRID_MAX} value={settings.gridWidth} onChange={onNumberChange(setGridWidth)} />
+            <input type="range" min={GRID_MIN} max={gridWidthMax} value={settings.gridWidth} onChange={(e) => setGridWidth(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={GRID_MIN} max={gridWidthMax} value={settings.gridWidth} onChange={onNumberChange(setGridWidth)} />
           </div>
         </div>
         <div className="sliderField">
@@ -352,8 +358,8 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             <span className="sliderValue">{settings.gridHeight}</span>
           </div>
           <div className="sliderRow">
-            <input type="range" min={GRID_MIN} max={GRID_MAX} value={settings.gridHeight} onChange={(e) => setGridHeight(Number(e.currentTarget.value))} />
-            <input className="sliderNumber" type="number" min={GRID_MIN} max={GRID_MAX} value={settings.gridHeight} onChange={onNumberChange(setGridHeight)} />
+            <input type="range" min={GRID_MIN} max={gridHeightMax} value={settings.gridHeight} onChange={(e) => setGridHeight(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={GRID_MIN} max={gridHeightMax} value={settings.gridHeight} onChange={onNumberChange(setGridHeight)} />
           </div>
         </div>
         <div className="sliderField">
@@ -362,15 +368,15 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             <span className="sliderValue">{settings.cellSize}px</span>
           </div>
           <div className="sliderRow">
-            <input type="range" min={CELL_MIN} max={CELL_MAX} value={settings.cellSize} onChange={(e) => setCellSize(Number(e.currentTarget.value))} />
-            <input className="sliderNumber" type="number" min={CELL_MIN} max={CELL_MAX} value={settings.cellSize} onChange={onNumberChange(setCellSize)} />
+            <input type="range" min={CELL_MIN} max={cellSizeMax} value={settings.cellSize} onChange={(e) => setCellSize(Number(e.currentTarget.value))} />
+            <input className="sliderNumber" type="number" min={CELL_MIN} max={cellSizeMax} value={settings.cellSize} onChange={onNumberChange(setCellSize)} />
           </div>
         </div>
         <div className="presetRow">
           <button type="button" className="presetBtn" onClick={() => { setGridWidth(25); setGridHeight(15); setCellSize(20); }}>Compact</button>
           <button type="button" className="presetBtn" onClick={() => { setGridWidth(40); setGridHeight(25); setCellSize(16); }}>Default</button>
           <button type="button" className="presetBtn" onClick={() => { setGridWidth(72); setGridHeight(42); setCellSize(10); }}>Dense</button>
-          <button type="button" className="presetBtn" onClick={() => setSpeed(1500)}>Fast</button>
+          <button type="button" className="presetBtn" onClick={() => setSpeed(Math.min(SPEED_MAX, 4_000))}>Fast</button>
         </div>
       </AccordionSection>
 

@@ -1,4 +1,9 @@
 import {
+  ENGINE_MAX_STEPS_PER_FRAME,
+  clampGridSizeByCells,
+  clampSpeed,
+} from "@/config/limits";
+import {
   ALL_SOLVER_OVERLAY_MASK,
   ALL_WALLS,
   applyCellPatch,
@@ -24,7 +29,6 @@ import type {
   SolverRunOptions,
 } from "@/core/plugins/types";
 import { createSeededRandom } from "@/core/rng";
-import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
 import type {
   MazeEngineCallbacks,
   MazeEngineOptions,
@@ -92,8 +96,14 @@ export class MazeEngine implements MazeEnginePublicApi {
   private accumulatorMs = 0;
 
   constructor(options: MazeEngineOptions, callbacks: MazeEngineCallbacks = {}) {
-    this.options = { ...options };
-    this.grid = createGrid(options.width, options.height);
+    const safeSize = clampGridSizeByCells(options.width, options.height);
+    this.options = {
+      ...options,
+      width: safeSize.width,
+      height: safeSize.height,
+      speed: clampSpeed(options.speed),
+    };
+    this.grid = createGrid(this.options.width, this.options.height);
     this.callbacks = callbacks;
   }
 
@@ -238,27 +248,26 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   setSpeed(stepsPerSecond: number): void {
-    this.options.speed = clamp(stepsPerSecond, SPEED_MIN, SPEED_MAX);
+    this.options.speed = clampSpeed(stepsPerSecond);
   }
 
   setOptions(options: Partial<MazeEngineOptions>): void {
     const merged = { ...this.options, ...options };
-
-    const nextWidth = Math.max(2, Math.floor(merged.width));
-    const nextHeight = Math.max(2, Math.floor(merged.height));
+    const safeSize = clampGridSizeByCells(merged.width, merged.height);
 
     this.options = {
       ...merged,
-      width: nextWidth,
-      height: nextHeight,
-      speed: clamp(merged.speed, SPEED_MIN, SPEED_MAX),
+      width: safeSize.width,
+      height: safeSize.height,
+      speed: clampSpeed(merged.speed),
       seed: merged.seed,
     };
   }
 
   rebuildGrid(width: number, height: number): void {
-    const safeWidth = Math.max(2, Math.floor(width));
-    const safeHeight = Math.max(2, Math.floor(height));
+    const safeSize = clampGridSizeByCells(width, height);
+    const safeWidth = safeSize.width;
+    const safeHeight = safeSize.height;
 
     this.options.width = safeWidth;
     this.options.height = safeHeight;
@@ -325,7 +334,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
       while (
         this.accumulatorMs >= stepInterval &&
-        iteration < 1000 &&
+        iteration < ENGINE_MAX_STEPS_PER_FRAME &&
         this.hasActiveWork()
       ) {
         const result = this.processStep();
@@ -821,14 +830,6 @@ function recomputeSolverDerived(metrics: SolverRunMetrics): void {
     metrics.avgPatchesPerStep = 0;
     metrics.avgDirtyCellsPerStep = 0;
   }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) {
-    return min;
-  }
-
-  return Math.max(min, Math.min(max, value));
 }
 
 function nowMs(): number {

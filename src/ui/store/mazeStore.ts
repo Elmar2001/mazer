@@ -3,7 +3,12 @@ import { create } from "zustand";
 import type { GeneratorPluginId } from "@/core/plugins/generators";
 import type { SolverPluginId } from "@/core/plugins/solvers";
 import type { MazeMetrics, MazePhase } from "@/engine/types";
-import { SPEED_MAX, SPEED_MIN } from "@/config/limits";
+import {
+  clampCellSize,
+  clampGridHeight,
+  clampGridWidth,
+  clampSpeed,
+} from "@/config/limits";
 import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
 export interface MazeSettings {
@@ -114,14 +119,6 @@ const DEFAULT_RUNTIME: MazeRuntime = {
   solverBActiveLine: null,
 };
 
-function clamp(value: number, min: number, max: number): number {
-  if (Number.isNaN(value)) {
-    return min;
-  }
-
-  return Math.max(min, Math.min(max, value));
-}
-
 const DEFAULT_UI: MazeUI = {
   sidebarCollapsed: false,
   showMetricsHud: true,
@@ -165,28 +162,40 @@ export const useMazeStore = create<MazeStore>((set) => ({
     set((state) => ({
       settings: {
         ...state.settings,
-        speed: clamp(Math.floor(value), SPEED_MIN, SPEED_MAX),
+        speed: clampSpeed(value),
       },
     })),
   setGridWidth: (value) =>
     set((state) => ({
       settings: {
         ...state.settings,
-        gridWidth: clamp(Math.floor(value), 2, 120),
+        gridWidth: clampGridWidth(
+          value,
+          state.settings.gridHeight,
+          state.settings.cellSize,
+        ),
       },
     })),
   setGridHeight: (value) =>
     set((state) => ({
       settings: {
         ...state.settings,
-        gridHeight: clamp(Math.floor(value), 2, 120),
+        gridHeight: clampGridHeight(
+          value,
+          state.settings.gridWidth,
+          state.settings.cellSize,
+        ),
       },
     })),
   setCellSize: (value) =>
     set((state) => ({
       settings: {
         ...state.settings,
-        cellSize: clamp(Math.floor(value), 6, 32),
+        cellSize: clampCellSize(
+          value,
+          state.settings.gridWidth,
+          state.settings.gridHeight,
+        ),
       },
     })),
   setSeed: (seed) =>
