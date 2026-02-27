@@ -10,6 +10,15 @@ export type MazePhase =
   | "Solving"
   | "Solved";
 
+export interface MazeGraphMetrics {
+  edgeCount: number;
+  cycleCount: number;
+  deadEndCount: number;
+  junctionCount: number;
+  shortestPathCount: number;
+  shortestPathCountCapped: boolean;
+}
+
 export interface MazeMetrics {
   stepCount: number;
   visitedCount: number;
@@ -23,6 +32,7 @@ export interface MazeMetrics {
   dirtyCellCount: number;
   avgPatchesPerStep: number;
   avgDirtyCellsPerStep: number;
+  graph: MazeGraphMetrics | null;
   battle: SolverBattleMetrics | null;
 }
 

@@ -8,6 +8,11 @@ import {
 describe("solver compatibility filtering", () => {
   it("maps known topology-changing generators", () => {
     expect(getGeneratorTopology("braid")).toBe("loopy-planar");
+    expect(getGeneratorTopology("prim-loopy")).toBe("loopy-planar");
+    expect(getGeneratorTopology("kruskal-loopy")).toBe("loopy-planar");
+    expect(getGeneratorTopology("recursive-division-loopy")).toBe(
+      "loopy-planar",
+    );
     expect(getGeneratorTopology("weave-growing-tree")).toBe("weave");
   });
 

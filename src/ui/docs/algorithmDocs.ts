@@ -54,6 +54,26 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "It is inspired by Prim's minimum spanning tree method, but with randomized edge selection.",
   },
   {
+    id: "prim-loopy",
+    name: "Prim (Loopy)",
+    kind: "Generator",
+    summary:
+      "Prim-style frontier growth that intentionally opens extra visited-neighbor links.",
+    howItWorks: [
+      "Pick random frontier cells and connect each to one visited parent, like standard Prim.",
+      "After parent carve, sample additional visited neighbors.",
+      "Open some extra links using a configurable loop-density probability.",
+      "Continue until all cells are visited.",
+    ],
+    timeComplexity: "O(V + E) expected",
+    spaceComplexity: "O(V)",
+    pros: ["Simple loop control", "Keeps Prim wavefront visual style"],
+    cons: ["Higher loop density can reduce dead-end challenge", "Not a perfect maze"],
+    bestFor: "Tunable loop-heavy mazes with local alternate routes.",
+    interestingFact:
+      "This variant keeps Prim's growth order but relaxes the acyclic constraint after each frontier attachment.",
+  },
+  {
     id: "prim-frontier-edges",
     name: "Prim (Frontier Edges)",
     kind: "Generator",
@@ -90,6 +110,26 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "When you want explicit disjoint-set control and predictable correctness.",
     interestingFact:
       "Union-find path compression makes practical performance very fast even on large grids.",
+  },
+  {
+    id: "kruskal-loopy",
+    name: "Kruskal (Loopy)",
+    kind: "Generator",
+    summary:
+      "Runs classic Kruskal first, then reopens selected rejected edges to add controlled cycles.",
+    howItWorks: [
+      "Shuffle all grid edges and run disjoint-set Kruskal to build a spanning tree.",
+      "Track edges rejected during tree growth because they would form cycles.",
+      "Compute loop budget from loop-density target.",
+      "Reopen rejected edges until the budget is exhausted.",
+    ],
+    timeComplexity: "O(E α(V)) + O(extraEdges)",
+    spaceComplexity: "O(V + E)",
+    pros: ["Predictable global loop density", "Clear two-phase behavior"],
+    cons: ["Needs storing rejected edges", "Not a perfect maze"],
+    bestFor: "Evenly distributed loops with a deterministic cycle budget.",
+    interestingFact:
+      "Because edges are globally shuffled first, extra cycles are spread broadly rather than clustered in one region.",
   },
   {
     id: "binary-tree",
@@ -281,6 +321,26 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor: "When you want blocky, room-like visual structure.",
     interestingFact:
       "This is the canonical wall-adder among classic maze generators.",
+  },
+  {
+    id: "recursive-division-loopy",
+    name: "Recursive Division (Multi-Gap)",
+    kind: "Generator",
+    summary:
+      "Recursive-division variant that keeps multiple doorway gaps per divider based on loop density.",
+    howItWorks: [
+      "Start from a fully open field.",
+      "For each split wall, keep at least one doorway gap.",
+      "Add extra doorway gaps proportional to configured loop density.",
+      "Recurse through child regions until no more splits are possible.",
+    ],
+    timeComplexity: "O(V log V) typical",
+    spaceComplexity: "O(log V) recursion + patch batches",
+    pros: ["Architectural style with route multiplicity", "Direct loop-density control"],
+    cons: ["Can become too open at high density", "Not a perfect maze"],
+    bestFor: "Room-like layouts where multiple corridor choices are desired.",
+    interestingFact:
+      "Adding just one extra doorway per divider can quickly increase alternate shortest routes across the layout.",
   },
   {
     id: "bsp",

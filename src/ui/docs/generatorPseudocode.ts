@@ -34,6 +34,18 @@ export const GENERATOR_PSEUDOCODE: Record<
       "emit metrics and continue",
     ],
   },
+  "prim-loopy": {
+    title: "Prim (Loopy)",
+    summary: "Prim growth plus extra visited-neighbor links controlled by loop density.",
+    lines: [
+      "if first step: visit start and seed frontier",
+      "if frontier is empty: finish",
+      "pick random frontier cell and carve one parent edge to visited set",
+      "attempt additional visited-neighbor carves based on loop density",
+      "mark cell visited and add unvisited neighbors to frontier",
+      "repeat until all cells are visited",
+    ],
+  },
   "prim-true": {
     title: "Prim (True Frontier Edges)",
     summary: "Alias wrapper for Prim (Frontier Edges).",
@@ -90,6 +102,18 @@ export const GENERATOR_PSEUDOCODE: Record<
       "mark touched endpoints as visited overlays",
       "advance cursor and continue",
       "emit remaining frontier edge count",
+    ],
+  },
+  "kruskal-loopy": {
+    title: "Kruskal (Loopy)",
+    summary: "Build a spanning tree first, then reopen rejected edges by loop budget.",
+    lines: [
+      "shuffle all edges and run union-find Kruskal tree growth",
+      "store rejected (cycle-forming) edges while building the tree",
+      "once tree is complete, compute extra-edge budget from loop density",
+      "iterate rejected edges in random order and carve up to budget",
+      "keep overlays/metrics updated during both phases",
+      "finish when budget exhausted or rejected edges end",
     ],
   },
   "binary-tree": {
@@ -174,6 +198,18 @@ export const GENERATOR_PSEUDOCODE: Record<
       "apply wall patches for the divider",
       "recurse into both sub-regions",
       "stop when region cannot be divided further",
+    ],
+  },
+  "recursive-division-loopy": {
+    title: "Recursive Division (Multi-Gap)",
+    summary: "Recursive wall-adding with multiple doorway gaps per divider.",
+    lines: [
+      "open all internal walls in the grid",
+      "pick split orientation for current region",
+      "select split line and compute gap count from loop density",
+      "add divider wall everywhere except selected gaps",
+      "recurse into both child regions",
+      "finish when regions cannot be split further",
     ],
   },
   bsp: {

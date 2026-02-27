@@ -23,16 +23,19 @@ import { growingTreeGenerator } from "@/core/plugins/generators/growingTree";
 import { houstonGenerator } from "@/core/plugins/generators/houston";
 import { huntAndKillGenerator } from "@/core/plugins/generators/huntAndKill";
 import { kruskalGenerator } from "@/core/plugins/generators/kruskal";
+import { kruskalLoopyGenerator } from "@/core/plugins/generators/kruskalLoopy";
 import { mazeCaGenerator } from "@/core/plugins/generators/mazeCa";
 import { mazectricCaGenerator } from "@/core/plugins/generators/mazectricCa";
 import { originShiftGenerator } from "@/core/plugins/generators/originShift";
 import { primGenerator } from "@/core/plugins/generators/prim";
 import { primFrontierEdgesGenerator } from "@/core/plugins/generators/primFrontierEdges";
+import { primLoopyGenerator } from "@/core/plugins/generators/primLoopy";
 import { primModifiedGenerator } from "@/core/plugins/generators/primModified";
 import { primSimplifiedGenerator } from "@/core/plugins/generators/primSimplified";
 import { primTrueGenerator } from "@/core/plugins/generators/primTrue";
 import { resonantPhaseLockGenerator } from "@/core/plugins/generators/resonantPhaseLock";
 import { recursiveDivisionGenerator } from "@/core/plugins/generators/recursiveDivision";
+import { recursiveDivisionLoopyGenerator } from "@/core/plugins/generators/recursiveDivisionLoopy";
 import { reverseDeleteGenerator } from "@/core/plugins/generators/reverseDelete";
 import { sidewinderGenerator } from "@/core/plugins/generators/sidewinder";
 import { unicursalGenerator } from "@/core/plugins/generators/unicursal";
@@ -47,9 +50,12 @@ import { sandpileAvalancheGenerator } from "@/core/plugins/generators/sandpileAv
 const RESEARCH_CORE_GENERATORS = new Set<string>([
   "dfs-backtracker",
   "recursive-division",
+  "recursive-division-loopy",
   "prim",
+  "prim-loopy",
   "prim-frontier-edges",
   "kruskal",
+  "kruskal-loopy",
   "binary-tree",
   "sidewinder",
   "aldous-broder",
@@ -70,6 +76,9 @@ const RESEARCH_CORE_GENERATORS = new Set<string>([
 
 const GENERATOR_TOPOLOGY: Record<string, MazeTopology> = {
   braid: "loopy-planar",
+  "prim-loopy": "loopy-planar",
+  "kruskal-loopy": "loopy-planar",
+  "recursive-division-loopy": "loopy-planar",
   "weave-growing-tree": "weave",
 };
 
@@ -95,12 +104,15 @@ function withGeneratorMetadata<T extends AnyGeneratorPlugin>(plugin: T): T {
 export const generatorPlugins = [
   withGeneratorMetadata(dfsBacktrackerGenerator),
   withGeneratorMetadata(recursiveDivisionGenerator),
+  withGeneratorMetadata(recursiveDivisionLoopyGenerator),
   withGeneratorMetadata(primGenerator),
+  withGeneratorMetadata(primLoopyGenerator),
   withGeneratorMetadata(primFrontierEdgesGenerator),
   withGeneratorMetadata(primTrueGenerator),
   withGeneratorMetadata(primSimplifiedGenerator),
   withGeneratorMetadata(primModifiedGenerator),
   withGeneratorMetadata(kruskalGenerator),
+  withGeneratorMetadata(kruskalLoopyGenerator),
   withGeneratorMetadata(binaryTreeGenerator),
   withGeneratorMetadata(sidewinderGenerator),
   withGeneratorMetadata(aldousBroderGenerator),

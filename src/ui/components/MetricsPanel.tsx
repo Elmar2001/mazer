@@ -59,6 +59,18 @@ function solverStatus(run: SolverRunMetrics): string {
   return "Running";
 }
 
+function shortestRouteLabel(shortestPathCount: number): string {
+  if (shortestPathCount <= 0) {
+    return "No route";
+  }
+
+  if (shortestPathCount === 1) {
+    return "Single shortest route";
+  }
+
+  return "Multiple shortest routes";
+}
+
 function BattleSolverCard({
   run,
   tone,
@@ -88,6 +100,9 @@ export function MetricsPanel() {
   const toggleMetricsExpanded = useMazeStore((state) => state.toggleMetricsExpanded);
   const toggleMetricsHud = useMazeStore((state) => state.toggleMetricsHud);
   const battle = runtime.metrics.battle;
+  const graph = runtime.metrics.graph;
+  const showGraphStats =
+    !!graph && (runtime.phase === "Generated" || runtime.phase === "Solved");
 
   return (
     <section className="metricsPanel">
@@ -133,6 +148,28 @@ export function MetricsPanel() {
             <div className="metricRow"><span>Compute</span><span>{formatElapsed(runtime.metrics.computeMs)}</span></div>
             <div className="metricRow"><span>Utilization</span><span>{formatFloat(runtime.metrics.engineUtilizationPct, 1)}%</span></div>
           </div>
+
+          {showGraphStats && graph && (
+            <div className="graphSection">
+              <div className="graphHeader">
+                <span className="graphTitle">Graph</span>
+                <span className="graphBadge">
+                  {shortestRouteLabel(graph.shortestPathCount)}
+                </span>
+              </div>
+              <div className="metricRow"><span>Edges</span><span>{graph.edgeCount}</span></div>
+              <div className="metricRow"><span>Cycles</span><span>{graph.cycleCount}</span></div>
+              <div className="metricRow"><span>Dead Ends</span><span>{graph.deadEndCount}</span></div>
+              <div className="metricRow"><span>Junctions</span><span>{graph.junctionCount}</span></div>
+              <div className="metricRow">
+                <span>Shortest Routes</span>
+                <span>
+                  {graph.shortestPathCount}
+                  {graph.shortestPathCountCapped ? "+" : ""}
+                </span>
+              </div>
+            </div>
+          )}
 
           {battle && (
             <div className="battleSection">

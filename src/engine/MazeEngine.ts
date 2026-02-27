@@ -12,6 +12,7 @@ import {
   OverlayFlag,
   type Grid,
 } from "@/core/grid";
+import { analyzeMazeGraph } from "@/core/analysis/graphMetrics";
 import type { CellPatch, StepMeta } from "@/core/patches";
 import type {
   GeneratorPlugin,
@@ -51,6 +52,7 @@ const DEFAULT_METRICS: MazeMetrics = {
   dirtyCellCount: 0,
   avgPatchesPerStep: 0,
   avgDirtyCellsPerStep: 0,
+  graph: null,
   battle: null,
 };
 
@@ -117,9 +119,11 @@ export class MazeEngine implements MazeEnginePublicApi {
 
   getMetrics(): MazeMetrics {
     const battle = this.metrics.battle;
+    const graph = this.metrics.graph;
 
     return {
       ...this.metrics,
+      graph: graph ? { ...graph } : null,
       battle: battle
         ? {
             enabled: battle.enabled,
@@ -168,7 +172,8 @@ export class MazeEngine implements MazeEnginePublicApi {
     }
 
     clearOverlays(this.grid, ALL_SOLVER_OVERLAY_MASK);
-    this.metrics = { ...DEFAULT_METRICS };
+    const graphSnapshot = this.metrics.graph ? { ...this.metrics.graph } : null;
+    this.metrics = { ...DEFAULT_METRICS, graph: graphSnapshot };
 
     const solverAPlugin = this.getSolverPlugin(this.options.solverId);
 
@@ -671,6 +676,11 @@ export class MazeEngine implements MazeEnginePublicApi {
     if (this.phase === "Generating") {
       this.generatorStepper = null;
       this.paused = true;
+      this.metrics.graph = analyzeMazeGraph(
+        this.grid,
+        0,
+        this.grid.cellCount - 1,
+      );
       this.phase = "Generated";
       this.emitPhase();
       return;

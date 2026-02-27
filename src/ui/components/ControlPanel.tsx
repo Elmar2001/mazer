@@ -84,14 +84,58 @@ function groupOptionsByTier<TId extends string>(
   return groups.filter((group) => group.options.length > 0);
 }
 
+function normalizeGeneratorParams(
+  generatorId: string,
+  current: Record<string, number | string | boolean>,
+): Record<string, number | string | boolean> {
+  const schema =
+    GENERATOR_OPTIONS.find((option) => option.id === generatorId)
+      ?.generatorParamsSchema ?? [];
+
+  if (schema.length === 0) {
+    return {};
+  }
+
+  const normalized: Record<string, number | string | boolean> = {};
+  for (const param of schema) {
+    const currentValue = current[param.key];
+
+    if (param.type === "number") {
+      const fallback = param.defaultValue;
+      const value =
+        typeof currentValue === "number" && Number.isFinite(currentValue)
+          ? currentValue
+          : fallback;
+      normalized[param.key] = Math.max(param.min, Math.min(param.max, value));
+      continue;
+    }
+
+    if (param.type === "boolean") {
+      normalized[param.key] =
+        typeof currentValue === "boolean" ? currentValue : param.defaultValue;
+      continue;
+    }
+
+    normalized[param.key] =
+      typeof currentValue === "string" &&
+      param.options.some((option) => option.value === currentValue)
+        ? currentValue
+        : param.defaultValue;
+  }
+
+  return normalized;
+}
+
 export function ControlPanel({ controls }: ControlPanelProps) {
   const settings = useMazeStore((state) => state.settings);
   const runtime = useMazeStore((state) => state.runtime);
   const ui = useMazeStore((state) => state.ui);
 
   const setGeneratorId = useMazeStore((state) => state.setGeneratorId);
+  const setTopologyFilter = useMazeStore((state) => state.setTopologyFilter);
   const setSolverId = useMazeStore((state) => state.setSolverId);
   const setSolverBId = useMazeStore((state) => state.setSolverBId);
+  const setGeneratorParams = useMazeStore((state) => state.setGeneratorParams);
   const setBattleMode = useMazeStore((state) => state.setBattleMode);
   const setSpeed = useMazeStore((state) => state.setSpeed);
   const setGridWidth = useMazeStore((state) => state.setGridWidth);
@@ -114,23 +158,44 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   const gridHeightMax = getGridHeightMax(settings.gridWidth, settings.cellSize);
   const cellSizeMax = getCellSizeMax(settings.gridWidth, settings.gridHeight);
   const selectedTopology = getGeneratorTopology(settings.generatorId);
+  const selectedGeneratorOption = useMemo(
+    () => GENERATOR_OPTIONS.find((option) => option.id === settings.generatorId),
+    [settings.generatorId],
+  );
+  const generatorParamSchema = selectedGeneratorOption?.generatorParamsSchema ?? [];
 
   const solverOptions = useMemo(
     () => getCompatibleSolverOptions(selectedTopology),
     [selectedTopology],
   );
+  const filteredGeneratorOptions = useMemo(() => {
+    if (settings.topologyFilter === "all") {
+      return GENERATOR_OPTIONS;
+    }
+
+    return GENERATOR_OPTIONS.filter(
+      (option) => option.topologyOut === settings.topologyFilter,
+    );
+  }, [settings.topologyFilter]);
   const groupedGeneratorOptions = useMemo(
-    () => groupOptionsByTier(GENERATOR_OPTIONS),
-    [],
+    () => groupOptionsByTier(filteredGeneratorOptions),
+    [filteredGeneratorOptions],
   );
   const groupedSolverOptions = useMemo(
     () => groupOptionsByTier(solverOptions),
     [solverOptions],
   );
-  const solverFilterNote =
-    selectedTopology === "perfect-planar"
-      ? null
-      : `Solver list is filtered for ${selectedTopology} topology compatibility.`;
+  const solverFilterNote = useMemo(() => {
+    if (selectedTopology === "perfect-planar") {
+      return null;
+    }
+
+    if (selectedTopology === "loopy-planar") {
+      return "Solver list excludes wall-following solvers because loop-rich mazes can trap local wall rules.";
+    }
+
+    return "Solver list excludes geometry-locked wall solvers because weave over/under passages break planar wall assumptions.";
+  }, [selectedTopology]);
 
   const onCheckboxChange =
     (setter: (value: boolean) => void) =>
@@ -138,11 +203,77 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       setter(event.currentTarget.checked);
     };
 
+  const updateGeneratorParam = useCallback(
+    (key: string, value: number | string | boolean) => {
+      setGeneratorParams({
+        ...settings.generatorParams,
+        [key]: value,
+      });
+    },
+    [setGeneratorParams, settings.generatorParams],
+  );
+
   const pickDifferentSolver = useCallback(
     (excludedId: string, options = solverOptions): string | undefined =>
       options.find((option) => option.id !== excludedId)?.id,
     [solverOptions],
   );
+
+  const onGeneratorChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const nextGeneratorId = event.currentTarget.value as typeof settings.generatorId;
+    setGeneratorId(nextGeneratorId);
+    setGeneratorParams(
+      normalizeGeneratorParams(nextGeneratorId, settings.generatorParams),
+    );
+  };
+
+  useEffect(() => {
+    const visibleGeneratorIds = new Set(
+      filteredGeneratorOptions.map((option) => option.id),
+    );
+
+    if (filteredGeneratorOptions.length === 0) {
+      return;
+    }
+
+    if (!visibleGeneratorIds.has(settings.generatorId)) {
+      const fallbackGenerator = filteredGeneratorOptions[0]?.id;
+      if (fallbackGenerator) {
+        setGeneratorId(fallbackGenerator);
+        setGeneratorParams(
+          normalizeGeneratorParams(fallbackGenerator, settings.generatorParams),
+        );
+      }
+    }
+  }, [
+    filteredGeneratorOptions,
+    setGeneratorId,
+    setGeneratorParams,
+    settings.generatorId,
+    settings.generatorParams,
+  ]);
+
+  useEffect(() => {
+    const normalized = normalizeGeneratorParams(
+      settings.generatorId,
+      settings.generatorParams,
+    );
+    const currentKeys = Object.keys(settings.generatorParams);
+    const normalizedKeys = Object.keys(normalized);
+
+    if (
+      currentKeys.length === normalizedKeys.length &&
+      currentKeys.every((key) => normalized[key] === settings.generatorParams[key])
+    ) {
+      return;
+    }
+
+    setGeneratorParams(normalized);
+  }, [
+    setGeneratorParams,
+    settings.generatorId,
+    settings.generatorParams,
+  ]);
 
   useEffect(() => {
     const compatibleIds = new Set(solverOptions.map((option) => option.id));
@@ -362,11 +493,31 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       </div>
 
       <AccordionSection title="Algorithms" icon="&#x2699;" defaultOpen>
+        <div className="field">
+          <span className="fieldLabel">Topology</span>
+          <div className="presetRow">
+            {([
+              { value: "all", label: "All" },
+              { value: "perfect-planar", label: "Perfect" },
+              { value: "loopy-planar", label: "Loopy" },
+              { value: "weave", label: "Weave" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`presetBtn ${settings.topologyFilter === option.value ? "presetBtnActive" : ""}`}
+                onClick={() => setTopologyFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <label className="field">
           <span className="fieldLabel">Generator</span>
           <select
             value={settings.generatorId}
-            onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
+            onChange={onGeneratorChange}
           >
             {groupedGeneratorOptions.map((group) => (
               <optgroup key={group.label} label={group.label}>
@@ -377,6 +528,111 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             ))}
           </select>
         </label>
+        {generatorParamSchema.map((param) => {
+          if (param.type === "number") {
+            const value =
+              typeof settings.generatorParams[param.key] === "number"
+                ? (settings.generatorParams[param.key] as number)
+                : param.defaultValue;
+            return (
+              <div key={param.key} className="sliderField">
+                <div className="sliderHeader">
+                  <span>{param.label}</span>
+                  <span className="sliderValue">{value}</span>
+                </div>
+                <div className="sliderRow">
+                  <input
+                    type="range"
+                    min={param.min}
+                    max={param.max}
+                    step={param.step ?? 1}
+                    value={value}
+                    onChange={(event) =>
+                      updateGeneratorParam(param.key, Number(event.currentTarget.value))
+                    }
+                  />
+                  <input
+                    className="sliderNumber"
+                    type="number"
+                    min={param.min}
+                    max={param.max}
+                    step={param.step ?? 1}
+                    value={value}
+                    onChange={(event) =>
+                      updateGeneratorParam(param.key, Number(event.currentTarget.value))
+                    }
+                  />
+                </div>
+                {param.description && <p className="fieldHint">{param.description}</p>}
+              </div>
+            );
+          }
+
+          if (param.type === "boolean") {
+            const value =
+              typeof settings.generatorParams[param.key] === "boolean"
+                ? (settings.generatorParams[param.key] as boolean)
+                : param.defaultValue;
+            return (
+              <label key={param.key} className="toggleRow">
+                <input
+                  type="checkbox"
+                  checked={value}
+                  onChange={(event) =>
+                    updateGeneratorParam(param.key, event.currentTarget.checked)
+                  }
+                />
+                <span>{param.label}</span>
+              </label>
+            );
+          }
+
+          const value =
+            typeof settings.generatorParams[param.key] === "string"
+              ? (settings.generatorParams[param.key] as string)
+              : param.defaultValue;
+          return (
+            <label key={param.key} className="field">
+              <span className="fieldLabel">{param.label}</span>
+              <select
+                value={value}
+                onChange={(event) => updateGeneratorParam(param.key, event.currentTarget.value)}
+              >
+                {param.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          );
+        })}
+        {selectedTopology === "loopy-planar" &&
+          generatorParamSchema.some((param) => param.key === "loopDensity") && (
+            <div className="presetRow">
+              <button
+                type="button"
+                className="presetBtn"
+                onClick={() => updateGeneratorParam("loopDensity", 20)}
+              >
+                Sparse 20
+              </button>
+              <button
+                type="button"
+                className="presetBtn"
+                onClick={() => updateGeneratorParam("loopDensity", 35)}
+              >
+                Balanced 35
+              </button>
+              <button
+                type="button"
+                className="presetBtn"
+                onClick={() => updateGeneratorParam("loopDensity", 60)}
+              >
+                Dense 60
+              </button>
+            </div>
+          )}
         <label className="field">
           <span className="fieldLabel">Solver</span>
           <select value={settings.solverId} onChange={onSolverAChange}>

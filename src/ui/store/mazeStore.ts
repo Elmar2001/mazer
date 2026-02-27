@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import type { GeneratorPluginId } from "@/core/plugins/generators";
 import type { SolverPluginId } from "@/core/plugins/solvers";
+import type { MazeTopology } from "@/core/plugins/pluginMetadata";
 import type { MazeMetrics, MazePhase } from "@/engine/types";
 import {
   clampCellSize,
@@ -13,6 +14,7 @@ import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
 export interface MazeSettings {
   generatorId: GeneratorPluginId;
+  topologyFilter: "all" | MazeTopology;
   solverId: SolverPluginId;
   solverBId: SolverPluginId;
   generatorParams: Record<string, number | string | boolean>;
@@ -53,6 +55,7 @@ interface MazeStore {
   runtime: MazeRuntime;
   ui: MazeUI;
   setGeneratorId: (id: GeneratorPluginId) => void;
+  setTopologyFilter: (topology: "all" | MazeTopology) => void;
   setSolverId: (id: SolverPluginId) => void;
   setSolverBId: (id: SolverPluginId) => void;
   setGeneratorParams: (
@@ -96,11 +99,13 @@ export const DEFAULT_METRICS: MazeMetrics = {
   dirtyCellCount: 0,
   avgPatchesPerStep: 0,
   avgDirtyCellsPerStep: 0,
+  graph: null,
   battle: null,
 };
 
 const DEFAULT_SETTINGS: MazeSettings = {
   generatorId: "dfs-backtracker",
+  topologyFilter: "all",
   solverId: "bfs",
   solverBId: "astar",
   generatorParams: {},
@@ -145,6 +150,13 @@ export const useMazeStore = create<MazeStore>((set) => ({
       settings: {
         ...state.settings,
         generatorId: id,
+      },
+    })),
+  setTopologyFilter: (topology) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        topologyFilter: topology,
       },
     })),
   setSolverId: (id) =>

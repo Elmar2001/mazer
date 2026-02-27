@@ -152,6 +152,10 @@ export default function DocsPage() {
             A practical reference for every algorithm in this visualizer: what it does,
             why it behaves that way, and when to use it.
           </p>
+          <p>
+            Loopy generators intentionally add cycles, so some mazes provide multiple
+            shortest routes between start and goal.
+          </p>
           <div className="docsActions">
             <Link href="/" className="docsBtn docsBtnPrimary">
               Open Visualizer

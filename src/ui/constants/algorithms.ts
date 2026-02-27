@@ -2,6 +2,7 @@ import { generatorPlugins } from "@/core/plugins/generators";
 import { solverPlugins } from "@/core/plugins/solvers";
 import { appendInventorLabel } from "@/ui/constants/llmAttribution";
 import type {
+  GeneratorParamSchema,
   MazeTopology,
   PluginTier,
   SolverCompatibility,
@@ -15,6 +16,7 @@ export interface GeneratorOption {
   implementationKind?: "native" | "alias" | "hybrid";
   aliasOf?: string;
   topologyOut: MazeTopology;
+  generatorParamsSchema: GeneratorParamSchema[];
 }
 
 export interface SolverOption {
@@ -83,6 +85,7 @@ export const GENERATOR_OPTIONS: GeneratorOption[] = generatorPlugins.map((plugin
   implementationKind: plugin.implementationKind,
   aliasOf: plugin.aliasOf,
   topologyOut: plugin.topologyOut ?? "perfect-planar",
+  generatorParamsSchema: plugin.generatorParamsSchema ?? [],
 }));
 
 export const SOLVER_OPTIONS: SolverOption[] = solverPlugins.map((plugin) => ({

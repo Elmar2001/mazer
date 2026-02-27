@@ -6,6 +6,7 @@ import {
   OverlayFlag,
   traversableNeighbors,
 } from "@/core/grid";
+import { analyzeMazeGraph } from "@/core/analysis/graphMetrics";
 import { generatorPlugins } from "@/core/plugins/generators";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
 import type {
@@ -204,6 +205,21 @@ describe("generator plugins", () => {
     const grid = runGenerator(weave, "weave-seed", 36, 22);
     const crossingCount = Array.from(grid.crossings).filter((value) => value !== 0).length;
     expect(crossingCount).toBeGreaterThan(0);
+  });
+
+  it.each([
+    "prim-loopy",
+    "kruskal-loopy",
+    "recursive-division-loopy",
+  ] as const)("%s produces at least one cycle on representative grid", (id) => {
+    const plugin = generatorPlugins.find((entry) => entry.id === id);
+    if (!plugin) {
+      throw new Error(`Missing ${id} generator plugin`);
+    }
+
+    const grid = runGenerator(plugin, `${id}-cycle-seed`, 28, 18);
+    const stats = analyzeMazeGraph(grid, 0, grid.cellCount - 1);
+    expect(stats.cycleCount).toBeGreaterThan(0);
   });
 
   it("boruvka advances across multiple steps for visualization", () => {

@@ -232,9 +232,10 @@ function relaxPass(context: BellmanFordContext): {
   let changed = false;
   const improvedFlag = new Uint8Array(context.grid.cellCount);
   const improvedNodes: number[] = [];
+  const previousDist = context.dist.slice();
 
   for (let from = 0; from < context.grid.cellCount; from += 1) {
-    const baseDist = context.dist[from] as number;
+    const baseDist = previousDist[from] as number;
     if (!Number.isFinite(baseDist)) {
       continue;
     }

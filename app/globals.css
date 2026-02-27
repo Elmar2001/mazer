@@ -261,6 +261,13 @@ body {
   letter-spacing: 0.02em;
 }
 
+.fieldHint {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
 .controlPanel select,
 .controlPanel input[type="text"] {
   width: 100%;
@@ -389,6 +396,12 @@ input[type="range"] {
   border-color: rgba(6, 182, 212, 0.4);
   transform: none;
   box-shadow: none;
+}
+
+.presetBtnActive {
+  background: rgba(6, 182, 212, 0.22);
+  border-color: rgba(6, 182, 212, 0.65);
+  color: #d8fbff;
 }
 
 /* ─── Battle Legend ─── */
@@ -794,6 +807,33 @@ canvas {
 .metricRow span:last-child {
   font-family: var(--font-mono), monospace;
   font-weight: 600;
+  color: var(--cyan);
+}
+
+.graphSection {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.graphHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.graphTitle {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.graphBadge {
+  font-size: 0.64rem;
+  font-weight: 700;
   color: var(--cyan);
 }
 

@@ -196,6 +196,24 @@ function buildDisconnectedLoopMaze() {
   return grid;
 }
 
+function buildOpenGrid(width: number, height: number) {
+  const grid = createGrid(width, height);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      if (x + 1 < width) {
+        carveConnection(grid, index, index + 1);
+      }
+      if (y + 1 < height) {
+        carveConnection(grid, index, index + width);
+      }
+    }
+  }
+
+  return grid;
+}
+
 describe("solver plugins", () => {
   const baseGrid = buildMaze();
   const optimalLength = shortestPathLength(baseGrid);
@@ -365,6 +383,126 @@ describe("solver plugins", () => {
     const result = runSolver(bellmanFord, grid);
 
     expect(result.lastMeta?.pathLength).toBe(optimalLength);
+  });
+
+  it("bellman-ford progresses over multiple steps for visualization", () => {
+    const bellmanFord = solverPlugins.find(
+      (plugin) => plugin.id === "bellman-ford",
+    );
+    if (!bellmanFord) {
+      throw new Error("Bellman-Ford plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    clearOverlays(grid);
+
+    const stepper = bellmanFord.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 10; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
+  it("bellman-ford progresses over multiple steps on loopy topology", () => {
+    const bellmanFord = solverPlugins.find(
+      (plugin) => plugin.id === "bellman-ford",
+    );
+    if (!bellmanFord) {
+      throw new Error("Bellman-Ford plugin not found");
+    }
+
+    const grid = buildMazeWithGenerator(
+      "prim-loopy",
+      30,
+      20,
+      "bellman-ford-loopy",
+    );
+
+    clearOverlays(grid);
+
+    const stepper = bellmanFord.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 12; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
+  it("bellman-ford does not collapse an open grid in just a few steps", () => {
+    const bellmanFord = solverPlugins.find(
+      (plugin) => plugin.id === "bellman-ford",
+    );
+    if (!bellmanFord) {
+      throw new Error("Bellman-Ford plugin not found");
+    }
+
+    const grid = buildOpenGrid(12, 8);
+
+    clearOverlays(grid);
+
+    const stepper = bellmanFord.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 8; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
   });
 
   it("dead-end-filling reports unsolved for disconnected start and goal", () => {

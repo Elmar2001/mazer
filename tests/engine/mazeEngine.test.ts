@@ -45,4 +45,26 @@ describe("maze engine scheduler", () => {
     engine.destroy();
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  it("computes graph metrics when generation completes", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    expect(engine.getMetrics().graph).toBeNull();
+
+    engine.startGeneration();
+    engine.pause();
+
+    let guard = 0;
+    while (engine.getPhase() !== "Generated" && guard < 2_000) {
+      engine.stepOnce();
+      guard += 1;
+    }
+
+    expect(engine.getPhase()).toBe("Generated");
+    const graph = engine.getMetrics().graph;
+    expect(graph).not.toBeNull();
+    expect(graph?.edgeCount).toBeGreaterThan(0);
+    expect(graph?.cycleCount).toBe(0);
+
+    engine.destroy();
+  });
 });
