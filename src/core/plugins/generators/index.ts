@@ -15,6 +15,7 @@ import { bspGenerator } from "@/core/plugins/generators/bsp";
 import { cellularAutomataGenerator } from "@/core/plugins/generators/cellularAutomata";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
 import { ellerGenerator } from "@/core/plugins/generators/eller";
+import { erosionGenerator } from "@/core/plugins/generators/erosion";
 import { fractalTessellationGenerator } from "@/core/plugins/generators/fractalTessellation";
 import { growingForestGenerator } from "@/core/plugins/generators/growingForest";
 import { growingTreeGenerator } from "@/core/plugins/generators/growingTree";
@@ -58,6 +59,7 @@ const RESEARCH_CORE_GENERATORS = new Set<string>([
   "mazectric-ca",
   "braid",
   "weave-growing-tree",
+  "erosion",
 ]);
 
 const GENERATOR_TOPOLOGY: Record<string, MazeTopology> = {
@@ -116,6 +118,7 @@ export const generatorPlugins = [
   withGeneratorMetadata(boruvkaGenerator),
   withGeneratorMetadata(braidGenerator),
   withGeneratorMetadata(weaveGrowingTreeGenerator),
+  withGeneratorMetadata(erosionGenerator),
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];

@@ -382,4 +382,16 @@ export const GENERATOR_PSEUDOCODE: Record<
       "else: extend walk frontier and continue",
     ],
   },
+  erosion: {
+    title: "Erosion (Hydraulic)",
+    summary: "Simulate water flowing downhill across terrain; erosion feedback creates dendritic river-network branching.",
+    lines: [
+      "generate smooth heightmap from random control points",
+      "seed outlet (lowest cell) as tree root",
+      "pop lowest-height frontier cell (water flows downhill)",
+      "connect to tree-neighbor with steepest descent",
+      "erode: lower unvisited neighbor heights (feedback loop)",
+      "finish when all cells are in tree",
+    ],
+  },
 };

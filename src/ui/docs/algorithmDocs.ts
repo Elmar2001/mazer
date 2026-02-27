@@ -609,6 +609,36 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Boruvka predates Kruskal and Prim and naturally lends itself to parallel implementations.",
   },
   {
+    id: "erosion",
+    name: "Erosion (Hydraulic)",
+    kind: "Generator",
+    summary:
+      "Simulates water flowing downhill across a heightmap; erosion feedback creates dendritic river-network branching.",
+    howItWorks: [
+      "Generate a smooth heightmap from random control points using inverse-distance weighting.",
+      "The lowest cell becomes the river outlet (tree root).",
+      "Each step pops the lowest-elevation frontier cell (water flows downhill first).",
+      "Connect it to the tree-neighbor with steepest descent.",
+      "Erode: lower heights of unvisited neighbors, making cells near existing rivers more attractive.",
+      "The erosion feedback creates self-reinforcing river capture, producing hierarchical dendritic patterns.",
+    ],
+    timeComplexity: "O(V²) with linear frontier scan",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Produces unique dendritic (river-network) branching patterns",
+      "Self-modifying priorities create hierarchical passage structure",
+      "Visually distinctive — unlike any other maze generator",
+    ],
+    cons: [
+      "O(V²) due to linear frontier scan",
+      "Pattern depends on heightmap quality",
+    ],
+    bestFor:
+      "Generating mazes with natural, river-like branching where main corridors collect tributaries.",
+    interestingFact:
+      "This is a novel algorithm that combines terrain hydrology with spanning-tree construction. The erosion feedback mechanism — where carving a passage lowers nearby terrain — has no precedent in published maze generation literature.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",
