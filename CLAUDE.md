@@ -7,11 +7,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm run dev          # Start Next.js dev server
 npm run build        # Production build
-npm run lint         # ESLint
+npm run lint         # ESLint (--max-warnings=0)
+npm run typecheck    # TypeScript check (tsc --noEmit)
 npm test             # Run all tests (Vitest)
 npm run test:watch   # Vitest watch mode
 npx vitest run tests/core/generators.test.ts  # Run a single test file
 ```
+
+**Pre-PR quality gate** (also CI): `npm run lint && npm run typecheck && npm test && npm run build`
 
 ## Architecture
 
@@ -39,7 +42,7 @@ User input → Zustand store → useMazeEngine hook → MazeEngine (runs stepper
 
 ### Plugin system
 
-Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `SolverPlugin<TOptions, TMeta>`. Both are registered in their respective `index.ts` files. UI dropdown options are defined in `src/ui/constants/algorithms.ts`. To add a new algorithm: create the plugin file, register it in the index, and add a dropdown entry.
+Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `SolverPlugin<TOptions, TMeta>`. Both are registered in their respective `index.ts` files. UI dropdown options are defined in `src/ui/constants/algorithms.ts`. To add a new algorithm: create the plugin file, register it in the index, and add a dropdown entry. Generators advertise output topology (`perfect-planar`, `loopy-planar`, `weave`) and solver dropdowns auto-filter to compatible algorithms.
 
 ## Key conventions
 
@@ -48,6 +51,13 @@ Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `Solv
 - **Step metadata**: Algorithms return `line` numbers for pseudocode tracing and `solverRole` for battle mode identification.
 - **Path alias**: `@/*` maps to project root in tsconfig.
 - **Speed range**: 1–5000 steps/sec, configured in `src/config/limits.ts`.
+
+## Coding style
+
+- 2 spaces, semicolons, double quotes, trailing commas.
+- `PascalCase` for classes/components, `camelCase` for functions/variables, `kebab-case` for plugin IDs (e.g. `"dfs-backtracker"`).
+- Prefer `@/` import aliases for modules under `src/`.
+- Conventional commits: `feat(core): ...`, `fix(ui): ...`.
 
 ## Testing
 
