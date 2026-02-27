@@ -1,13 +1,12 @@
 import {
-    ALL_WALLS,
     carvePatch,
-    connectedNeighbors,
     neighbors,
     OverlayFlag,
     type Grid,
 } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
+import type { RandomSource } from "@/core/rng";
 import type {
     AlgorithmStepMeta,
     GeneratorRunOptions,
@@ -73,7 +72,10 @@ export const mycelialAnastomosisGenerator: GeneratorPlugin<
     },
 };
 
-function stepMycelialAnastomosis(context: MycelialAnastomosisContext, rng: any) {
+function stepMycelialAnastomosis(
+    context: MycelialAnastomosisContext,
+    rng: RandomSource,
+) {
     const { grid, parent, rank, visited, activeHyphae } = context;
     const patches: CellPatch[] = [];
 

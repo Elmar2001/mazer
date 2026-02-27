@@ -1,7 +1,5 @@
 import {
-    ALL_WALLS,
     carvePatch,
-    connectedNeighbors,
     neighbors,
     OverlayFlag,
     type Grid,
