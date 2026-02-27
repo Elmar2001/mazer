@@ -134,6 +134,65 @@ describe("generator plugins", () => {
     expect(deadEndCount(braidGrid)).toBeLessThan(deadEndCount(dfsGrid));
   });
 
+  it("counterfactual cycle annealing rewires a seed tree while preserving tree topology", () => {
+    const annealing = generatorPlugins.find(
+      (plugin) => plugin.id === "counterfactual-cycle-annealing",
+    );
+    const dfs = generatorPlugins.find((plugin) => plugin.id === "dfs-backtracker");
+    if (!annealing || !dfs) {
+      throw new Error("Missing counterfactual-cycle-annealing/dfs generator plugin");
+    }
+
+    const dfsGrid = runGenerator(dfs, "cca-seed", 30, 18);
+    const annealedGrid = runGenerator(annealing, "cca-seed", 30, 18);
+
+    expect(countGraphEdges(annealedGrid)).toBe(annealedGrid.cellCount - 1);
+    expect(Array.from(annealedGrid.walls)).not.toEqual(Array.from(dfsGrid.walls));
+  });
+
+  it("counterfactual cycle annealing settles shortly after full visitation", () => {
+    const annealing = generatorPlugins.find(
+      (plugin) => plugin.id === "counterfactual-cycle-annealing",
+    );
+    if (!annealing) {
+      throw new Error("Missing counterfactual-cycle-annealing generator plugin");
+    }
+
+    const grid = createGrid(30, 18);
+    const stepper = annealing.create({
+      grid,
+      rng: createSeededRandom("cca-loop-guard"),
+      options: {},
+    });
+
+    const maxSteps = grid.cellCount * 20;
+    let firstFullyVisitedStep = -1;
+    let doneStep = -1;
+
+    for (let step = 0; step < maxSteps; step += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (
+        firstFullyVisitedStep === -1 &&
+        result.meta?.visitedCount === grid.cellCount
+      ) {
+        firstFullyVisitedStep = step;
+      }
+
+      if (result.done) {
+        doneStep = step;
+        break;
+      }
+    }
+
+    expect(firstFullyVisitedStep).toBeGreaterThanOrEqual(0);
+    expect(doneStep).toBeGreaterThanOrEqual(0);
+    expect(doneStep - firstFullyVisitedStep).toBeLessThanOrEqual(grid.cellCount);
+  });
+
   it("weave generator produces at least one crossing for deterministic large grid", () => {
     const weave = generatorPlugins.find(
       (plugin) => plugin.id === "weave-growing-tree",

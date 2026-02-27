@@ -13,6 +13,7 @@ import { boruvkaGenerator } from "@/core/plugins/generators/boruvka";
 import { braidGenerator } from "@/core/plugins/generators/braid";
 import { bspGenerator } from "@/core/plugins/generators/bsp";
 import { cellularAutomataGenerator } from "@/core/plugins/generators/cellularAutomata";
+import { counterfactualCycleAnnealingGenerator } from "@/core/plugins/generators/counterfactualCycleAnnealing";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
 import { ellerGenerator } from "@/core/plugins/generators/eller";
 import { erosionGenerator } from "@/core/plugins/generators/erosion";
@@ -113,6 +114,7 @@ export const generatorPlugins = [
   withGeneratorMetadata(unicursalGenerator),
   withGeneratorMetadata(fractalTessellationGenerator),
   withGeneratorMetadata(cellularAutomataGenerator),
+  withGeneratorMetadata(counterfactualCycleAnnealingGenerator),
   withGeneratorMetadata(mazeCaGenerator),
   withGeneratorMetadata(mazectricCaGenerator),
   withGeneratorMetadata(bspGenerator),

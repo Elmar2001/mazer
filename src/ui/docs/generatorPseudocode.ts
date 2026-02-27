@@ -430,6 +430,19 @@ export const GENERATOR_PSEUDOCODE: Record<
       "wait for next step",
     ],
   },
+  "counterfactual-cycle-annealing": {
+    title: "Counterfactual Cycle Annealing",
+    summary:
+      "Seed a tree, then repeatedly swap one added chord and one removed cycle edge using annealed counterfactual scoring.",
+    lines: [
+      "build a seed spanning tree with randomized DFS-style growth",
+      "pick a high-stress cell and propose one currently closed edge",
+      "find the unique tree path between proposed edge endpoints",
+      "score each removable edge on that path using local counterfactual energy",
+      "accept or reject the best swap with simulated annealing temperature",
+      "stop after swap budget; preserve connected acyclic tree topology",
+    ],
+  },
   "sandpile-avalanche": {
     title: "Sandpile Avalanche",
     summary: "Self-organized criticality: drop sand, topple at threshold, carve passages during avalanche cascades.",

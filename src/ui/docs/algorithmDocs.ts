@@ -727,6 +727,37 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Anastomosis is a real fungal behavior where separate hyphae fuse; this algorithm adapts that idea into cycle-safe maze construction.",
   },
   {
+    id: "counterfactual-cycle-annealing",
+    name: "Counterfactual Cycle Annealing",
+    kind: "Generator",
+    summary:
+      "Starts from a valid spanning tree, then performs objective-driven edge swaps (add chord, remove cycle edge) under simulated annealing.",
+    howItWorks: [
+      "Generate a seed perfect maze using randomized depth-first tree growth.",
+      "Define per-cell target branching degrees plus per-edge affinity scores.",
+      "Each annealing step proposes one closed edge near high local stress.",
+      "That proposal forms a virtual cycle; evaluate every removable edge on the induced cycle path.",
+      "Apply the best swap if it improves local energy, or sometimes accept worse swaps early while temperature is high.",
+      "Because each accepted move adds one edge and removes one cycle edge, the maze remains connected and acyclic.",
+    ],
+    timeComplexity:
+      "O(KV) typical, where K is swap budget and each step includes tree-path search",
+    spaceComplexity: "O(V + E)",
+    pros: [
+      "Unique rewiring behavior unlike one-pass growth algorithms",
+      "Preserves perfect-maze guarantees throughout optimization",
+      "Can sculpt corridor/branching texture without rebuilding from scratch",
+    ],
+    cons: [
+      "More stateful than classic generators",
+      "Path search inside each swap attempt adds overhead",
+    ],
+    bestFor:
+      "Experimental generation where you want iterative, optimization-style morphology instead of single-pass carving.",
+    interestingFact:
+      "This generator treats maze construction as local counterfactual editing: every move evaluates what would happen if one edge were replaced by another before committing.",
+  },
+  {
     id: "sandpile-avalanche",
     name: "Sandpile Avalanche",
     kind: "Generator",
