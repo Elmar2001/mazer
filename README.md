@@ -26,6 +26,10 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - Unicursal
   - Fractal Tessellation
   - Cellular Automata (Cave-Biased)
+  - Maze CA (B3/S12345)
+  - Mazectric CA (B3/S1234)
+  - Braid (Dead-End Reduction)
+  - Weave Growing Tree
   - Origin Shift
   - Reverse-Delete
   - Randomized Boruvka
@@ -65,6 +69,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - cell size
   - play/pause/step/reset/generate/solve
   - deterministic seed input
+  - topology-aware solver compatibility filtering
   - visited/frontier/path visibility toggles
   - live generator/solver pseudocode trace with active-line highlighting
 - speed slider range: `1..5000` steps/sec
@@ -125,9 +130,15 @@ CI runs the same four commands on every push and pull request.
 Current tests cover:
 - deterministic RNG behavior
 - deterministic generator outputs for identical seeds
-- basic generator correctness (connectivity + tree edges)
+- basic generator correctness (connectivity + topology-specific invariants)
 - solver correctness and shortest-path optimality checks (BFS, Dijkstra, Bellman-Ford)
 - documentation/pseudocode coverage for all registered plugins
+
+## Topology + Weights Notes
+
+- Maze edges are unit-cost (unweighted) across every generator.
+- Weighted A* is retained as an advanced heuristic-priority variant; it does **not** introduce weighted maze edges.
+- Generators now advertise output topology (`perfect-planar`, `loopy-planar`, `weave`) and solver dropdowns auto-filter to compatible algorithms.
 
 ## Adding a New Generator Plugin
 

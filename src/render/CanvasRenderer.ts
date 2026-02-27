@@ -1,4 +1,4 @@
-import { OverlayFlag, WallFlag, type Grid } from "@/core/grid";
+import { CrossingKind, OverlayFlag, WallFlag, type Grid } from "@/core/grid";
 import {
   CANVAS_MAX_BACKING_DIMENSION,
   CANVAS_MAX_BACKING_PIXELS,
@@ -138,6 +138,7 @@ export class CanvasRenderer {
     }
 
     const overlays = this.grid.overlays[index] as number;
+    const crossing = this.grid.crossings[index] as number;
 
     // Visited overlays — full cell fill so adjacent cells connect seamlessly
     if (this.settings.showVisited && (overlays & OverlayFlag.Visited) !== 0) {
@@ -183,6 +184,10 @@ export class CanvasRenderer {
       this.ctx.shadowBlur = 0;
     }
 
+    if (crossing !== CrossingKind.None) {
+      this.drawCrossing(x, y, size, crossing);
+    }
+
     // Current cell indicators — circles with glow
     if ((overlays & OverlayFlag.Current) !== 0) {
       this.drawCurrentRing(x, y, size, this.colors.currentRingA, 0.35);
@@ -218,6 +223,35 @@ export class CanvasRenderer {
     this.ctx.lineWidth = lineW;
     this.ctx.stroke();
     this.ctx.shadowBlur = 0;
+  }
+
+  private drawCrossing(
+    x: number,
+    y: number,
+    size: number,
+    crossing: number,
+  ): void {
+    this.ctx.strokeStyle = this.colors.endpointStroke;
+    this.ctx.lineWidth = Math.max(1, size * 0.09);
+    this.ctx.globalAlpha = 0.65;
+    this.ctx.setLineDash([Math.max(2, size * 0.12), Math.max(2, size * 0.12)]);
+
+    if (crossing === CrossingKind.HorizontalOverVertical) {
+      const cx = x + size / 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(cx, y + 1);
+      this.ctx.lineTo(cx, y + size - 1);
+      this.ctx.stroke();
+    } else if (crossing === CrossingKind.VerticalOverHorizontal) {
+      const cy = y + size / 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + 1, cy);
+      this.ctx.lineTo(x + size - 1, cy);
+      this.ctx.stroke();
+    }
+
+    this.ctx.setLineDash([]);
+    this.ctx.globalAlpha = 1;
   }
 
   private drawWalls(index: number, x: number, y: number, size: number): void {

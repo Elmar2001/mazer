@@ -1,7 +1,7 @@
-import { connectedNeighbors, OverlayFlag, type Grid } from "@/core/grid";
+import { OverlayFlag, type Grid } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
 import type { SolverPlugin } from "@/core/plugins/SolverPlugin";
-import { buildPath } from "@/core/plugins/solvers/helpers";
+import { buildPath, getOpenNeighbors } from "@/core/plugins/solvers/helpers";
 import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
 
 interface DeadEndContext {
@@ -52,7 +52,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
     context.started = true;
 
     for (let i = 0; i < context.grid.cellCount; i += 1) {
-      const degree = connectedNeighbors(context.grid, i).length;
+      const degree = getOpenNeighbors(context.grid, i).length;
       context.degree[i] = degree;
 
       if (i === context.startIndex || i === context.goalIndex) {
@@ -144,7 +144,7 @@ function stepDeadEndFilling(context: DeadEndContext) {
     overlayClear: OverlayFlag.Path,
   });
 
-  for (const neighbor of connectedNeighbors(context.grid, cell)) {
+  for (const neighbor of getOpenNeighbors(context.grid, cell)) {
     if (context.removed[neighbor] === 1) {
       continue;
     }
@@ -228,7 +228,7 @@ function findPathOnRemainingGraph(context: DeadEndContext): number[] {
       break;
     }
 
-    for (const neighbor of connectedNeighbors(context.grid, node)) {
+    for (const neighbor of getOpenNeighbors(context.grid, node)) {
       if (context.removed[neighbor] === 1 || parents[neighbor] !== -1) {
         continue;
       }

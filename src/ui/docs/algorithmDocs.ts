@@ -453,6 +453,86 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "CA-inspired bias lets one algorithm bridge classic mazes and dungeon-like visuals.",
   },
   {
+    id: "maze-ca",
+    name: "Maze CA (B3/S12345)",
+    kind: "Generator",
+    summary:
+      "Applies Maze-rule cellular automata as a structural bias, then carves a deterministic spanning tree.",
+    howItWorks: [
+      "Initialize a random binary field.",
+      "Evolve the field with Maze rule B3/S12345 for fixed iterations.",
+      "Use resulting states to bias DFS-style carving toward same-state neighbors.",
+      "Backtrack when needed until a full spanning tree is carved.",
+    ],
+    timeComplexity: "O(V) carving + O(V) CA iterations",
+    spaceComplexity: "O(V)",
+    pros: ["Research-rule inspired texture", "Deterministic seeded behavior"],
+    cons: ["Hybridized (not pure CA corridor extraction)", "Mask quality depends on iteration settings"],
+    bestFor: "Including canonical CA rule families in a step-wise perfect-maze runtime.",
+    interestingFact:
+      "The classical Maze CA is usually run as full-grid evolution; here it is adapted as a guidance field for tree carving.",
+  },
+  {
+    id: "mazectric-ca",
+    name: "Mazectric CA (B3/S1234)",
+    kind: "Generator",
+    summary:
+      "Mazectric-rule variant with slightly stricter survival behavior, used as a carving bias field.",
+    howItWorks: [
+      "Initialize a random binary field.",
+      "Evolve with Mazectric rule B3/S1234 for fixed iterations.",
+      "Bias DFS-style carving to neighbors with matching evolved state.",
+      "Complete by backtracking until every cell is visited.",
+    ],
+    timeComplexity: "O(V) carving + O(V) CA iterations",
+    spaceComplexity: "O(V)",
+    pros: ["Distinct from Maze-rule mask behavior", "Deterministic and animation-friendly"],
+    cons: ["Still a hybrid adaptation", "Can appear similar to Maze CA on small grids"],
+    bestFor: "Comparative demos between Maze and Mazectric cellular rule families.",
+    interestingFact:
+      "Mazectric typically favors straighter structures than Maze in unconstrained CA outputs.",
+  },
+  {
+    id: "braid",
+    name: "Braid (Dead-End Reduction)",
+    kind: "Generator",
+    summary:
+      "Builds a perfect maze first, then removes dead ends by opening selected extra connections.",
+    howItWorks: [
+      "Generate a base perfect maze (spanning tree).",
+      "Collect dead-end cells and process them in shuffled order.",
+      "For each remaining dead end, open one closed wall to a nearby passage.",
+      "Stop once dead-end pass is exhausted or target reduction is reached.",
+    ],
+    timeComplexity: "O(V) after base generation",
+    spaceComplexity: "O(V)",
+    pros: ["Eliminates many cul-de-sacs", "Creates harder loop-rich navigation"],
+    cons: ["Not a perfect maze", "Wall-follower strategies become unreliable"],
+    bestFor: "Loop-heavy mazes and solver robustness comparisons.",
+    interestingFact:
+      "Braiding is commonly treated as a post-process transform rather than a standalone carve algorithm.",
+  },
+  {
+    id: "weave-growing-tree",
+    name: "Weave Growing Tree",
+    kind: "Generator",
+    summary:
+      "Growing-tree base maze with over/under crossings introduced as non-junction weave tunnels.",
+    howItWorks: [
+      "Generate a base tree maze using growing-tree policy.",
+      "Scan interior straight-corridor cells for weave eligibility.",
+      "Mark crossing orientation at selected cells.",
+      "Create tunnel links between opposite neighbors to model the underpass channel.",
+    ],
+    timeComplexity: "O(V) base + O(V) crossing scan",
+    spaceComplexity: "O(V)",
+    pros: ["Pseudo-3D over/under aesthetics", "Crossings avoid 4-way junction ambiguity"],
+    cons: ["More complex rendering/traversal model", "Some local solvers are incompatible"],
+    bestFor: "Weave puzzle styles and topology-aware solver comparisons.",
+    interestingFact:
+      "Weave mazes are often represented by layered traversal states even when drawn on a 2D grid.",
+  },
+  {
     id: "vortex",
     name: "Vortex Maze (Xu/Kaplan-inspired)",
     kind: "Generator",
@@ -608,7 +688,8 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     id: "weighted-astar",
     name: "Weighted A*",
     kind: "Solver",
-    summary: "Biases A* harder toward the heuristic for more aggressive search.",
+    summary:
+      "Biases A* harder toward the heuristic for more aggressive search on unit-cost maze edges.",
     howItWorks: [
       "Use f(n)=g(n)+w*h(n) with w>1.",
       "Expand the node with smallest weighted estimate.",
@@ -619,7 +700,8 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     spaceComplexity: "O(V)",
     pros: ["Lower exploration count", "Good speed at high grid sizes"],
     cons: ["Can lose optimality", "Quality depends on weight"],
-    bestFor: "When responsiveness matters more than guaranteed shortest path.",
+    bestFor:
+      "When responsiveness matters more than guaranteed shortest path, without changing maze edge weights.",
     interestingFact:
       "Weighted A* is common in games and robotics where near-optimal is acceptable for speed.",
   },

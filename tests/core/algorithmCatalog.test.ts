@@ -67,4 +67,18 @@ describe("algorithm catalog coverage", () => {
       expect(solverIds.has(plugin.aliasOf as string)).toBe(true);
     }
   });
+
+  it("has topology metadata for generators and compatibility metadata for solvers", () => {
+    for (const plugin of generatorPlugins) {
+      expect(plugin.tier).toBeDefined();
+      expect(plugin.topologyOut).toBeDefined();
+    }
+
+    for (const plugin of solverPlugins) {
+      expect(plugin.tier).toBeDefined();
+      expect(plugin.solverCompatibility).toBeDefined();
+      expect(plugin.solverCompatibility?.topologies.length).toBeGreaterThan(0);
+      expect(plugin.solverCompatibility?.guarantee).toBeDefined();
+    }
+  });
 });

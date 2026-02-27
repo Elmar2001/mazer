@@ -60,6 +60,8 @@ export interface MazeEngineOptions {
   solverId: SolverPluginId;
   battleMode: boolean;
   solverBId: SolverPluginId;
+  generatorParams?: Record<string, number | string | boolean>;
+  solverParams?: Record<string, number | string | boolean>;
 }
 
 export interface MazeEngineCallbacks {

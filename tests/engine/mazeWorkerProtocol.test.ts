@@ -13,6 +13,8 @@ describe("maze worker protocol", () => {
     for (let i = 0; i < grid.cellCount; i += 1) {
       grid.walls[i] = i % 16;
       grid.overlays[i] = i % 255;
+      grid.crossings[i] = i % 3;
+      grid.tunnels[i] = i % 5 === 0 ? (i + 2) % grid.cellCount : -1;
     }
 
     const { snapshot } = createGridSnapshot(grid);
@@ -23,5 +25,7 @@ describe("maze worker protocol", () => {
     expect(restored.cellCount).toBe(grid.cellCount);
     expect(Array.from(restored.walls)).toEqual(Array.from(grid.walls));
     expect(Array.from(restored.overlays)).toEqual(Array.from(grid.overlays));
+    expect(Array.from(restored.crossings)).toEqual(Array.from(grid.crossings));
+    expect(Array.from(restored.tunnels)).toEqual(Array.from(grid.tunnels));
   });
 });

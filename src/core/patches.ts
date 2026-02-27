@@ -4,6 +4,8 @@ export interface CellPatch {
   wallClear?: number;
   overlaySet?: number;
   overlayClear?: number;
+  crossingSet?: number;
+  tunnelToSet?: number;
 }
 
 export type StepMeta = Record<string, number | string | boolean | undefined>;

@@ -15,6 +15,8 @@ export interface MazeSettings {
   generatorId: GeneratorPluginId;
   solverId: SolverPluginId;
   solverBId: SolverPluginId;
+  generatorParams: Record<string, number | string | boolean>;
+  solverParams: Record<string, number | string | boolean>;
   battleMode: boolean;
   speed: number;
   gridWidth: number;
@@ -53,6 +55,12 @@ interface MazeStore {
   setGeneratorId: (id: GeneratorPluginId) => void;
   setSolverId: (id: SolverPluginId) => void;
   setSolverBId: (id: SolverPluginId) => void;
+  setGeneratorParams: (
+    params: Record<string, number | string | boolean>,
+  ) => void;
+  setSolverParams: (
+    params: Record<string, number | string | boolean>,
+  ) => void;
   setBattleMode: (value: boolean) => void;
   setSpeed: (value: number) => void;
   setGridWidth: (value: number) => void;
@@ -95,6 +103,8 @@ const DEFAULT_SETTINGS: MazeSettings = {
   generatorId: "dfs-backtracker",
   solverId: "bfs",
   solverBId: "astar",
+  generatorParams: {},
+  solverParams: {},
   battleMode: false,
   speed: 60,
   gridWidth: 40,
@@ -149,6 +159,20 @@ export const useMazeStore = create<MazeStore>((set) => ({
       settings: {
         ...state.settings,
         solverBId: id,
+      },
+    })),
+  setGeneratorParams: (params) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        generatorParams: { ...params },
+      },
+    })),
+  setSolverParams: (params) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        solverParams: { ...params },
       },
     })),
   setBattleMode: (value) =>

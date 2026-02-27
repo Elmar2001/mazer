@@ -8,6 +8,8 @@ export interface SerializedGridSnapshot {
   cellCount: number;
   walls: ArrayBuffer;
   overlays: ArrayBuffer;
+  crossings: ArrayBuffer;
+  tunnels: ArrayBuffer;
 }
 
 export interface WorkerRuntimeSnapshot {
@@ -90,6 +92,8 @@ export function createGridSnapshot(
 ): { snapshot: SerializedGridSnapshot; transfer: Transferable[] } {
   const walls = grid.walls.slice();
   const overlays = grid.overlays.slice();
+  const crossings = grid.crossings.slice();
+  const tunnels = grid.tunnels.slice();
 
   return {
     snapshot: {
@@ -98,8 +102,10 @@ export function createGridSnapshot(
       cellCount: grid.cellCount,
       walls: walls.buffer,
       overlays: overlays.buffer,
+      crossings: crossings.buffer,
+      tunnels: tunnels.buffer,
     },
-    transfer: [walls.buffer, overlays.buffer],
+    transfer: [walls.buffer, overlays.buffer, crossings.buffer, tunnels.buffer],
   };
 }
 
@@ -110,5 +116,7 @@ export function deserializeGridSnapshot(snapshot: SerializedGridSnapshot): Grid 
     cellCount: snapshot.cellCount,
     walls: new Uint8Array(snapshot.walls),
     overlays: new Uint16Array(snapshot.overlays),
+    crossings: new Uint8Array(snapshot.crossings),
+    tunnels: new Int32Array(snapshot.tunnels),
   };
 }

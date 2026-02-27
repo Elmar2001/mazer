@@ -1,8 +1,8 @@
-import { connectedNeighbors } from "@/core/grid";
+import { traversableNeighbors } from "@/core/grid";
 import type { Grid } from "@/core/grid";
 
 export function getOpenNeighbors(grid: Grid, index: number): number[] {
-  return connectedNeighbors(grid, index);
+  return traversableNeighbors(grid, index);
 }
 
 export function buildPath(

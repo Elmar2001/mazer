@@ -44,12 +44,20 @@ export const ANY_FRONTIER_OVERLAY_MASK =
 
 export const ANY_PATH_OVERLAY_MASK = OverlayFlag.Path | OverlayFlag.PathB;
 
+export const enum CrossingKind {
+  None = 0,
+  HorizontalOverVertical = 1,
+  VerticalOverHorizontal = 2,
+}
+
 export interface Grid {
   width: number;
   height: number;
   cellCount: number;
   walls: Uint8Array;
   overlays: Uint16Array;
+  crossings: Uint8Array;
+  tunnels: Int32Array;
 }
 
 export interface Direction {
@@ -109,6 +117,8 @@ export function createGrid(width: number, height: number): Grid {
     cellCount,
     walls,
     overlays: new Uint16Array(cellCount),
+    crossings: new Uint8Array(cellCount),
+    tunnels: new Int32Array(cellCount).fill(-1),
   };
 }
 
@@ -164,6 +174,16 @@ export function connectedNeighbors(grid: Grid, index: number): number[] {
   return output;
 }
 
+export function traversableNeighbors(grid: Grid, index: number): number[] {
+  const output = connectedNeighbors(grid, index);
+  const tunnel = grid.tunnels[index] as number;
+  if (tunnel >= 0) {
+    output.push(tunnel);
+  }
+
+  return output;
+}
+
 export function carvePatch(
   fromIndex: number,
   toIndex: number,
@@ -211,5 +231,13 @@ export function applyCellPatch(grid: Grid, patch: CellPatch): void {
 
   if (typeof patch.overlayClear === "number") {
     grid.overlays[i] &= ~patch.overlayClear;
+  }
+
+  if (typeof patch.crossingSet === "number") {
+    grid.crossings[i] = patch.crossingSet;
+  }
+
+  if (typeof patch.tunnelToSet === "number") {
+    grid.tunnels[i] = patch.tunnelToSet;
   }
 }

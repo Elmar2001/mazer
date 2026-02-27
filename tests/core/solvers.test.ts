@@ -9,6 +9,7 @@ import {
   WallFlag,
 } from "@/core/grid";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
+import { generatorPlugins } from "@/core/plugins/generators";
 import { solverPlugins } from "@/core/plugins/solvers";
 import type { SolverPlugin } from "@/core/plugins/SolverPlugin";
 import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
@@ -34,6 +35,38 @@ function buildMaze(width = 24, height = 16) {
   }
 
   return grid;
+}
+
+function buildMazeWithGenerator(
+  generatorId: string,
+  width = 24,
+  height = 16,
+  seed = "solver-maze",
+) {
+  const plugin = generatorPlugins.find((generator) => generator.id === generatorId);
+  if (!plugin) {
+    throw new Error(`Generator plugin not found: ${generatorId}`);
+  }
+
+  const grid = createGrid(width, height);
+  const stepper = plugin.create({
+    grid,
+    rng: createSeededRandom(seed),
+    options: {},
+  });
+
+  for (let i = 0; i < width * height * 40; i += 1) {
+    const result = stepper.step();
+    for (const patch of result.patches) {
+      applyCellPatch(grid, patch);
+    }
+
+    if (result.done) {
+      return grid;
+    }
+  }
+
+  throw new Error(`Generator ${generatorId} did not finish in budget`);
 }
 
 function shortestPathLength(grid: ReturnType<typeof createGrid>): number {
@@ -373,6 +406,47 @@ describe("solver plugins", () => {
       expect(result.lastMeta?.solved).toBe(false);
       expect(result.lastMeta?.pathLength ?? 0).toBe(0);
       expect((grid.overlays[8] & OverlayFlag.Path) !== 0).toBe(false);
+    },
+  );
+
+  it.each(["bfs", "dijkstra", "bellman-ford"] as const)(
+    "%s solves braid topology",
+    (solverId) => {
+      const solver = solverPlugins.find((plugin) => plugin.id === solverId);
+      if (!solver) {
+        throw new Error(`Solver plugin not found: ${solverId}`);
+      }
+
+      const grid = buildMazeWithGenerator("braid", 28, 18, "braid-solver");
+      const result = runSolver(solver, grid);
+
+      expect(result.done).toBe(true);
+      expect(result.lastMeta?.solved).toBe(true);
+      expect((grid.overlays[0] & OverlayFlag.Path) !== 0).toBe(true);
+      expect((grid.overlays[grid.cellCount - 1] & OverlayFlag.Path) !== 0).toBe(true);
+    },
+  );
+
+  it.each(["bfs", "astar", "dijkstra"] as const)(
+    "%s solves weave topology",
+    (solverId) => {
+      const solver = solverPlugins.find((plugin) => plugin.id === solverId);
+      if (!solver) {
+        throw new Error(`Solver plugin not found: ${solverId}`);
+      }
+
+      const grid = buildMazeWithGenerator(
+        "weave-growing-tree",
+        30,
+        20,
+        "weave-solver",
+      );
+      const result = runSolver(solver, grid);
+
+      expect(result.done).toBe(true);
+      expect(result.lastMeta?.solved).toBe(true);
+      expect((grid.overlays[0] & OverlayFlag.Path) !== 0).toBe(true);
+      expect((grid.overlays[grid.cellCount - 1] & OverlayFlag.Path) !== 0).toBe(true);
     },
   );
 });

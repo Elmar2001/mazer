@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 
 import {
@@ -13,7 +13,11 @@ import {
   getGridWidthMax,
 } from "@/config/limits";
 import type { MazeControls } from "@/ui/hooks/useMazeEngine";
-import { GENERATOR_OPTIONS, SOLVER_OPTIONS } from "@/ui/constants/algorithms";
+import {
+  GENERATOR_OPTIONS,
+  getCompatibleSolverOptions,
+  getGeneratorTopology,
+} from "@/ui/constants/algorithms";
 import { useMazeStore } from "@/ui/store/mazeStore";
 import { MazeConfigPanel } from "@/ui/components/MazeConfigPanel";
 
@@ -52,6 +56,34 @@ function AccordionSection({
   );
 }
 
+interface GroupedOption<TId extends string> {
+  id: TId;
+  label: string;
+  group: "Research Core" | "Advanced" | "Aliases";
+}
+
+function groupOptionsByTier<TId extends string>(
+  options: GroupedOption<TId>[],
+) {
+  const groups: Array<{
+    label: "Research Core" | "Advanced" | "Aliases";
+    options: GroupedOption<TId>[];
+  }> = [
+    { label: "Research Core", options: [] },
+    { label: "Advanced", options: [] },
+    { label: "Aliases", options: [] },
+  ];
+
+  for (const option of options) {
+    const group = groups.find((entry) => entry.label === option.group);
+    if (group) {
+      group.options.push(option);
+    }
+  }
+
+  return groups.filter((group) => group.options.length > 0);
+}
+
 export function ControlPanel({ controls }: ControlPanelProps) {
   const settings = useMazeStore((state) => state.settings);
   const runtime = useMazeStore((state) => state.runtime);
@@ -81,6 +113,24 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   const gridWidthMax = getGridWidthMax(settings.gridHeight, settings.cellSize);
   const gridHeightMax = getGridHeightMax(settings.gridWidth, settings.cellSize);
   const cellSizeMax = getCellSizeMax(settings.gridWidth, settings.gridHeight);
+  const selectedTopology = getGeneratorTopology(settings.generatorId);
+
+  const solverOptions = useMemo(
+    () => getCompatibleSolverOptions(selectedTopology),
+    [selectedTopology],
+  );
+  const groupedGeneratorOptions = useMemo(
+    () => groupOptionsByTier(GENERATOR_OPTIONS),
+    [],
+  );
+  const groupedSolverOptions = useMemo(
+    () => groupOptionsByTier(solverOptions),
+    [solverOptions],
+  );
+  const solverFilterNote =
+    selectedTopology === "perfect-planar"
+      ? null
+      : `Solver list is filtered for ${selectedTopology} topology compatibility.`;
 
   const onCheckboxChange =
     (setter: (value: boolean) => void) =>
@@ -88,8 +138,53 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       setter(event.currentTarget.checked);
     };
 
-  const pickDifferentSolver = (excludedId: string): string | undefined =>
-    SOLVER_OPTIONS.find((option) => option.id !== excludedId)?.id;
+  const pickDifferentSolver = useCallback(
+    (excludedId: string, options = solverOptions): string | undefined =>
+      options.find((option) => option.id !== excludedId)?.id,
+    [solverOptions],
+  );
+
+  useEffect(() => {
+    const compatibleIds = new Set(solverOptions.map((option) => option.id));
+    if (solverOptions.length === 0) {
+      return;
+    }
+
+    if (!compatibleIds.has(settings.solverId)) {
+      const fallbackSolverA = solverOptions[0]?.id;
+      if (fallbackSolverA) {
+        setSolverId(fallbackSolverA);
+      }
+    }
+
+    if (settings.battleMode && !compatibleIds.has(settings.solverBId)) {
+      const fallbackSolverB =
+        pickDifferentSolver(settings.solverId, solverOptions) ??
+        solverOptions[0]?.id;
+      if (fallbackSolverB) {
+        setSolverBId(fallbackSolverB);
+      }
+    }
+
+    if (
+      settings.battleMode &&
+      settings.solverBId === settings.solverId &&
+      solverOptions.length > 1
+    ) {
+      const fallbackSolverB = pickDifferentSolver(settings.solverId, solverOptions);
+      if (fallbackSolverB) {
+        setSolverBId(fallbackSolverB);
+      }
+    }
+  }, [
+    pickDifferentSolver,
+    setSolverBId,
+    setSolverId,
+    settings.battleMode,
+    settings.solverBId,
+    settings.solverId,
+    solverOptions,
+  ]);
 
   const onBattleModeChange = (event: ChangeEvent<HTMLInputElement>) => {
     const enabled = event.currentTarget.checked;
@@ -99,9 +194,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
       return;
     }
 
-    const fallback = SOLVER_OPTIONS.find(
-      (option) => option.id !== settings.solverId,
-    )?.id;
+    const fallback = pickDifferentSolver(settings.solverId, solverOptions);
 
     if (fallback) {
       setSolverBId(fallback);
@@ -275,19 +368,28 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             value={settings.generatorId}
             onChange={(event) => setGeneratorId(event.currentTarget.value as typeof settings.generatorId)}
           >
-            {GENERATOR_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
+            {groupedGeneratorOptions.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
         <label className="field">
           <span className="fieldLabel">Solver</span>
           <select value={settings.solverId} onChange={onSolverAChange}>
-            {SOLVER_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
+            {groupedSolverOptions.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>
+        {solverFilterNote && <p className="fieldHint">{solverFilterNote}</p>}
         <label className="field">
           <span className="fieldLabel">Seed</span>
           <input
@@ -314,8 +416,12 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             onChange={onSolverBChange}
             disabled={!settings.battleMode}
           >
-            {SOLVER_OPTIONS.map((option) => (
-              <option key={option.id} value={option.id}>{option.label}</option>
+            {groupedSolverOptions.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.id} value={option.id}>{option.label}</option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>

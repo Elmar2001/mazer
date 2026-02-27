@@ -145,7 +145,7 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.generatorStepper = plugin.create({
       grid: this.grid,
       rng,
-      options: {},
+      options: this.options.generatorParams ?? {},
     });
 
     this.solverPrimary = null;
@@ -577,6 +577,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       grid: this.grid,
       rng,
       options: {
+        ...(this.options.solverParams ?? {}),
         startIndex: 0,
         goalIndex: this.grid.cellCount - 1,
       },

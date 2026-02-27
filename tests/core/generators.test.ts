@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyCellPatch, connectedNeighbors, createGrid, WallFlag } from "@/core/grid";
+import { applyCellPatch, createGrid, traversableNeighbors } from "@/core/grid";
 import { generatorPlugins } from "@/core/plugins/generators";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
 import type {
@@ -41,19 +41,12 @@ function runGenerator(
   return grid;
 }
 
-function countCarvedEdges(grid: ReturnType<typeof createGrid>): number {
+function countGraphEdges(grid: ReturnType<typeof createGrid>): number {
   let edges = 0;
 
-  for (let y = 0; y < grid.height; y += 1) {
-    for (let x = 0; x < grid.width; x += 1) {
-      const index = y * grid.width + x;
-      const walls = grid.walls[index] as number;
-
-      if (x + 1 < grid.width && (walls & WallFlag.East) === 0) {
-        edges += 1;
-      }
-
-      if (y + 1 < grid.height && (walls & WallFlag.South) === 0) {
+  for (let i = 0; i < grid.cellCount; i += 1) {
+    for (const neighbor of traversableNeighbors(grid, i)) {
+      if (neighbor > i) {
         edges += 1;
       }
     }
@@ -72,7 +65,7 @@ function reachableCellCount(grid: ReturnType<typeof createGrid>): number {
     const current = queue[head] as number;
     head += 1;
 
-    for (const neighbor of connectedNeighbors(grid, current)) {
+    for (const neighbor of traversableNeighbors(grid, current)) {
       if (visited[neighbor] === 1) {
         continue;
       }
@@ -85,18 +78,67 @@ function reachableCellCount(grid: ReturnType<typeof createGrid>): number {
   return queue.length;
 }
 
+function deadEndCount(grid: ReturnType<typeof createGrid>): number {
+  let total = 0;
+
+  for (let i = 0; i < grid.cellCount; i += 1) {
+    if (traversableNeighbors(grid, i).length <= 1) {
+      total += 1;
+    }
+  }
+
+  return total;
+}
+
 describe("generator plugins", () => {
   it.each(generatorPlugins)("%s is deterministic for the same seed", (plugin) => {
     const first = runGenerator(plugin, "same-seed");
     const second = runGenerator(plugin, "same-seed");
 
     expect(Array.from(first.walls)).toEqual(Array.from(second.walls));
+    expect(Array.from(first.crossings)).toEqual(Array.from(second.crossings));
+    expect(Array.from(first.tunnels)).toEqual(Array.from(second.tunnels));
   });
 
-  it.each(generatorPlugins)("%s produces a connected perfect maze", (plugin) => {
+  it.each(generatorPlugins)("%s produces a connected maze graph", (plugin) => {
     const grid = runGenerator(plugin, "tree-seed");
+    const edges = countGraphEdges(grid);
 
     expect(reachableCellCount(grid)).toBe(grid.cellCount);
-    expect(countCarvedEdges(grid)).toBe(grid.cellCount - 1);
+    expect(edges).toBeGreaterThanOrEqual(grid.cellCount - 1);
+
+    if (plugin.topologyOut === "perfect-planar") {
+      expect(edges).toBe(grid.cellCount - 1);
+    }
+
+    if (plugin.topologyOut === "loopy-planar" || plugin.topologyOut === "weave") {
+      expect(edges).toBeGreaterThan(grid.cellCount - 1);
+    }
+  });
+
+  it("braid reduces dead ends compared to base dfs", () => {
+    const braid = generatorPlugins.find((plugin) => plugin.id === "braid");
+    const dfs = generatorPlugins.find((plugin) => plugin.id === "dfs-backtracker");
+    if (!braid || !dfs) {
+      throw new Error("Missing braid/dfs generator plugin");
+    }
+
+    const dfsGrid = runGenerator(dfs, "braid-seed", 28, 18);
+    const braidGrid = runGenerator(braid, "braid-seed", 28, 18);
+
+    expect(deadEndCount(braidGrid)).toBeLessThan(deadEndCount(dfsGrid));
+  });
+
+  it("weave generator produces at least one crossing for deterministic large grid", () => {
+    const weave = generatorPlugins.find(
+      (plugin) => plugin.id === "weave-growing-tree",
+    );
+    if (!weave) {
+      throw new Error("Missing weave-growing-tree plugin");
+    }
+
+    const grid = runGenerator(weave, "weave-seed", 36, 22);
+    const crossingCount = Array.from(grid.crossings).filter((value) => value !== 0).length;
+    expect(crossingCount).toBeGreaterThan(0);
   });
 });

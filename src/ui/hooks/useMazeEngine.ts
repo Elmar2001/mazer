@@ -60,6 +60,8 @@ function toEngineOptions(settings: MazeSettings): MazeEngineOptions {
     solverId: settings.solverId,
     battleMode: settings.battleMode,
     solverBId: settings.solverBId,
+    generatorParams: settings.generatorParams,
+    solverParams: settings.solverParams,
   };
 }
 
@@ -299,6 +301,8 @@ export function useMazeEngine(): UseMazeEngineResult {
         solverId: settings.solverId,
         battleMode: settings.battleMode,
         solverBId: settings.solverBId,
+        generatorParams: settings.generatorParams,
+        solverParams: settings.solverParams,
         speed: settings.speed,
       },
     });
@@ -310,7 +314,9 @@ export function useMazeEngine(): UseMazeEngineResult {
     dispatchCommand,
     settings.battleMode,
     settings.generatorId,
+    settings.generatorParams,
     settings.seed,
+    settings.solverParams,
     settings.solverBId,
     settings.solverId,
     settings.speed,

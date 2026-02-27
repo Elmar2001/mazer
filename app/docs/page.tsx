@@ -13,6 +13,30 @@ const GENERATOR_META_BY_ID = new Map(
 );
 const SOLVER_META_BY_ID = new Map(solverPlugins.map((plugin) => [plugin.id, plugin]));
 
+function tierLabel(tier: string | undefined): string {
+  if (tier === "advanced") {
+    return "Advanced";
+  }
+
+  if (tier === "alias") {
+    return "Alias";
+  }
+
+  return "Research Core";
+}
+
+function topologyLabel(topology: string): string {
+  if (topology === "loopy-planar") {
+    return "Loopy";
+  }
+
+  if (topology === "weave") {
+    return "Weave";
+  }
+
+  return "Perfect";
+}
+
 function AlgorithmCard({
   algorithm,
 }: {
@@ -35,6 +59,9 @@ function AlgorithmCard({
         <span className={`algoBadge ${algorithm.kind === "Generator" ? "algoGen" : "algoSolve"}`}>
           {algorithm.kind}
         </span>
+        {pluginMeta?.tier !== "alias" && (
+          <span className="algoBadge">{tierLabel(pluginMeta?.tier)}</span>
+        )}
         {pluginMeta?.implementationKind === "alias" && (
           <span className="algoBadge">Alias</span>
         )}
@@ -48,6 +75,16 @@ function AlgorithmCard({
       <p className="algoSummary">{algorithm.summary}</p>
       {pluginMeta?.implementationKind === "alias" && aliasTargetLabel && (
         <p className="algoSummary">Implements the same runtime as {aliasTargetLabel}.</p>
+      )}
+      {algorithm.kind === "Generator" && pluginMeta?.topologyOut && (
+        <p className="algoSummary">
+          Topology: {topologyLabel(pluginMeta.topologyOut)}
+        </p>
+      )}
+      {algorithm.kind === "Solver" && pluginMeta?.solverCompatibility && (
+        <p className="algoSummary">
+          Compatible with: {pluginMeta.solverCompatibility.topologies.map(topologyLabel).join(", ")}
+        </p>
       )}
 
       <div className="algoComplexity">
