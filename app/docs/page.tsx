@@ -7,6 +7,7 @@ import {
   SOLVER_DOCS,
   type AlgorithmDoc,
 } from "@/ui/docs/algorithmDocs";
+import { getAlgorithmInventor } from "@/ui/constants/llmAttribution";
 
 const GENERATOR_META_BY_ID = new Map(
   generatorPlugins.map((plugin) => [plugin.id, plugin]),
@@ -42,6 +43,7 @@ function AlgorithmCard({
 }: {
   algorithm: AlgorithmDoc;
 }) {
+  const inventor = getAlgorithmInventor(algorithm.id);
   const pluginMeta =
     algorithm.kind === "Generator"
       ? GENERATOR_META_BY_ID.get(algorithm.id)
@@ -71,8 +73,13 @@ function AlgorithmCard({
         <code>{algorithm.id}</code>
       </div>
 
-      <h3>{algorithm.name}</h3>
+      <h3>{inventor ? `${algorithm.name} (${inventor})` : algorithm.name}</h3>
       <p className="algoSummary">{algorithm.summary}</p>
+      {inventor && (
+        <p className="algoSummary">
+          <strong>Invented by:</strong> {inventor}
+        </p>
+      )}
       {pluginMeta?.implementationKind === "alias" && aliasTargetLabel && (
         <p className="algoSummary">Implements the same runtime as {aliasTargetLabel}.</p>
       )}

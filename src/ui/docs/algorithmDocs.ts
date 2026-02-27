@@ -636,7 +636,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Experimental maze aesthetics where you want coherent wave-like structure but still need a perfect planar maze.",
     interestingFact:
-      "This project-specific algorithm combines interference synthesis and phase-entrainment feedback inside a strict spanning-tree frontier loop.",
+      "This project-specific algorithm combines interference synthesis and phase-entrainment feedback inside a strict spanning-tree frontier loop. Invented in this project by Codex.",
   },
   {
     id: "erosion",
@@ -666,7 +666,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Generating mazes with natural, river-like branching where main corridors collect tributaries.",
     interestingFact:
-      "This is a novel algorithm that combines terrain hydrology with spanning-tree construction. The erosion feedback mechanism — where carving a passage lowers nearby terrain — has no precedent in published maze generation literature.",
+      "This is a novel algorithm that combines terrain hydrology with spanning-tree construction. The erosion feedback mechanism — where carving a passage lowers nearby terrain — has no precedent in published maze generation literature. Invented in this project by Claude.",
   },
   {
     id: "quantum-seismogenesis",
@@ -695,7 +695,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Experimental generation where you want tectonic crack-like growth rather than smooth expansion fronts.",
     interestingFact:
-      "This project-specific generator blends stress-threshold ignition with spanning-tree constraints, so fractures look chaotic while still guaranteeing connectivity without loops.",
+      "This project-specific generator blends stress-threshold ignition with spanning-tree constraints, so fractures look chaotic while still guaranteeing connectivity without loops. Invented in this project by Gemini.",
   },
   {
     id: "mycelial-anastomosis",
@@ -724,7 +724,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Organic maze aesthetics that resemble biological growth and network fusion.",
     interestingFact:
-      "Anastomosis is a real fungal behavior where separate hyphae fuse; this algorithm adapts that idea into cycle-safe maze construction.",
+      "Anastomosis is a real fungal behavior where separate hyphae fuse; this algorithm adapts that idea into cycle-safe maze construction. Invented in this project by Gemini.",
   },
   {
     id: "counterfactual-cycle-annealing",
@@ -755,7 +755,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Experimental generation where you want iterative, optimization-style morphology instead of single-pass carving.",
     interestingFact:
-      "This generator treats maze construction as local counterfactual editing: every move evaluates what would happen if one edge were replaced by another before committing.",
+      "This generator treats maze construction as local counterfactual editing: every move evaluates what would happen if one edge were replaced by another before committing. Invented in this project by Codex.",
   },
   {
     id: "sandpile-avalanche",
@@ -784,7 +784,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     bestFor:
       "Watching self-organized criticality build a maze through emergent avalanche dynamics.",
     interestingFact:
-      "The Abelian sandpile is the canonical model of self-organized criticality — systems that naturally evolve to a state where small inputs can trigger chain reactions of any scale. This is the first application of sandpile dynamics to maze generation.",
+      "The Abelian sandpile is the canonical model of self-organized criticality — systems that naturally evolve to a state where small inputs can trigger chain reactions of any scale. This is the first application of sandpile dynamics to maze generation. Invented in this project by Claude.",
   },
   {
     id: "bfs",

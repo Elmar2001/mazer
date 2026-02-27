@@ -4,6 +4,7 @@ import { useMazeStore } from "@/ui/store/mazeStore";
 import { GENERATOR_PSEUDOCODE } from "@/ui/docs/generatorPseudocode";
 import { SOLVER_PSEUDOCODE, type SolverPseudocodeDoc } from "@/ui/docs/solverPseudocode";
 import type { GeneratorPseudocodeDoc } from "@/ui/docs/generatorPseudocode";
+import { appendInventorLabel } from "@/ui/constants/llmAttribution";
 
 export function GeneratorTracePanel() {
   const settings = useMazeStore((state) => state.settings);
@@ -17,6 +18,9 @@ export function GeneratorTracePanel() {
   const generatorDoc = GENERATOR_PSEUDOCODE[settings.generatorId];
   const solverDocA = SOLVER_PSEUDOCODE[settings.solverId];
   const solverDocB = SOLVER_PSEUDOCODE[settings.solverBId];
+  const generatorTitle = appendInventorLabel(generatorDoc.title, settings.generatorId);
+  const solverTitleA = appendInventorLabel(solverDocA.title, settings.solverId);
+  const solverTitleB = appendInventorLabel(solverDocB.title, settings.solverBId);
 
   const activeSolverLineA =
     runtime.metrics.battle?.solverA.activeLine ?? runtime.solverActiveLine;
@@ -27,8 +31,8 @@ export function GeneratorTracePanel() {
   const title = showSolverTrace
     ? isBattleSolverTrace
       ? "Battle Mode"
-      : solverDocA.title
-    : generatorDoc.title;
+      : solverTitleA
+    : generatorTitle;
 
   return (
     <aside className="tracePanel">
@@ -55,6 +59,7 @@ export function GeneratorTracePanel() {
           keyId={settings.solverId}
           doc={solverDocA}
           activeLine={activeSolverLineA}
+          displayTitle={solverTitleA}
         />
       )}
 
@@ -65,12 +70,14 @@ export function GeneratorTracePanel() {
             doc={solverDocA}
             activeLine={activeSolverLineA}
             label="Solver A"
+            displayTitle={solverTitleA}
           />
           <TraceCodeList
             keyId={`${settings.solverBId}-B`}
             doc={solverDocB}
             activeLine={activeSolverLineB}
             label="Solver B"
+            displayTitle={solverTitleB}
           />
         </div>
       )}
@@ -83,15 +90,17 @@ function TraceCodeList({
   doc,
   activeLine,
   label,
+  displayTitle,
 }: {
   keyId: string;
   doc: GeneratorPseudocodeDoc | SolverPseudocodeDoc;
   activeLine: number | null;
   label?: string;
+  displayTitle?: string;
 }) {
   return (
     <section className={label ? "traceCodeSection" : undefined}>
-      {label && <h4 className="traceCodeTitle">{label}: {doc.title}</h4>}
+      {label && <h4 className="traceCodeTitle">{label}: {displayTitle ?? doc.title}</h4>}
       <ol className="traceCodeList">
         {doc.lines.map((line, index) => {
           const lineNumber = index + 1;

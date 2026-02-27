@@ -1,5 +1,6 @@
 import { generatorPlugins } from "@/core/plugins/generators";
 import { solverPlugins } from "@/core/plugins/solvers";
+import { appendInventorLabel } from "@/ui/constants/llmAttribution";
 import type {
   MazeTopology,
   PluginTier,
@@ -47,29 +48,31 @@ function tierToGroup(tier: PluginTier): "Research Core" | "Advanced" | "Aliases"
 function annotateGeneratorLabel(
   plugin: (typeof generatorPlugins)[number],
 ): string {
+  let baseLabel = plugin.label;
+
   if (plugin.implementationKind === "alias" && plugin.aliasOf) {
     const aliasLabel = GENERATOR_BY_ID.get(plugin.aliasOf)?.label ?? plugin.aliasOf;
-    return `${plugin.label} (alias of ${aliasLabel})`;
+    baseLabel = `${plugin.label} (alias of ${aliasLabel})`;
   }
-
   if (plugin.implementationKind === "hybrid") {
-    return `${plugin.label} (hybrid)`;
+    baseLabel = `${plugin.label} (hybrid)`;
   }
 
-  return plugin.label;
+  return appendInventorLabel(baseLabel, plugin.id);
 }
 
 function annotateSolverLabel(plugin: (typeof solverPlugins)[number]): string {
+  let baseLabel = plugin.label;
+
   if (plugin.implementationKind === "alias" && plugin.aliasOf) {
     const aliasLabel = SOLVER_BY_ID.get(plugin.aliasOf)?.label ?? plugin.aliasOf;
-    return `${plugin.label} (alias of ${aliasLabel})`;
+    baseLabel = `${plugin.label} (alias of ${aliasLabel})`;
   }
-
   if (plugin.implementationKind === "hybrid") {
-    return `${plugin.label} (hybrid)`;
+    baseLabel = `${plugin.label} (hybrid)`;
   }
 
-  return plugin.label;
+  return appendInventorLabel(baseLabel, plugin.id);
 }
 
 export const GENERATOR_OPTIONS: GeneratorOption[] = generatorPlugins.map((plugin) => ({
