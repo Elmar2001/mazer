@@ -207,7 +207,17 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   pause(): void {
+    if (this.paused) {
+      return;
+    }
+
     this.paused = true;
+    this.lastFrameTs = 0;
+
+    if (this.rafHandle !== null) {
+      this.cancelAnimationFrame(this.rafHandle);
+      this.rafHandle = null;
+    }
   }
 
   resume(): void {
@@ -215,7 +225,12 @@ export class MazeEngine implements MazeEnginePublicApi {
       return;
     }
 
+    if (!this.paused) {
+      return;
+    }
+
     this.paused = false;
+    this.lastFrameTs = 0;
     this.ensureLoop();
   }
 
@@ -365,7 +380,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       }
     }
 
-    if (this.hasActiveWork()) {
+    if (this.hasActiveWork() && !this.paused) {
       this.ensureLoop();
     }
   }

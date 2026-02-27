@@ -1,6 +1,7 @@
 import { connectedNeighbors, OverlayFlag, type Grid } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
 import type { SolverPlugin } from "@/core/plugins/SolverPlugin";
+import { buildPath } from "@/core/plugins/solvers/helpers";
 import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
 
 interface DeadEndContext {
@@ -67,14 +68,14 @@ function stepDeadEndFilling(context: DeadEndContext) {
     }
 
     if (context.queue.length === 0) {
-      const pathLength = setFinalPath(context, patches);
+      const final = setFinalPath(context, patches);
       return {
         done: true,
         patches,
         meta: {
           line: 2,
-          solved: true,
-          pathLength,
+          solved: final.solved,
+          pathLength: final.pathLength,
           frontierSize: 0,
         },
       };
@@ -99,14 +100,14 @@ function stepDeadEndFilling(context: DeadEndContext) {
   }
 
   if (context.head >= context.queue.length) {
-    const pathLength = setFinalPath(context, patches);
+    const final = setFinalPath(context, patches);
     return {
       done: true,
       patches,
       meta: {
         line: 3,
-        solved: true,
-        pathLength,
+        solved: final.solved,
+        pathLength: final.pathLength,
         frontierSize: 0,
       },
     };
@@ -176,22 +177,10 @@ function stepDeadEndFilling(context: DeadEndContext) {
   };
 }
 
-function setFinalPath(context: DeadEndContext, patches: CellPatch[]): number {
-  let pathLength = 0;
-
-  for (let i = 0; i < context.grid.cellCount; i += 1) {
-    if (context.removed[i] === 1) {
-      continue;
-    }
-
-    pathLength += 1;
-    patches.push({
-      index: i,
-      overlaySet: OverlayFlag.Path,
-      overlayClear: OverlayFlag.Frontier,
-    });
-  }
-
+function setFinalPath(
+  context: DeadEndContext,
+  patches: CellPatch[],
+): { pathLength: number; solved: boolean } {
   if (context.current !== -1) {
     patches.push({
       index: context.current,
@@ -200,5 +189,54 @@ function setFinalPath(context: DeadEndContext, patches: CellPatch[]): number {
     context.current = -1;
   }
 
-  return pathLength;
+  const path = findPathOnRemainingGraph(context);
+
+  for (const index of path) {
+    patches.push({
+      index,
+      overlaySet: OverlayFlag.Path,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+
+  return {
+    pathLength: path.length,
+    solved: path.length > 0,
+  };
+}
+
+function findPathOnRemainingGraph(context: DeadEndContext): number[] {
+  const parents = new Int32Array(context.grid.cellCount);
+  parents.fill(-1);
+
+  if (
+    context.removed[context.startIndex] === 1 ||
+    context.removed[context.goalIndex] === 1
+  ) {
+    return [];
+  }
+
+  const queue = [context.startIndex];
+  let head = 0;
+  parents[context.startIndex] = context.startIndex;
+
+  while (head < queue.length) {
+    const node = queue[head] as number;
+    head += 1;
+
+    if (node === context.goalIndex) {
+      break;
+    }
+
+    for (const neighbor of connectedNeighbors(context.grid, node)) {
+      if (context.removed[neighbor] === 1 || parents[neighbor] !== -1) {
+        continue;
+      }
+
+      parents[neighbor] = node;
+      queue.push(neighbor);
+    }
+  }
+
+  return buildPath(context.startIndex, context.goalIndex, parents);
 }

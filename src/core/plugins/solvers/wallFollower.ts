@@ -20,6 +20,7 @@ interface WallFollowerContext {
   heading: number;
   parents: Int32Array;
   discovered: Uint8Array;
+  seenStates: Uint8Array;
   visitedCount: number;
 }
 
@@ -42,6 +43,7 @@ export const wallFollowerSolver: SolverPlugin<
       heading: 1,
       parents,
       discovered: new Uint8Array(grid.cellCount),
+      seenStates: new Uint8Array(grid.cellCount * 4),
       visitedCount: 0,
     };
 
@@ -58,6 +60,7 @@ function stepWallFollower(context: WallFollowerContext) {
     context.started = true;
     context.discovered[context.startIndex] = 1;
     context.parents[context.startIndex] = context.startIndex;
+    context.seenStates[stateKey(context.startIndex, context.heading)] = 1;
     context.visitedCount = 1;
 
     patches.push({
@@ -123,6 +126,7 @@ function stepWallFollower(context: WallFollowerContext) {
   const next = pickNextStep(context);
   context.heading = next.direction;
   context.current = next.index;
+  const nextState = stateKey(context.current, context.heading);
 
   if (context.discovered[next.index] === 0) {
     context.discovered[next.index] = 1;
@@ -159,6 +163,26 @@ function stepWallFollower(context: WallFollowerContext) {
     };
   }
 
+  if (context.seenStates[nextState] === 1) {
+    patches.push({
+      index: context.current,
+      overlayClear: OverlayFlag.Current | OverlayFlag.Frontier,
+    });
+
+    return {
+      done: true,
+      patches,
+      meta: {
+        line: 5,
+        solved: false,
+        visitedCount: context.visitedCount,
+        frontierSize: 0,
+      },
+    };
+  }
+
+  context.seenStates[nextState] = 1;
+
   return {
     done: false,
     patches,
@@ -168,6 +192,10 @@ function stepWallFollower(context: WallFollowerContext) {
       frontierSize: 1,
     },
   };
+}
+
+function stateKey(index: number, heading: number): number {
+  return index * 4 + heading;
 }
 
 function pickNextStep(context: WallFollowerContext): {

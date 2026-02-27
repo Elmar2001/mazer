@@ -6,6 +6,7 @@ import {
   connectedNeighbors,
   createGrid,
   OverlayFlag,
+  WallFlag,
 } from "@/core/grid";
 import { dfsBacktrackerGenerator } from "@/core/plugins/generators/dfsBacktracker";
 import { solverPlugins } from "@/core/plugins/solvers";
@@ -78,15 +79,18 @@ const HEURISTIC_SOLVER_IDS = new Set([
 function runSolver(
   plugin: SolverPlugin<SolverRunOptions, AlgorithmStepMeta>,
   grid: ReturnType<typeof createGrid>,
+  options: { startIndex?: number; goalIndex?: number } = {},
 ) {
   clearOverlays(grid);
+  const startIndex = options.startIndex ?? 0;
+  const goalIndex = options.goalIndex ?? grid.cellCount - 1;
 
   const stepper = plugin.create({
     grid,
     rng: createSeededRandom("solver-seed"),
     options: {
-      startIndex: 0,
-      goalIndex: grid.cellCount - 1,
+      startIndex,
+      goalIndex,
     },
   });
 
@@ -114,6 +118,49 @@ function runSolver(
     done,
     lastMeta,
   };
+}
+
+function carveConnection(
+  grid: ReturnType<typeof createGrid>,
+  from: number,
+  to: number,
+): void {
+  if (to === from + 1) {
+    applyCellPatch(grid, { index: from, wallClear: WallFlag.East });
+    applyCellPatch(grid, { index: to, wallClear: WallFlag.West });
+    return;
+  }
+
+  if (to === from - 1) {
+    applyCellPatch(grid, { index: from, wallClear: WallFlag.West });
+    applyCellPatch(grid, { index: to, wallClear: WallFlag.East });
+    return;
+  }
+
+  if (to === from + grid.width) {
+    applyCellPatch(grid, { index: from, wallClear: WallFlag.South });
+    applyCellPatch(grid, { index: to, wallClear: WallFlag.North });
+    return;
+  }
+
+  if (to === from - grid.width) {
+    applyCellPatch(grid, { index: from, wallClear: WallFlag.North });
+    applyCellPatch(grid, { index: to, wallClear: WallFlag.South });
+    return;
+  }
+
+  throw new Error("Cells must be adjacent to carve a connection.");
+}
+
+function buildDisconnectedLoopMaze() {
+  const grid = createGrid(3, 3);
+
+  carveConnection(grid, 0, 1);
+  carveConnection(grid, 1, 4);
+  carveConnection(grid, 4, 3);
+  carveConnection(grid, 3, 0);
+
+  return grid;
 }
 
 describe("solver plugins", () => {
@@ -286,4 +333,46 @@ describe("solver plugins", () => {
 
     expect(result.lastMeta?.pathLength).toBe(optimalLength);
   });
+
+  it("dead-end-filling reports unsolved for disconnected start and goal", () => {
+    const deadEnd = solverPlugins.find(
+      (plugin) => plugin.id === "dead-end-filling",
+    );
+    if (!deadEnd) {
+      throw new Error("Dead-End Filling plugin not found");
+    }
+
+    const grid = buildDisconnectedLoopMaze();
+    const result = runSolver(deadEnd, grid, {
+      startIndex: 0,
+      goalIndex: 8,
+    });
+
+    expect(result.done).toBe(true);
+    expect(result.lastMeta?.solved).toBe(false);
+    expect(result.lastMeta?.pathLength ?? 0).toBe(0);
+    expect((grid.overlays[0] & OverlayFlag.Path) !== 0).toBe(false);
+    expect((grid.overlays[8] & OverlayFlag.Path) !== 0).toBe(false);
+  });
+
+  it.each(["wall-follower", "left-wall-follower"] as const)(
+    "%s terminates when no path exists",
+    (solverId) => {
+      const solver = solverPlugins.find((plugin) => plugin.id === solverId);
+      if (!solver) {
+        throw new Error(`Solver plugin not found: ${solverId}`);
+      }
+
+      const grid = buildDisconnectedLoopMaze();
+      const result = runSolver(solver, grid, {
+        startIndex: 0,
+        goalIndex: 8,
+      });
+
+      expect(result.done).toBe(true);
+      expect(result.lastMeta?.solved).toBe(false);
+      expect(result.lastMeta?.pathLength ?? 0).toBe(0);
+      expect((grid.overlays[8] & OverlayFlag.Path) !== 0).toBe(false);
+    },
+  );
 });
