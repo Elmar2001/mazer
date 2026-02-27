@@ -82,6 +82,10 @@ function stepGrowingForest(context: GrowingForestContext) {
       });
     }
 
+    if (context.operations.length === 0) {
+      clearTransientOverlays(context, patches);
+    }
+
     return {
       done: context.operations.length === 0,
       patches,
@@ -102,6 +106,8 @@ function stepGrowingForest(context: GrowingForestContext) {
   }
 
   if (context.cursor >= context.operations.length) {
+    clearTransientOverlays(context, patches);
+
     return {
       done: true,
       patches,
@@ -138,8 +144,13 @@ function stepGrowingForest(context: GrowingForestContext) {
     });
   }
 
+  const done = context.cursor >= context.operations.length;
+  if (done) {
+    clearTransientOverlays(context, patches);
+  }
+
   return {
-    done: context.cursor >= context.operations.length,
+    done,
     patches,
     meta: {
       line: context.cursor <= context.growthOpsCount ? 4 : 5,
@@ -147,6 +158,24 @@ function stepGrowingForest(context: GrowingForestContext) {
       frontierSize: context.operations.length - context.cursor,
     },
   };
+}
+
+function clearTransientOverlays(
+  context: GrowingForestContext,
+  patches: CellPatch[],
+): void {
+  const clearMask = OverlayFlag.Frontier | OverlayFlag.Current;
+
+  for (let i = 0; i < context.touched.length; i += 1) {
+    if (context.touched[i] === 1) {
+      patches.push({
+        index: i,
+        overlayClear: clearMask,
+      });
+    }
+  }
+
+  context.current = -1;
 }
 
 function planGrowingForest(grid: Grid, rng: RandomSource): GrowingForestPlan {

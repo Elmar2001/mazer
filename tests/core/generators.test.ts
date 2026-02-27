@@ -199,6 +199,26 @@ describe("generator plugins", () => {
     }
   });
 
+  it("growing forest clears in-progress overlays on completion", () => {
+    const growingForest = generatorPlugins.find(
+      (plugin) => plugin.id === "growing-forest",
+    );
+    if (!growingForest) {
+      throw new Error("Missing growing-forest plugin");
+    }
+
+    const grid = runGenerator(growingForest, "growing-forest-overlay-seed", 30, 18);
+    const hasFrontier = Array.from(grid.overlays).some(
+      (value) => (value & OverlayFlag.Frontier) !== 0,
+    );
+    const hasCurrent = Array.from(grid.overlays).some(
+      (value) => (value & OverlayFlag.Current) !== 0,
+    );
+
+    expect(hasFrontier).toBe(false);
+    expect(hasCurrent).toBe(false);
+  });
+
   it("blobby recursive subdivision clears in-progress overlays on completion", () => {
     const blobby = generatorPlugins.find(
       (plugin) => plugin.id === "blobby-recursive-subdivision",
