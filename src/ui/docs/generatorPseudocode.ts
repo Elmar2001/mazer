@@ -430,4 +430,16 @@ export const GENERATOR_PSEUDOCODE: Record<
       "wait for next step",
     ],
   },
+  "sandpile-avalanche": {
+    title: "Sandpile Avalanche",
+    summary: "Self-organized criticality: drop sand, topple at threshold, carve passages during avalanche cascades.",
+    lines: [
+      "pre-seed each cell with 1–3 sand grains (near criticality)",
+      "drop one grain on a random cell",
+      "while any cell has sand >= 4: topple (−4 to self, +1 to each neighbor)",
+      "if a topple crosses a component boundary: carve passage and merge",
+      "if carve drought exceeds threshold: bias drops toward boundary cells",
+      "repeat until all cells are in one component",
+    ],
+  },
 };

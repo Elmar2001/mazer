@@ -727,6 +727,35 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Anastomosis is a real fungal behavior where separate hyphae fuse; this algorithm adapts that idea into cycle-safe maze construction.",
   },
   {
+    id: "sandpile-avalanche",
+    name: "Sandpile Avalanche",
+    kind: "Generator",
+    summary:
+      "Builds a maze through self-organized criticality: sand grains accumulate and topple in cascading avalanches that carve passages at component boundaries.",
+    howItWorks: [
+      "Pre-seed each cell with 1–3 sand grains, placing the system near criticality.",
+      "Each step drops one grain on a random cell. If its height reaches 4, it topples: −4 grains to itself, +1 to each neighbor.",
+      "Toppling can cascade — neighbors pushed to 4 also topple, creating avalanches of any size.",
+      "When a topple sends sand across a union-find component boundary, carve a passage and merge the components.",
+      "After a carve drought, bias grain drops toward boundary cells to accelerate the tail phase.",
+    ],
+    timeComplexity: "O(V²) expected due to repeated avalanche resolution and boundary scanning",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Genuinely emergent: power-law avalanche size distribution creates unpredictable drama",
+      "Simplest possible rules — drop, topple at 4, carve on boundary crossing",
+      "Grounded in real complexity science (Bak–Tang–Wiesenfeld 1987)",
+    ],
+    cons: [
+      "Variable step count — some drops do nothing, others trigger massive cascades",
+      "Tail phase can slow without the acceleration heuristic",
+    ],
+    bestFor:
+      "Watching self-organized criticality build a maze through emergent avalanche dynamics.",
+    interestingFact:
+      "The Abelian sandpile is the canonical model of self-organized criticality — systems that naturally evolve to a state where small inputs can trigger chain reactions of any scale. This is the first application of sandpile dynamics to maze generation.",
+  },
+  {
     id: "bfs",
     name: "Breadth-First Search (BFS)",
     kind: "Solver",

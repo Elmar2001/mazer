@@ -41,6 +41,7 @@ import { wilsonGenerator } from "@/core/plugins/generators/wilson";
 
 import { quantumSeismogenesisGenerator } from "@/core/plugins/generators/quantumSeismogenesis";
 import { mycelialAnastomosisGenerator } from "@/core/plugins/generators/mycelialAnastomosis";
+import { sandpileAvalancheGenerator } from "@/core/plugins/generators/sandpileAvalanche";
 
 const RESEARCH_CORE_GENERATORS = new Set<string>([
   "dfs-backtracker",
@@ -126,6 +127,7 @@ export const generatorPlugins = [
   withGeneratorMetadata(erosionGenerator),
   withGeneratorMetadata(quantumSeismogenesisGenerator),
   withGeneratorMetadata(mycelialAnastomosisGenerator),
+  withGeneratorMetadata(sandpileAvalancheGenerator),
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];
