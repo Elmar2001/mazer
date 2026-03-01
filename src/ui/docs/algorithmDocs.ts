@@ -1454,6 +1454,258 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
     interestingFact:
       "RRT* is asymptotically optimal in continuous settings; grid adaptations mimic that behavior with discrete rewiring.",
   },
+  {
+    id: "wave-function-collapse",
+    name: "Wave Function Collapse",
+    kind: "Generator",
+    summary:
+      "Collapses per-cell wall tiles under local compatibility constraints, then carves a connected loopy maze.",
+    howItWorks: [
+      "Initialize each cell with all 16 possible N/E/S/W wall tiles.",
+      "Repeatedly pick the lowest-entropy uncollapsed cell and sample one tile.",
+      "Propagate edge-compatibility constraints to neighboring cells.",
+      "After collapse, convert open tile edges into carve candidates.",
+      "Connect any remaining components and add one extra edge to preserve loops.",
+    ],
+    timeComplexity: "O(V * T + E α(V)) expected (T = tile options)",
+    spaceComplexity: "O(V + E)",
+    pros: ["Constraint-driven structure", "Naturally loop-friendly output", "Strong visual progression"],
+    cons: ["More bookkeeping than classic tree generators", "Requires propagation logic"],
+    bestFor: "Loopy mazes with local texture shaped by tile constraints.",
+    interestingFact:
+      "WFC popularized entropy + constraint propagation in procedural generation far beyond maze domains.",
+  },
+  {
+    id: "dla",
+    name: "Diffusion-Limited Aggregation",
+    kind: "Generator",
+    summary:
+      "Random walkers stick to a growing cluster, carving one joining edge per absorbed particle.",
+    howItWorks: [
+      "Seed one aggregate cell.",
+      "Launch a particle from a random non-aggregate cell.",
+      "Random-walk the particle through neighboring cells.",
+      "When it touches aggregate territory, carve one connection and absorb it.",
+      "Repeat until every cell belongs to the aggregate.",
+    ],
+    timeComplexity: "Walk-length dependent; typically superlinear",
+    spaceComplexity: "O(V)",
+    pros: ["Distinct organic branching", "Simple local rule set", "Great stochastic animation"],
+    cons: ["Can require many walk steps", "Performance sensitive to kill threshold"],
+    bestFor: "Tree mazes with dendritic, frost-like growth patterns.",
+    interestingFact:
+      "DLA is a classic model for natural branching structures such as dielectric breakdown and mineral growth.",
+  },
+  {
+    id: "hilbert-curve",
+    name: "Hilbert Curve",
+    kind: "Generator",
+    summary:
+      "Orders cells by Hilbert-space-filling rank and carves one parent edge per ordered visit.",
+    howItWorks: [
+      "Compute Hilbert ranks over the enclosing power-of-two square.",
+      "Filter ranks to in-bounds cells and sort by rank.",
+      "Build a connected parent tree preferring visited neighbors with nearby rank.",
+      "Visit cells in rank order and carve each parent-child edge.",
+      "Finish when all cells are connected.",
+    ],
+    timeComplexity: "O(V log V)",
+    spaceComplexity: "O(V)",
+    pros: ["Fractal-inspired global ordering", "Deterministic output", "Smooth progressive carving"],
+    cons: ["Less stochastic variety", "Extra rank-precompute step"],
+    bestFor: "Demonstrating space-filling ordering effects in perfect mazes.",
+    interestingFact:
+      "Hilbert curves preserve locality better than simple raster order, which is useful in indexing and cache layouts.",
+  },
+  {
+    id: "voronoi",
+    name: "Voronoi Tessellation",
+    kind: "Generator",
+    summary:
+      "Grows seeded regions, builds a region spanning tree, then carves planned internal and doorway edges.",
+    howItWorks: [
+      "Scatter region seeds and grow ownership with multi-source BFS rings.",
+      "Record growth parents to form a tree inside each region.",
+      "Compute region boundary adjacency candidates.",
+      "Run a random spanning tree over region graph to pick doorway boundaries.",
+      "Carve internal region-tree edges plus selected doorways.",
+    ],
+    timeComplexity: "O(V + E α(V))",
+    spaceComplexity: "O(V + E)",
+    pros: ["Clear phase-based animation", "Region-level structure", "Perfect connectivity guarantees"],
+    cons: ["More preprocessing than local-walk methods", "Heavily seed-count dependent"],
+    bestFor: "Perfect mazes with visible territorial growth behavior.",
+    interestingFact:
+      "Voronoi partitions are foundational in computational geometry, graphics, and facility-location problems.",
+  },
+  {
+    id: "percolation",
+    name: "Percolation",
+    kind: "Generator",
+    summary:
+      "Randomly opens walls with probability p, then stitches components and preserves at least one cycle.",
+    howItWorks: [
+      "Enumerate and shuffle all internal grid walls.",
+      "Percolation phase: carve each wall independently with probability p.",
+      "Track connectivity with union-find.",
+      "Connect phase: carve remaining walls that merge disconnected components.",
+      "If needed, carve one extra unused wall to guarantee loopy topology.",
+    ],
+    timeComplexity: "O(E α(V))",
+    spaceComplexity: "O(V + E)",
+    pros: ["Direct loop-density control via probability", "Phase-transition inspired behavior"],
+    cons: ["Output character highly parameter-sensitive", "Requires completion pass for guaranteed connectivity"],
+    bestFor: "Loopy mazes near critical connectivity thresholds.",
+    interestingFact:
+      "Percolation theory studies when local random connections suddenly create giant global connectivity.",
+  },
+  {
+    id: "l-system",
+    name: "L-System (Lindenmayer)",
+    kind: "Generator",
+    summary:
+      "Expands a grammar string once, turtle-draws corridors, then connects remaining components.",
+    howItWorks: [
+      "Expand an axiom with production rules up to a capped length.",
+      "Interpret symbols as turtle moves, turns, and push/pop branch states.",
+      "Carve forward moves while enforcing union-find acyclicity.",
+      "Mark traversal overlays as the turtle draws the pattern.",
+      "Run a randomized connect pass to absorb remaining isolated components.",
+    ],
+    timeComplexity: "O(L + E α(V)) (L = expanded string length)",
+    spaceComplexity: "O(V + L)",
+    pros: ["Grammar-driven visual motifs", "Good branch/trail visualization"],
+    cons: ["Rule choice strongly impacts shape", "Can overrun bounds without clamping"],
+    bestFor: "Fractal-inspired tree mazes with explicit symbolic generation phases.",
+    interestingFact:
+      "L-Systems were introduced to model plant growth and later became central to procedural graphics.",
+  },
+  {
+    id: "physarum",
+    name: "Physarum (Slime Mold)",
+    kind: "Solver",
+    summary:
+      "Adapts edge conductivities from pressure-driven flow until a dominant route emerges.",
+    howItWorks: [
+      "Initialize traversable edges with equal conductivity and terminal pressures.",
+      "Relax node pressures with conductivity-weighted averaging.",
+      "Compute edge flow and update conductivity via growth/decay dynamics.",
+      "Repeat until values stabilize.",
+      "Extract the path by following strongest conductivities (with fallback pathfinding).",
+    ],
+    timeComplexity: "O(I * (V + E)) for I flow iterations",
+    spaceComplexity: "O(V + E)",
+    pros: ["Biologically inspired dynamics", "Rich iterative visualization", "Handles all topologies"],
+    cons: ["Iteration-heavy", "Path extraction is heuristic without fallback"],
+    bestFor: "Visualizing adaptive network optimization on maze graphs.",
+    interestingFact:
+      "Real Physarum organisms can approximate shortest paths by reallocating protoplasmic tube thickness.",
+  },
+  {
+    id: "electric-circuit",
+    name: "Electric Circuit (Resistor Network)",
+    kind: "Solver",
+    summary:
+      "Solves maze voltages by Laplace relaxation and traces a descending-voltage route to the goal.",
+    howItWorks: [
+      "Set V(start)=1 and V(goal)=0 with neutral initialization elsewhere.",
+      "Run Gauss-Seidel voltage sweeps over non-terminal nodes.",
+      "Stop when maximum change is below epsilon or iteration cap is hit.",
+      "Interpret voltage gradient as flow potential.",
+      "Trace path by steepest local voltage drop (with fallback pathfinding).",
+    ],
+    timeComplexity: "O(I * (V + E))",
+    spaceComplexity: "O(V)",
+    pros: ["Smooth gradient visualization", "Deterministic relaxation process"],
+    cons: ["Needs many sweeps on larger mazes", "Greedy extraction is heuristic"],
+    bestFor: "Potential-field style solver comparisons against discrete graph search.",
+    interestingFact:
+      "Voltage solutions on resistor networks are tightly linked to random walk probabilities.",
+  },
+  {
+    id: "ida-star",
+    name: "IDA* (Iterative Deepening A*)",
+    kind: "Solver",
+    summary:
+      "Runs depth-first f-bound searches with increasing thresholds using an explicit stack.",
+    howItWorks: [
+      "Initialize threshold with start heuristic to goal.",
+      "Perform DFS limited by f=g+h threshold.",
+      "Record the minimum exceeded f as next iteration threshold.",
+      "Restart with increased bound while reusing lightweight stack state.",
+      "Reconstruct path once goal enters the admissible bound.",
+    ],
+    timeComplexity: "Exponential worst-case; practical depends on heuristic quality",
+    spaceComplexity: "O(depth)",
+    pros: ["Optimal with admissible heuristic", "Memory-light compared to A*"],
+    cons: ["May re-expand nodes across iterations", "Can be slower than A* on broad graphs"],
+    bestFor: "Optimal solving when memory pressure matters more than re-expansion cost.",
+    interestingFact:
+      "IDA* keeps A*-style optimality guarantees while using DFS-like memory.",
+  },
+  {
+    id: "potential-field",
+    name: "Artificial Potential Field",
+    kind: "Solver",
+    summary:
+      "Moves greedily along local potential minima with random escape from local minima traps.",
+    howItWorks: [
+      "Score candidate neighbors by attraction to goal plus repulsion penalties.",
+      "Move toward lowest potential neighbor.",
+      "Track revisit frequency to detect stagnation.",
+      "Inject short random escapes when trapped.",
+      "Build and mark discovered path when goal is reached.",
+    ],
+    timeComplexity: "O(K * d) for K steps and local degree d",
+    spaceComplexity: "O(V)",
+    pros: ["Fast local decisions", "Simple to animate", "Demonstrates local-minimum behavior"],
+    cons: ["Heuristic only", "Can fail without escape strategy"],
+    bestFor: "Comparing local-gradient heuristics versus global graph search.",
+    interestingFact:
+      "Potential-field planning originated in robotics for real-time obstacle avoidance.",
+  },
+  {
+    id: "frontier-explorer",
+    name: "Frontier-Based Exploration",
+    kind: "Solver",
+    summary:
+      "Simulates incremental map discovery: explore frontier boundaries, then navigate once goal is known.",
+    howItWorks: [
+      "Start with partial knowledge around the initial position.",
+      "Identify frontier cells bordering unknown space.",
+      "Plan to nearest frontier over known traversable graph.",
+      "Move one step, reveal neighbors, and update frontier.",
+      "When goal becomes known, switch to direct navigation and trace final path.",
+    ],
+    timeComplexity: "O(K * (V + E)) in repeated BFS replans",
+    spaceComplexity: "O(V)",
+    pros: ["Strong exploration narrative", "Deterministic and complete on connected mazes"],
+    cons: ["Repeated replanning overhead", "More state than simple shortest-path solvers"],
+    bestFor: "Fog-of-war style discovery visuals and robotics-inspired exploration behavior.",
+    interestingFact:
+      "Frontier exploration is widely used in autonomous mapping systems for unknown environments.",
+  },
+  {
+    id: "fringe-search",
+    name: "Fringe Search",
+    kind: "Solver",
+    summary:
+      "Processes nodes in threshold layers using now/later lists instead of a priority queue.",
+    howItWorks: [
+      "Initialize now list with start and threshold from heuristic.",
+      "Expand one now-node per step.",
+      "Defer nodes with f above threshold into later list.",
+      "Relax neighbor costs and parent pointers for admissible nodes.",
+      "When now empties, raise threshold to min deferred f and swap lists.",
+    ],
+    timeComplexity: "Comparable to A* in many grids; worst-case exponential",
+    spaceComplexity: "O(V)",
+    pros: ["Layered expansion visualization", "Often lower overhead than strict priority queues"],
+    cons: ["Implementation complexity vs BFS/A*", "Performance still heuristic-dependent"],
+    bestFor: "Comparing threshold-bucket search against A*/IDA* families.",
+    interestingFact:
+      "Fringe Search was introduced in game pathfinding to reduce priority-queue churn.",
+  },
 ];
 
 export const GENERATOR_DOCS = ALGORITHM_DOCS.filter(

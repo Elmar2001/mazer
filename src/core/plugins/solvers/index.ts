@@ -36,6 +36,12 @@ import { shortestPathsFinderSolver } from "@/core/plugins/solvers/shortestPathsF
 import { tremauxSolver } from "@/core/plugins/solvers/tremaux";
 import { wallFollowerSolver } from "@/core/plugins/solvers/wallFollower";
 import { weightedAStarSolver } from "@/core/plugins/solvers/weightedAstar";
+import { physarumSolver } from "@/core/plugins/solvers/physarum";
+import { electricCircuitSolver } from "@/core/plugins/solvers/electricCircuit";
+import { idaStarSolver } from "@/core/plugins/solvers/idaStar";
+import { potentialFieldSolver } from "@/core/plugins/solvers/potentialField";
+import { frontierExplorerSolver } from "@/core/plugins/solvers/frontierExplorer";
+import { fringeSearchSolver } from "@/core/plugins/solvers/fringeSearch";
 
 const ADVANCED_SOLVERS = new Set<string>([
   "weighted-astar",
@@ -45,6 +51,9 @@ const ADVANCED_SOLVERS = new Set<string>([
   "ant-colony",
   "genetic",
   "rrt-star",
+  "physarum",
+  "electric-circuit",
+  "potential-field",
 ]);
 
 const NO_LOOPY_SUPPORT = new Set<string>([
@@ -79,6 +88,9 @@ const GUARANTEED_SOLVERS = new Set<string>([
   "collision-solver",
   "blind-alley-sealer",
   "blind-alley-filler",
+  "ida-star",
+  "frontier-explorer",
+  "fringe-search",
 ]);
 
 type AnySolverPlugin = SolverPlugin<Record<string, unknown>, StepMeta>;
@@ -162,6 +174,12 @@ export const solverPlugins = [
   withSolverMetadata(chainSolver),
   withSolverMetadata(qLearningSolver),
   withSolverMetadata(antColonySolver),
+  withSolverMetadata(physarumSolver),
+  withSolverMetadata(electricCircuitSolver),
+  withSolverMetadata(idaStarSolver),
+  withSolverMetadata(potentialFieldSolver),
+  withSolverMetadata(frontierExplorerSolver),
+  withSolverMetadata(fringeSearchSolver),
 ] as const;
 
 export type SolverPluginId = (typeof solverPlugins)[number]["id"];

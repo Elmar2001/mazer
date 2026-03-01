@@ -385,6 +385,34 @@ describe("solver plugins", () => {
     expect(result.lastMeta?.pathLength).toBe(optimalLength);
   });
 
+  it("ida-star finds an optimal shortest path", () => {
+    const idaStar = solverPlugins.find((plugin) => plugin.id === "ida-star");
+    if (!idaStar) {
+      throw new Error("IDA* plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    const result = runSolver(idaStar, grid);
+
+    expect(result.lastMeta?.pathLength).toBe(optimalLength);
+  });
+
+  it("fringe-search finds an optimal shortest path", () => {
+    const fringe = solverPlugins.find((plugin) => plugin.id === "fringe-search");
+    if (!fringe) {
+      throw new Error("Fringe Search plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    const result = runSolver(fringe, grid);
+
+    expect(result.lastMeta?.pathLength).toBe(optimalLength);
+  });
+
   it("bellman-ford progresses over multiple steps for visualization", () => {
     const bellmanFord = solverPlugins.find(
       (plugin) => plugin.id === "bellman-ford",

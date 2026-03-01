@@ -50,6 +50,12 @@ import { sandpileAvalancheGenerator } from "@/core/plugins/generators/sandpileAv
 import { reactionDiffusionGenerator } from "@/core/plugins/generators/reactionDiffusion";
 import { antColonyGenerator } from "@/core/plugins/generators/antColony";
 import { isingModelGenerator } from "@/core/plugins/generators/isingModel";
+import { waveFunctionCollapseGenerator } from "@/core/plugins/generators/waveFunctionCollapse";
+import { dlaGenerator } from "@/core/plugins/generators/dla";
+import { hilbertCurveGenerator } from "@/core/plugins/generators/hilbertCurve";
+import { voronoiGenerator } from "@/core/plugins/generators/voronoi";
+import { percolationGenerator } from "@/core/plugins/generators/percolation";
+import { lSystemGenerator } from "@/core/plugins/generators/lSystem";
 
 const RESEARCH_CORE_GENERATORS = new Set<string>([
   "dfs-backtracker",
@@ -84,6 +90,8 @@ const GENERATOR_TOPOLOGY: Record<string, MazeTopology> = {
   "kruskal-loopy": "loopy-planar",
   "recursive-division-loopy": "loopy-planar",
   "reaction-diffusion": "loopy-planar",
+  "wave-function-collapse": "loopy-planar",
+  percolation: "loopy-planar",
   "weave-growing-tree": "weave",
 };
 
@@ -150,6 +158,12 @@ export const generatorPlugins = [
   withGeneratorMetadata(reactionDiffusionGenerator),
   withGeneratorMetadata(antColonyGenerator),
   withGeneratorMetadata(isingModelGenerator),
+  withGeneratorMetadata(waveFunctionCollapseGenerator),
+  withGeneratorMetadata(dlaGenerator),
+  withGeneratorMetadata(hilbertCurveGenerator),
+  withGeneratorMetadata(voronoiGenerator),
+  withGeneratorMetadata(percolationGenerator),
+  withGeneratorMetadata(lSystemGenerator),
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];
