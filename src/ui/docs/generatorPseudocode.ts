@@ -489,4 +489,40 @@ export const GENERATOR_PSEUDOCODE: Record<
       "repeat until all cells are in one component",
     ],
   },
+  "reaction-diffusion": {
+    title: "Reaction-Diffusion (Turing)",
+    summary: "Simulate Gray-Scott reaction-diffusion kinetics, thresholding concentration to carve organic passages.",
+    lines: [
+      "initialize continuous concentrations of chemicals A and B with seed noise",
+      "fast-forward diffusion and reaction using the Gray-Scott laplacian",
+      "when the pattern stabilizes, threshold the continuous A field into a binary passage mask",
+      "if passages share a wall, carve them",
+      "run Kruskal's random bridge-builder on separated stripes to ensure one component",
+      "finish once the generated Turing structures are fully spanning",
+    ],
+  },
+  "ant-colony": {
+    title: "Ant Colony Excavation",
+    summary: "Simulate pheromone-leaving ant agents digging a spanning tree.",
+    lines: [
+      "if all cells are connected into one component: finish",
+      "update each ant's age; respawn old ants at random disconnected locations",
+      "ants pick neighboring cells weighted strongly by existing pheromone trails",
+      "if neighbor belongs to a different component: tunnel and connect them",
+      "leave new pheromone where the ant steps",
+      "evaporate all pheromone slightly and repeat for next step",
+    ],
+  },
+  "ising-model": {
+    title: "Magnetic Spin Crystallization",
+    summary: "Simulate Ising spins via Metropolis-Hastings, crystallizing spin networks into passage weights.",
+    lines: [
+      "if all cells are connected: finish",
+      "simulate ferromagnetism: attempt random cell spin flips",
+      "evaluate energy delta favoring sequences with 2 matching neighbors",
+      "accept or reject flips via simulated annealing probabilities",
+      "when cooled, assign edge weights favoring positive-spin matching connections",
+      "run Kruskal's algorithm influenced by the spin grid weights",
+    ],
+  },
 };

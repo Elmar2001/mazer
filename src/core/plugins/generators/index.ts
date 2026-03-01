@@ -47,6 +47,10 @@ import { quantumSeismogenesisGenerator } from "@/core/plugins/generators/quantum
 import { mycelialAnastomosisGenerator } from "@/core/plugins/generators/mycelialAnastomosis";
 import { sandpileAvalancheGenerator } from "@/core/plugins/generators/sandpileAvalanche";
 
+import { reactionDiffusionGenerator } from "@/core/plugins/generators/reactionDiffusion";
+import { antColonyGenerator } from "@/core/plugins/generators/antColony";
+import { isingModelGenerator } from "@/core/plugins/generators/isingModel";
+
 const RESEARCH_CORE_GENERATORS = new Set<string>([
   "dfs-backtracker",
   "recursive-division",
@@ -79,6 +83,7 @@ const GENERATOR_TOPOLOGY: Record<string, MazeTopology> = {
   "prim-loopy": "loopy-planar",
   "kruskal-loopy": "loopy-planar",
   "recursive-division-loopy": "loopy-planar",
+  "reaction-diffusion": "loopy-planar",
   "weave-growing-tree": "weave",
 };
 
@@ -142,6 +147,9 @@ export const generatorPlugins = [
   withGeneratorMetadata(quantumSeismogenesisGenerator),
   withGeneratorMetadata(mycelialAnastomosisGenerator),
   withGeneratorMetadata(sandpileAvalancheGenerator),
+  withGeneratorMetadata(reactionDiffusionGenerator),
+  withGeneratorMetadata(antColonyGenerator),
+  withGeneratorMetadata(isingModelGenerator),
 ] as const;
 
 export type GeneratorPluginId = (typeof generatorPlugins)[number]["id"];
