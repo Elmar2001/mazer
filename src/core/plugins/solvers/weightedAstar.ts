@@ -24,7 +24,7 @@ interface WeightedAStarContext {
   frontierSize: number;
 }
 
-const HEURISTIC_WEIGHT = 1.75;
+const HEURISTIC_WEIGHT = 1.15;
 
 export const weightedAStarSolver: SolverPlugin<
   SolverRunOptions,
@@ -182,7 +182,7 @@ function stepWeightedAStar(context: WeightedAStarContext) {
     context.fScore[neighbor] =
       tentativeG +
       HEURISTIC_WEIGHT *
-        manhattan(context.grid.width, neighbor, context.goalIndex);
+      manhattan(context.grid.width, neighbor, context.goalIndex);
 
     if (context.openFlags[neighbor] === 0) {
       context.openFlags[neighbor] = 1;

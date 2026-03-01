@@ -11,13 +11,18 @@ interface BellmanFordContext {
   started: boolean;
   finalized: boolean;
   dist: Float64Array;
+  previousDist: Float64Array; // For synchronous generation updates
   parents: Int32Array;
   discovered: Uint8Array;
+  inFrontier: Uint8Array;
   visitedCount: number;
   iteration: number;
   maxIterations: number;
-  frontierNodes: number[];
+
+  activeNodes: number[];
+  nextActiveNodes: number[];
   currentIndex: number;
+  changedInPass: boolean;
 }
 
 export const bellmanFordSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
@@ -30,6 +35,9 @@ export const bellmanFordSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta
     const dist = new Float64Array(grid.cellCount);
     dist.fill(Number.POSITIVE_INFINITY);
 
+    const previousDist = new Float64Array(grid.cellCount);
+    previousDist.fill(Number.POSITIVE_INFINITY);
+
     const context: BellmanFordContext = {
       grid,
       startIndex: options.startIndex,
@@ -37,13 +45,17 @@ export const bellmanFordSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta
       started: false,
       finalized: false,
       dist,
+      previousDist,
       parents,
       discovered: new Uint8Array(grid.cellCount),
+      inFrontier: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       iteration: 0,
       maxIterations: Math.max(1, grid.cellCount - 1),
-      frontierNodes: [],
+      activeNodes: [],
+      nextActiveNodes: [],
       currentIndex: -1,
+      changedInPass: false,
     };
 
     return {
@@ -55,44 +67,24 @@ export const bellmanFordSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta
 function stepBellmanFord(context: BellmanFordContext) {
   const patches: CellPatch[] = [];
 
-  clearTransientMarkers(context, patches);
-
   if (!context.started) {
     context.started = true;
     context.dist[context.startIndex] = 0;
+    context.previousDist[context.startIndex] = 0;
     context.parents[context.startIndex] = context.startIndex;
     context.discovered[context.startIndex] = 1;
     context.visitedCount = 1;
-    context.frontierNodes = [context.startIndex];
-    context.currentIndex = context.startIndex;
+
+    // Pass 1 will process the start node
+    context.activeNodes = [context.startIndex];
+    context.nextActiveNodes = [];
+    context.changedInPass = false;
 
     patches.push({
       index: context.startIndex,
-      overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier | OverlayFlag.Current,
+      overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
     });
-
-    if (context.startIndex === context.goalIndex) {
-      patches.push({
-        index: context.startIndex,
-        overlaySet: OverlayFlag.Path,
-        overlayClear: OverlayFlag.Frontier | OverlayFlag.Current,
-      });
-      context.frontierNodes = [];
-      context.currentIndex = -1;
-      context.finalized = true;
-
-      return {
-        done: true,
-        patches,
-        meta: {
-          line: 1,
-          solved: true,
-          pathLength: 1,
-          visitedCount: context.visitedCount,
-          frontierSize: 0,
-        },
-      };
-    }
+    context.inFrontier[context.startIndex] = 1;
 
     return {
       done: false,
@@ -100,7 +92,7 @@ function stepBellmanFord(context: BellmanFordContext) {
       meta: {
         line: 1,
         visitedCount: context.visitedCount,
-        frontierSize: context.frontierNodes.length,
+        frontierSize: context.activeNodes.length,
       },
     };
   }
@@ -108,17 +100,13 @@ function stepBellmanFord(context: BellmanFordContext) {
   if (context.finalized) {
     return {
       done: true,
-      patches,
+      patches: [],
       meta: {
         line: 5,
         solved: context.parents[context.goalIndex] !== -1,
         pathLength:
           context.parents[context.goalIndex] !== -1
-            ? buildPath(
-                context.startIndex,
-                context.goalIndex,
-                context.parents,
-              ).length
+            ? buildPath(context.startIndex, context.goalIndex, context.parents).length
             : 0,
         visitedCount: context.visitedCount,
         frontierSize: 0,
@@ -126,38 +114,89 @@ function stepBellmanFord(context: BellmanFordContext) {
     };
   }
 
-  const relaxed = relaxPass(context);
-  context.iteration += 1;
-
-  for (const index of relaxed.improvedNodes) {
-    if (context.discovered[index] === 0) {
-      context.discovered[index] = 1;
-      context.visitedCount += 1;
-      patches.push({
-        index,
-        overlaySet: OverlayFlag.Visited,
-      });
-    }
-  }
-
-  if (!relaxed.changed || context.iteration >= context.maxIterations) {
-    return finalizeBellmanFord(context, patches, relaxed.changed ? 5 : 4);
-  }
-
-  context.frontierNodes = relaxed.improvedNodes;
-  for (const index of context.frontierNodes) {
+  // Clear previous Current overlay
+  if (context.currentIndex !== -1) {
     patches.push({
-      index,
-      overlaySet: OverlayFlag.Frontier,
+      index: context.currentIndex,
+      overlayClear: OverlayFlag.Current,
+    });
+    context.currentIndex = -1;
+  }
+
+  // If the active layer is empty, we advance to the next iteration
+  if (context.activeNodes.length === 0) {
+    context.iteration += 1;
+
+    if (!context.changedInPass || context.iteration >= context.maxIterations) {
+      return finalizeBellmanFord(context, patches, context.changedInPass ? 5 : 4);
+    }
+
+    // Swap next generation into active
+    context.activeNodes = context.nextActiveNodes;
+    context.nextActiveNodes = [];
+    context.previousDist.set(context.dist);
+    context.changedInPass = false;
+
+    // We can yield an empty patch so the visualizer "breathes" on generation boundary
+    return {
+      done: false,
+      patches,
+      meta: {
+        line: 3,
+        visitedCount: context.visitedCount,
+        frontierSize: context.activeNodes.length,
+      },
+    };
+  }
+
+  // Pop one node from the active set
+  const from = context.activeNodes.shift() as number;
+  context.currentIndex = from;
+
+  if (context.inFrontier[from] === 1) {
+    context.inFrontier[from] = 0;
+    patches.push({
+      index: from,
+      overlayClear: OverlayFlag.Frontier,
     });
   }
 
-  context.currentIndex =
-    context.frontierNodes[0] ?? context.startIndex;
   patches.push({
-    index: context.currentIndex,
-    overlaySet: OverlayFlag.Current,
+    index: from,
+    overlaySet: OverlayFlag.Current | OverlayFlag.Visited,
   });
+
+  const baseDist = context.previousDist[from] as number;
+
+  if (Number.isFinite(baseDist)) {
+    for (const to of getOpenNeighbors(context.grid, from)) {
+      const nextDist = baseDist + 1;
+
+      if (nextDist < context.dist[to]) {
+        context.dist[to] = nextDist;
+        context.parents[to] = from;
+        context.changedInPass = true;
+
+        if (context.discovered[to] === 0) {
+          context.discovered[to] = 1;
+          context.visitedCount += 1;
+          patches.push({
+            index: to,
+            overlaySet: OverlayFlag.Visited,
+          });
+        }
+
+        if (context.inFrontier[to] === 0) {
+          context.inFrontier[to] = 1;
+          context.nextActiveNodes.push(to);
+          patches.push({
+            index: to,
+            overlaySet: OverlayFlag.Frontier,
+          });
+        }
+      }
+    }
+  }
 
   return {
     done: false,
@@ -165,7 +204,7 @@ function stepBellmanFord(context: BellmanFordContext) {
     meta: {
       line: 3,
       visitedCount: context.visitedCount,
-      frontierSize: context.frontierNodes.length,
+      frontierSize: context.activeNodes.length + context.nextActiveNodes.length,
     },
   };
 }
@@ -176,8 +215,24 @@ function finalizeBellmanFord(
   line: number,
 ) {
   context.finalized = true;
-  context.frontierNodes = [];
-  context.currentIndex = -1;
+
+  // Clear all frontier markers
+  for (let i = 0; i < context.grid.cellCount; i += 1) {
+    if (context.inFrontier[i] === 1) {
+      patches.push({
+        index: i,
+        overlayClear: OverlayFlag.Frontier,
+      });
+    }
+  }
+
+  if (context.currentIndex !== -1) {
+    patches.push({
+      index: context.currentIndex,
+      overlayClear: OverlayFlag.Current,
+    });
+    context.currentIndex = -1;
+  }
 
   const path = buildPath(context.startIndex, context.goalIndex, context.parents);
   for (const index of path) {
@@ -197,68 +252,5 @@ function finalizeBellmanFord(
       visitedCount: context.visitedCount,
       frontierSize: 0,
     },
-  };
-}
-
-function clearTransientMarkers(
-  context: BellmanFordContext,
-  patches: CellPatch[],
-): void {
-  const markers = new Set<number>();
-
-  if (context.currentIndex !== -1) {
-    markers.add(context.currentIndex);
-  }
-
-  for (const index of context.frontierNodes) {
-    markers.add(index);
-  }
-
-  for (const index of markers) {
-    patches.push({
-      index,
-      overlayClear: OverlayFlag.Current | OverlayFlag.Frontier,
-    });
-  }
-
-  context.currentIndex = -1;
-  context.frontierNodes = [];
-}
-
-function relaxPass(context: BellmanFordContext): {
-  changed: boolean;
-  improvedNodes: number[];
-} {
-  let changed = false;
-  const improvedFlag = new Uint8Array(context.grid.cellCount);
-  const improvedNodes: number[] = [];
-  const previousDist = context.dist.slice();
-
-  for (let from = 0; from < context.grid.cellCount; from += 1) {
-    const baseDist = previousDist[from] as number;
-    if (!Number.isFinite(baseDist)) {
-      continue;
-    }
-
-    for (const to of getOpenNeighbors(context.grid, from)) {
-      const nextDist = baseDist + 1;
-      if (nextDist >= context.dist[to]) {
-        continue;
-      }
-
-      context.dist[to] = nextDist;
-      context.parents[to] = from;
-      changed = true;
-
-      if (improvedFlag[to] === 0) {
-        improvedFlag[to] = 1;
-        improvedNodes.push(to);
-      }
-    }
-  }
-
-  return {
-    changed,
-    improvedNodes,
   };
 }
