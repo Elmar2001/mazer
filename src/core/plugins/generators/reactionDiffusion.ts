@@ -3,7 +3,6 @@ import {
     neighbors,
     OverlayFlag,
     type Grid,
-    getDirection,
 } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";

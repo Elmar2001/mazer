@@ -13,6 +13,8 @@ describe("solver compatibility filtering", () => {
     expect(getGeneratorTopology("recursive-division-loopy")).toBe(
       "loopy-planar",
     );
+    expect(getGeneratorTopology("wave-function-collapse")).toBe("loopy-planar");
+    expect(getGeneratorTopology("percolation")).toBe("loopy-planar");
     expect(getGeneratorTopology("weave-growing-tree")).toBe("weave");
   });
 
