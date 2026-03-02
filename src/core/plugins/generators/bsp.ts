@@ -87,8 +87,21 @@ function stepBsp(context: BspContext) {
     overlaySet: OverlayFlag.Current,
   });
 
+  const done = context.cursor >= context.edges.length;
+
+  if (done) {
+    for (let i = 0; i < context.touched.length; i += 1) {
+      if (context.touched[i] === 1) {
+        patches.push({
+          index: i,
+          overlayClear: OverlayFlag.Frontier,
+        });
+      }
+    }
+  }
+
   return {
-    done: context.cursor >= context.edges.length,
+    done,
     patches,
     meta: {
       line: 5,
