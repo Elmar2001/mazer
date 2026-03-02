@@ -11,10 +11,20 @@ interface ElectricContext {
   neighbors: number[][];
   voltages: Float64Array;
   iteration: number;
+  minRelaxIterations: number;
   maxIterations: number;
   epsilon: number;
   phase: "relax" | "extract" | "done";
   frontierSize: number;
+  visitedCount: number;
+  firstStep: boolean;
+  mathConverged: boolean;
+  visualReachedGoal: boolean;
+  currentIndex: number;
+  explorationVisited: Uint8Array;
+  explorationFrontier: Uint8Array;
+  explorationQueue: number[];
+  explorationHead: number;
   path: number[];
   pathCursor: number;
   currentPathIndex: number;
@@ -39,10 +49,27 @@ export const electricCircuitSolver: SolverPlugin<
       neighbors: buildNeighborCache(grid),
       voltages,
       iteration: 0,
+      minRelaxIterations: Math.max(
+        120,
+        Math.min(320, Math.floor(grid.cellCount * 0.5)),
+      ),
       maxIterations: 1000,
       epsilon: 1e-4,
       phase: "relax",
-      frontierSize: 0,
+      frontierSize: 1,
+      visitedCount: 0,
+      firstStep: true,
+      mathConverged: false,
+      visualReachedGoal: false,
+      currentIndex: -1,
+      explorationVisited: new Uint8Array(grid.cellCount),
+      explorationFrontier: (() => {
+        const flags = new Uint8Array(grid.cellCount);
+        flags[options.startIndex] = 1;
+        return flags;
+      })(),
+      explorationQueue: [options.startIndex],
+      explorationHead: 0,
       path: [],
       pathCursor: 0,
       currentPathIndex: -1,
@@ -71,7 +98,7 @@ function stepElectricCircuit(context: ElectricContext) {
       patches,
       meta: {
         line: 4,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: context.path.length > 0,
         pathLength: context.path.length,
@@ -80,11 +107,75 @@ function stepElectricCircuit(context: ElectricContext) {
   }
 
   if (context.phase === "relax") {
-    const maxDelta = relaxVoltages(context);
-    context.iteration += 1;
-    context.frontierSize = updateVoltageOverlays(context, patches);
+    if (!context.mathConverged) {
+      const maxDelta = relaxVoltages(context);
+      context.iteration += 1;
 
-    if (maxDelta < context.epsilon || context.iteration >= context.maxIterations) {
+      if (
+        (context.iteration >= context.minRelaxIterations &&
+          maxDelta < context.epsilon) ||
+        context.iteration >= context.maxIterations
+      ) {
+        context.mathConverged = true;
+      }
+    }
+
+    if (context.firstStep) {
+      patches.push({
+        index: context.startIndex,
+        overlaySet: OverlayFlag.Frontier,
+      });
+      context.firstStep = false;
+    }
+
+    if (!context.visualReachedGoal && context.explorationHead < context.explorationQueue.length) {
+      const cell = context.explorationQueue[context.explorationHead] as number;
+      context.explorationHead += 1;
+      context.explorationFrontier[cell] = 0;
+      context.frontierSize -= 1;
+
+      context.currentIndex = cell;
+      context.explorationVisited[cell] = 1;
+      context.visitedCount += 1;
+
+      patches.push({
+        index: cell,
+        overlayClear: OverlayFlag.Frontier,
+        overlaySet: OverlayFlag.Visited | OverlayFlag.Current,
+      });
+
+      if (cell === context.goalIndex) {
+        context.visualReachedGoal = true;
+      } else {
+        const rankedNeighbors = rankElectricNeighbors(context, cell);
+        for (const neighbor of rankedNeighbors) {
+          if (context.explorationVisited[neighbor] === 1 || context.explorationFrontier[neighbor] === 1) {
+            continue;
+          }
+
+          context.explorationFrontier[neighbor] = 1;
+          context.explorationQueue.push(neighbor);
+          context.frontierSize += 1;
+          patches.push({
+            index: neighbor,
+            overlaySet: OverlayFlag.Frontier,
+          });
+        }
+      }
+    }
+
+    if (
+      context.explorationHead > 128 &&
+      context.explorationHead * 2 > context.explorationQueue.length
+    ) {
+      context.explorationQueue = context.explorationQueue.slice(context.explorationHead);
+      context.explorationHead = 0;
+    }
+
+    if (
+      context.mathConverged &&
+      (context.visualReachedGoal || context.explorationHead >= context.explorationQueue.length)
+    ) {
       context.path = extractCircuitPath(context);
       if (context.path.length === 0) {
         context.path = bfsFallbackPath(context);
@@ -98,7 +189,7 @@ function stepElectricCircuit(context: ElectricContext) {
       patches,
       meta: {
         line: 1,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
       },
     };
@@ -111,7 +202,7 @@ function stepElectricCircuit(context: ElectricContext) {
       patches,
       meta: {
         line: 3,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: context.path.length > 0,
         pathLength: context.path.length,
@@ -137,7 +228,7 @@ function stepElectricCircuit(context: ElectricContext) {
     patches,
     meta: {
       line: 3,
-      visitedCount: context.iteration,
+      visitedCount: context.visitedCount,
       frontierSize: 0,
       solved: context.path.length > 0,
       pathLength: context.path.length,
@@ -178,35 +269,21 @@ function relaxVoltages(context: ElectricContext): number {
   return maxDelta;
 }
 
-function updateVoltageOverlays(
+
+
+function rankElectricNeighbors(
   context: ElectricContext,
-  patches: CellPatch[],
-): number {
-  let frontier = 0;
-
-  for (let i = 0; i < context.grid.cellCount; i += 1) {
-    const voltage = context.voltages[i] as number;
-
-    let overlaySet = 0;
-    if (voltage > 0.66) {
-      overlaySet = OverlayFlag.Frontier | OverlayFlag.Visited;
-    } else if (voltage > 0.33) {
-      overlaySet = OverlayFlag.Visited;
-    }
-
-    if (voltage > 0.5) {
-      frontier += 1;
-    }
-
-    patches.push({
-      index: i,
-      overlaySet,
-      overlayClear: OverlayFlag.Visited | OverlayFlag.Frontier,
-    });
-  }
-
-  return frontier;
+  cell: number,
+): number[] {
+  const currentVoltage = context.voltages[cell] as number;
+  return (context.neighbors[cell] as number[]).slice().sort((a, b) => {
+    const dropA = currentVoltage - (context.voltages[a] as number);
+    const dropB = currentVoltage - (context.voltages[b] as number);
+    return dropB - dropA;
+  });
 }
+
+
 
 function extractCircuitPath(context: ElectricContext): number[] {
   const path = [context.startIndex];

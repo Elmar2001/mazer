@@ -100,6 +100,19 @@ function shortestPathLength(grid: ReturnType<typeof createGrid>): number {
   return 0;
 }
 
+function countOverlayCells(
+  grid: ReturnType<typeof createGrid>,
+  flag: OverlayFlag,
+): number {
+  let count = 0;
+  for (let i = 0; i < grid.cellCount; i += 1) {
+    if ((grid.overlays[i] & flag) !== 0) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 /** IDs of solvers that need a higher deterministic test budget. */
 const HEURISTIC_SOLVER_IDS = new Set([
   "q-learning",
@@ -450,6 +463,172 @@ describe("solver plugins", () => {
     }
 
     expect(finishedEarly).toBe(false);
+  });
+
+  it("physarum progresses over multiple steps for visualization", () => {
+    const physarum = solverPlugins.find((plugin) => plugin.id === "physarum");
+    if (!physarum) {
+      throw new Error("Physarum plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    clearOverlays(grid);
+
+    const stepper = physarum.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 120; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
+  it("physarum reveals coverage progressively instead of all-at-once", () => {
+    const physarum = solverPlugins.find((plugin) => plugin.id === "physarum");
+    if (!physarum) {
+      throw new Error("Physarum plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+    clearOverlays(grid);
+
+    const stepper = physarum.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let firstStepVisited = -1;
+    let lastVisited = -1;
+
+    for (let i = 0; i < 20; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      const visited = countOverlayCells(grid, OverlayFlag.Visited);
+      if (i === 0) {
+        firstStepVisited = visited;
+      }
+      lastVisited = visited;
+
+      if (result.done) {
+        break;
+      }
+    }
+
+    expect(firstStepVisited).toBeGreaterThan(0);
+    expect(firstStepVisited).toBeLessThan(Math.floor(grid.cellCount * 0.5));
+    expect(lastVisited).toBeGreaterThan(firstStepVisited);
+  });
+
+  it("electric-circuit progresses over multiple steps for visualization", () => {
+    const electricCircuit = solverPlugins.find(
+      (plugin) => plugin.id === "electric-circuit",
+    );
+    if (!electricCircuit) {
+      throw new Error("Electric Circuit plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    clearOverlays(grid);
+
+    const stepper = electricCircuit.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 120; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
+  it("electric-circuit reveals coverage progressively instead of all-at-once", () => {
+    const electricCircuit = solverPlugins.find(
+      (plugin) => plugin.id === "electric-circuit",
+    );
+    if (!electricCircuit) {
+      throw new Error("Electric Circuit plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+    clearOverlays(grid);
+
+    const stepper = electricCircuit.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let firstStepVisited = -1;
+    let lastVisited = -1;
+
+    for (let i = 0; i < 20; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      const visited = countOverlayCells(grid, OverlayFlag.Visited);
+      if (i === 0) {
+        firstStepVisited = visited;
+      }
+      lastVisited = visited;
+
+      if (result.done) {
+        break;
+      }
+    }
+
+    expect(firstStepVisited).toBeGreaterThan(0);
+    expect(firstStepVisited).toBeLessThan(Math.floor(grid.cellCount * 0.5));
+    expect(lastVisited).toBeGreaterThan(firstStepVisited);
   });
 
   it("bellman-ford progresses over multiple steps on loopy topology", () => {

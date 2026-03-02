@@ -23,9 +23,14 @@ interface PhysarumContext {
   pressure: Float64Array;
   conductivity: Float64Array;
   iteration: number;
+  minFlowIterations: number;
   maxIterations: number;
-  phase: "flow" | "extract" | "done";
-  frontierSize: number;
+  mathConverged: boolean;
+  visualReachedGoal: boolean;
+  explorationVisited: Uint8Array;
+  explorationFrontier: Uint8Array;
+  explorationQueue: number[];
+  explorationHead: number;
   path: number[];
   pathCursor: number;
   currentPathIndex: number;
@@ -57,9 +62,25 @@ export const physarumSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> =
       pressure,
       conductivity: new Float64Array(graph.edges.length).fill(1),
       iteration: 0,
+      minFlowIterations: Math.max(
+        120,
+        Math.min(320, Math.floor(grid.cellCount * 0.5)),
+      ),
       maxIterations: 900,
       phase: "flow",
-      frontierSize: 0,
+      frontierSize: 1,
+      visitedCount: 0,
+      firstStep: true,
+      mathConverged: false,
+      visualReachedGoal: false,
+      explorationVisited: new Uint8Array(grid.cellCount),
+      explorationFrontier: (() => {
+        const flags = new Uint8Array(grid.cellCount);
+        flags[options.startIndex] = 1;
+        return flags;
+      })(),
+      explorationQueue: [options.startIndex],
+      explorationHead: 0,
       path: [],
       pathCursor: 0,
       currentPathIndex: -1,
@@ -88,7 +109,7 @@ function stepPhysarum(context: PhysarumContext) {
       patches,
       meta: {
         line: 4,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: context.path.length > 0,
         pathLength: context.path.length,
@@ -97,17 +118,86 @@ function stepPhysarum(context: PhysarumContext) {
   }
 
   if (context.phase === "flow") {
-    const pressureDelta = relaxPressure(context);
-    const conductivityDelta = adaptConductivity(context);
-    context.iteration += 1;
-    context.frontierSize = updateConductivityOverlays(context, patches);
+    if (!context.mathConverged) {
+      const pressureDelta = relaxPressure(context);
+      const conductivityDelta = adaptConductivity(context);
+      context.iteration += 1;
 
-    const converged =
-      context.iteration >= 20 &&
-      pressureDelta < PRESSURE_EPSILON &&
-      conductivityDelta < CONDUCTIVITY_EPSILON;
+      const converged =
+        context.iteration >= context.minFlowIterations &&
+        pressureDelta < PRESSURE_EPSILON &&
+        conductivityDelta < CONDUCTIVITY_EPSILON;
 
-    if (converged || context.iteration >= context.maxIterations) {
+      if (converged || context.iteration >= context.maxIterations) {
+        context.mathConverged = true;
+      }
+    }
+
+    if (context.firstStep) {
+      patches.push({
+        index: context.startIndex,
+        overlaySet: OverlayFlag.Frontier,
+      });
+      context.firstStep = false;
+    }
+
+    if (context.currentIndex !== -1) {
+      patches.push({
+        index: context.currentIndex,
+        overlayClear: OverlayFlag.Current,
+      });
+      context.currentIndex = -1;
+    }
+
+    if (!context.visualReachedGoal && context.explorationHead < context.explorationQueue.length) {
+      const cell = context.explorationQueue[context.explorationHead] as number;
+      context.explorationHead += 1;
+      context.explorationFrontier[cell] = 0;
+      context.frontierSize -= 1;
+
+      context.currentIndex = cell;
+      context.explorationVisited[cell] = 1;
+      context.visitedCount += 1;
+
+      patches.push({
+        index: cell,
+        overlayClear: OverlayFlag.Frontier,
+        overlaySet: OverlayFlag.Visited | OverlayFlag.Current,
+      });
+
+      if (cell === context.goalIndex) {
+        context.visualReachedGoal = true;
+      } else {
+        const rankedNeighbors = rankPhysarumNeighbors(context, cell);
+        for (const edge of rankedNeighbors) {
+          const neighbor = edge.neighbor;
+          if (context.explorationVisited[neighbor] === 1 || context.explorationFrontier[neighbor] === 1) {
+            continue;
+          }
+
+          context.explorationFrontier[neighbor] = 1;
+          context.explorationQueue.push(neighbor);
+          context.frontierSize += 1;
+          patches.push({
+            index: neighbor,
+            overlaySet: OverlayFlag.Frontier,
+          });
+        }
+      }
+    }
+
+    if (
+      context.explorationHead > 128 &&
+      context.explorationHead * 2 > context.explorationQueue.length
+    ) {
+      context.explorationQueue = context.explorationQueue.slice(context.explorationHead);
+      context.explorationHead = 0;
+    }
+
+    if (
+      context.mathConverged &&
+      (context.visualReachedGoal || context.explorationHead >= context.explorationQueue.length)
+    ) {
       context.path = extractConductivityPath(context);
       if (context.path.length === 0) {
         context.path = bfsFallbackPath(context);
@@ -121,7 +211,7 @@ function stepPhysarum(context: PhysarumContext) {
       patches,
       meta: {
         line: 1,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: context.frontierSize,
       },
     };
@@ -134,7 +224,7 @@ function stepPhysarum(context: PhysarumContext) {
       patches,
       meta: {
         line: 3,
-        visitedCount: context.iteration,
+        visitedCount: context.visitedCount,
         frontierSize: 0,
         solved: context.path.length > 0,
         pathLength: context.path.length,
@@ -160,7 +250,7 @@ function stepPhysarum(context: PhysarumContext) {
     patches,
     meta: {
       line: 3,
-      visitedCount: context.iteration,
+      visitedCount: context.visitedCount,
       frontierSize: 0,
       solved: context.path.length > 0,
       pathLength: context.path.length,
@@ -234,40 +324,31 @@ function adaptConductivity(context: PhysarumContext): number {
   return maxDelta;
 }
 
-function updateConductivityOverlays(
+
+
+function rankPhysarumNeighbors(
   context: PhysarumContext,
-  patches: CellPatch[],
-): number {
-  let frontier = 0;
-
-  for (let cell = 0; cell < context.grid.cellCount; cell += 1) {
-    const neighbors = context.adjacency[cell] as AdjEdge[];
-    let maxConductivity = 0;
-
-    for (const edge of neighbors) {
-      const value = context.conductivity[edge.edgeIndex] as number;
-      if (value > maxConductivity) {
-        maxConductivity = value;
-      }
-    }
-
-    let overlaySet = 0;
-    if (maxConductivity >= 1.3) {
-      overlaySet = OverlayFlag.Visited | OverlayFlag.Frontier;
-      frontier += 1;
-    } else if (maxConductivity >= 0.7) {
-      overlaySet = OverlayFlag.Visited;
-    }
-
-    patches.push({
-      index: cell,
-      overlaySet,
-      overlayClear: OverlayFlag.Visited | OverlayFlag.Frontier,
-    });
-  }
-
-  return frontier;
+  cell: number,
+): AdjEdge[] {
+  const currentPressure = context.pressure[cell] as number;
+  return (context.adjacency[cell] as AdjEdge[]).slice().sort((a, b) => {
+    const conductivityA = context.conductivity[a.edgeIndex] as number;
+    const conductivityB = context.conductivity[b.edgeIndex] as number;
+    const pressureDropA = Math.max(
+      0,
+      currentPressure - (context.pressure[a.neighbor] as number),
+    );
+    const pressureDropB = Math.max(
+      0,
+      currentPressure - (context.pressure[b.neighbor] as number),
+    );
+    const scoreA = conductivityA + pressureDropA * 0.7;
+    const scoreB = conductivityB + pressureDropB * 0.7;
+    return scoreB - scoreA;
+  });
 }
+
+
 
 function extractConductivityPath(context: PhysarumContext): number[] {
   const path = [context.startIndex];
