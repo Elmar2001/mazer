@@ -5,6 +5,7 @@ import {
     type Grid,
 } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
+import type { RandomSource } from "@/core/rng";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
 import type {
     AlgorithmStepMeta,
@@ -93,8 +94,8 @@ const Db = 0.5;
 const f = 0.029;
 const k = 0.057;
 
-function stepReactionDiffusion(context: ReactionDiffusionContext, rng: any) {
-    const { grid, A, B, nextA, nextB } = context;
+function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSource) {
+    const { grid } = context;
     const patches: CellPatch[] = [];
 
     if (context.phase === "reaction") {
@@ -102,9 +103,10 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: any) {
         const iterationsPerFrame = 20;
 
         for (let step = 0; step < iterationsPerFrame; step++) {
+            const { A, B, nextA, nextB } = context;
             for (let i = 0; i < grid.cellCount; i++) {
-                let a = A[i];
-                let b = B[i];
+                const a = A[i] as number;
+                const b = B[i] as number;
 
                 const currentNeighbors = neighbors(grid, i);
                 let lapA = -4 * a;

@@ -44,6 +44,8 @@ function AccordionSection({
         type="button"
         className="accordionTrigger"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={`accordion-${title.replace(/\s+/g, '-').toLowerCase()}`}
       >
         <span className="accordionIcon">{icon}</span>
         <span className="accordionLabel">{title}</span>
@@ -51,7 +53,7 @@ function AccordionSection({
           &#x25B8;
         </span>
       </button>
-      {open && <div className="accordionBody">{children}</div>}
+      {open && <div id={`accordion-${title.replace(/\s+/g, '-').toLowerCase()}`} className="accordionBody">{children}</div>}
     </section>
   );
 }
@@ -69,10 +71,10 @@ function groupOptionsByTier<TId extends string>(
     label: "Research Core" | "Advanced" | "Aliases";
     options: GroupedOption<TId>[];
   }> = [
-    { label: "Research Core", options: [] },
-    { label: "Advanced", options: [] },
-    { label: "Aliases", options: [] },
-  ];
+      { label: "Research Core", options: [] },
+      { label: "Advanced", options: [] },
+      { label: "Aliases", options: [] },
+    ];
 
   for (const option of options) {
     const group = groups.find((entry) => entry.label === option.group);
@@ -118,7 +120,7 @@ function normalizeGeneratorParams(
 
     normalized[param.key] =
       typeof currentValue === "string" &&
-      param.options.some((option) => option.value === currentValue)
+        param.options.some((option) => option.value === currentValue)
         ? currentValue
         : param.defaultValue;
   }
@@ -199,9 +201,9 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
   const onCheckboxChange =
     (setter: (value: boolean) => void) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setter(event.currentTarget.checked);
-    };
+      (event: ChangeEvent<HTMLInputElement>) => {
+        setter(event.currentTarget.checked);
+      };
 
   const updateGeneratorParam = useCallback(
     (key: string, value: number | string | boolean) => {
@@ -361,9 +363,9 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
   const onNumberChange =
     (setter: (value: number) => void) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
-      setter(Number(event.currentTarget.value));
-    };
+      (event: ChangeEvent<HTMLInputElement>) => {
+        setter(Number(event.currentTarget.value));
+      };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

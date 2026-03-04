@@ -5,6 +5,7 @@ import {
     type Grid,
 } from "@/core/grid";
 import type { CellPatch } from "@/core/patches";
+import type { RandomSource } from "@/core/rng";
 import type { GeneratorPlugin } from "@/core/plugins/GeneratorPlugin";
 import type {
     AlgorithmStepMeta,
@@ -70,7 +71,7 @@ export const antColonyGenerator: GeneratorPlugin<
     },
 };
 
-function stepAntColony(context: AntColonyContext, rng: any) {
+function stepAntColony(context: AntColonyContext, rng: RandomSource) {
     const { grid, ants, pheromones, parent, rank } = context;
     const patches: CellPatch[] = [];
 
@@ -96,7 +97,7 @@ function stepAntColony(context: AntColonyContext, rng: any) {
             patches.push({ index: ant.index, overlayClear: OverlayFlag.Current });
 
             // Find mostly disconnected area
-            let respawnIndex = rng.nextInt(grid.cellCount);
+            const respawnIndex = rng.nextInt(grid.cellCount);
             ant.index = respawnIndex;
             ant.age = 0;
             patches.push({ index: ant.index, overlaySet: OverlayFlag.Current });

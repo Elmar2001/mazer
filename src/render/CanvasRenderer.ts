@@ -264,7 +264,7 @@ export class CanvasRenderer {
     }
 
     const thickness = this.settings.wallThickness ?? 0.1;
-    const wallWidth = Math.max(1, Math.floor(size * thickness));
+    const wallWidth = Math.max(1, Math.round(size * thickness));
     const hw = wallWidth / 2;
 
     // Draw walls as filled rectangles instead of stroked lines.

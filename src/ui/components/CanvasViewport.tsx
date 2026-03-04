@@ -67,21 +67,21 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
       </div>
 
       <div className="playbackBar">
-        <button type="button" className="pbBtn pbGenerate" onClick={controls.generate}>
+        <button type="button" className="pbBtn pbGenerate" onClick={controls.generate} aria-label="Generate maze">
           <span className="pbIcon">&#x25B6;</span> Generate
         </button>
-        <button type="button" className="pbBtn pbSolve" onClick={controls.solve} disabled={!canSolve}>
+        <button type="button" className="pbBtn pbSolve" onClick={controls.solve} disabled={!canSolve} aria-label="Solve maze">
           <span className="pbIcon">&#x26A1;</span> Solve
         </button>
         <div className="pbDivider" />
-        <button type="button" className="pbBtn pbGhost" onClick={controls.pauseResume} disabled={!canPlaybackControl}>
+        <button type="button" className="pbBtn pbGhost" onClick={controls.pauseResume} disabled={!canPlaybackControl} aria-label={runtime.paused ? "Resume playback" : "Pause playback"}>
           {runtime.paused ? "\u23F5" : "\u23F8"}
         </button>
-        <button type="button" className="pbBtn pbGhost" onClick={controls.stepOnce} disabled={!canPlaybackControl}>
+        <button type="button" className="pbBtn pbGhost" onClick={controls.stepOnce} disabled={!canPlaybackControl} aria-label="Step forward">
           &#x23ED;
         </button>
         <div className="pbDivider" />
-        <button type="button" className="pbBtn pbDanger" onClick={controls.reset}>
+        <button type="button" className="pbBtn pbDanger" onClick={controls.reset} aria-label="Reset maze">
           &#x21BB;
         </button>
         <div className="pbSpacer" />

@@ -42,13 +42,13 @@ export interface UseMazeEngineResult {
 
 type MazeTransport =
   | {
-      kind: "worker";
-      worker: Worker;
-    }
+    kind: "worker";
+    worker: Worker;
+  }
   | {
-      kind: "fallback";
-      runtime: MazeWorkerRuntime;
-    };
+    kind: "fallback";
+    runtime: MazeWorkerRuntime;
+  };
 
 function toEngineOptions(settings: MazeSettings): MazeEngineOptions {
   return {
@@ -366,6 +366,8 @@ export function useMazeEngine(): UseMazeEngineResult {
         solverId: store.solverId,
         battleMode: store.battleMode,
         solverBId: store.solverBId,
+        generatorParams: store.generatorParams,
+        solverParams: store.solverParams,
       },
     });
   }, [dispatchCommand]);

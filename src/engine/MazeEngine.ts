@@ -5,7 +5,6 @@ import {
 } from "@/config/limits";
 import {
   ALL_SOLVER_OVERLAY_MASK,
-  ALL_WALLS,
   applyCellPatch,
   clearOverlays,
   createGrid,
@@ -126,10 +125,10 @@ export class MazeEngine implements MazeEnginePublicApi {
       graph: graph ? { ...graph } : null,
       battle: battle
         ? {
-            enabled: battle.enabled,
-            solverA: { ...battle.solverA },
-            solverB: { ...battle.solverB },
-          }
+          enabled: battle.enabled,
+          solverA: { ...battle.solverA },
+          solverB: { ...battle.solverB },
+        }
         : null,
     };
   }
@@ -273,6 +272,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
   setSpeed(stepsPerSecond: number): void {
     this.options.speed = clampSpeed(stepsPerSecond);
+    this.accumulatorMs = 0;
   }
 
   setOptions(options: Partial<MazeEngineOptions>): void {
@@ -436,7 +436,6 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.metrics.patchCount += result.patches.length;
 
     this.applyMetaOverrides(result.meta);
-    this.recomputeDerivedMetrics();
 
     if (result.done) {
       this.completePhase();
@@ -874,7 +873,4 @@ function nowMs(): number {
   return Date.now();
 }
 
-export function resetWalls(grid: Grid): void {
-  grid.walls.fill(ALL_WALLS);
-  grid.overlays.fill(0);
-}
+

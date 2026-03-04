@@ -53,7 +53,7 @@ Generators implement `GeneratorPlugin<TOptions, TMeta>`, solvers implement `Solv
 - **Step metadata**: Algorithms return `line` numbers for pseudocode tracing and `solverRole` for battle mode identification.
 - **Visualization pacing**: Bellman-Ford runs pass-by-pass (snapshot relaxation) to avoid instant convergence on highly connected/open mazes.
 - **Path alias**: `@/*` maps to project root in tsconfig.
-- **Speed range**: 1–5000 steps/sec, configured in `src/config/limits.ts`.
+- **Speed range**: 1–8,000 steps/sec, configured in `src/config/limits.ts`.
 
 ## Coding style
 

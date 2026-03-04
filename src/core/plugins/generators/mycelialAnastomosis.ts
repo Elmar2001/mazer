@@ -39,7 +39,10 @@ export const mycelialAnastomosisGenerator: GeneratorPlugin<
         }
 
         // Seed multiple spores based on grid size
-        const numSpores = Math.max(2, Math.floor(grid.width * grid.height * 0.005));
+        const numSpores = Math.min(
+            Math.max(2, Math.floor(grid.width * grid.height * 0.005)),
+            grid.cellCount
+        );
         const activeHyphae: HyphaTip[] = [];
         const visited = new Uint8Array(grid.cellCount);
         let visitedCount = 0;

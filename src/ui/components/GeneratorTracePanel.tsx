@@ -15,9 +15,12 @@ export function GeneratorTracePanel() {
     runtime.phase === "Solving" || runtime.phase === "Solved";
   const isBattleSolverTrace = showSolverTrace && settings.battleMode;
 
-  const generatorDoc = GENERATOR_PSEUDOCODE[settings.generatorId];
-  const solverDocA = SOLVER_PSEUDOCODE[settings.solverId];
-  const solverDocB = SOLVER_PSEUDOCODE[settings.solverBId];
+  const generatorDoc = GENERATOR_PSEUDOCODE[settings.generatorId] ?? null;
+  const solverDocA = SOLVER_PSEUDOCODE[settings.solverId] ?? null;
+  const solverDocB = SOLVER_PSEUDOCODE[settings.solverBId] ?? null;
+
+  if (!generatorDoc || !solverDocA || !solverDocB) return null;
+
   const generatorTitle = appendInventorLabel(generatorDoc.title, settings.generatorId);
   const solverTitleA = appendInventorLabel(solverDocA.title, settings.solverId);
   const solverTitleB = appendInventorLabel(solverDocB.title, settings.solverBId);
