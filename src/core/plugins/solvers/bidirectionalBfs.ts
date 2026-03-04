@@ -270,10 +270,12 @@ function buildBidirectionalPath(
 ): number[] {
   const left: number[] = [];
   let current = meeting;
+  let guard = 0;
 
-  while (current !== context.startIndex) {
+  while (current !== context.startIndex && guard < context.grid.cellCount) {
     left.push(current);
     current = context.parentA[current] as number;
+    guard += 1;
   }
 
   left.push(context.startIndex);
@@ -281,9 +283,11 @@ function buildBidirectionalPath(
 
   const right: number[] = [];
   current = meeting;
-  while (current !== context.goalIndex) {
+  guard = 0;
+  while (current !== context.goalIndex && guard < context.grid.cellCount) {
     current = context.parentB[current] as number;
     right.push(current);
+    guard += 1;
   }
 
   return left.concat(right);

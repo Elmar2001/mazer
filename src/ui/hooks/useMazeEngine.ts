@@ -306,10 +306,6 @@ export function useMazeEngine(): UseMazeEngineResult {
         speed: settings.speed,
       },
     });
-    dispatchCommand({
-      type: "setSpeed",
-      speed: settings.speed,
-    });
   }, [
     dispatchCommand,
     settings.battleMode,
@@ -371,10 +367,6 @@ export function useMazeEngine(): UseMazeEngineResult {
         battleMode: store.battleMode,
         solverBId: store.solverBId,
       },
-    });
-    dispatchCommand({
-      type: "setSpeed",
-      speed: store.speed,
     });
   }, [dispatchCommand]);
 

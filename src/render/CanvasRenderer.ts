@@ -172,6 +172,7 @@ export class CanvasRenderer {
       this.ctx.fillStyle = this.colors.pathA;
       this.ctx.fillRect(x, y, size, size);
       this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = "transparent";
     }
 
     if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
@@ -182,6 +183,7 @@ export class CanvasRenderer {
       this.ctx.fillStyle = this.colors.pathB;
       this.ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
       this.ctx.shadowBlur = 0;
+      this.ctx.shadowColor = "transparent";
     }
 
     if (crossing !== CrossingKind.None) {
@@ -223,6 +225,7 @@ export class CanvasRenderer {
     this.ctx.lineWidth = lineW;
     this.ctx.stroke();
     this.ctx.shadowBlur = 0;
+    this.ctx.shadowColor = "transparent";
   }
 
   private drawCrossing(

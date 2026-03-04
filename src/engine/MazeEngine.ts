@@ -252,6 +252,10 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   reset(): void {
+    if (this.rafHandle !== null) {
+      this.cancelAnimationFrame(this.rafHandle);
+      this.rafHandle = null;
+    }
     this.generatorStepper = null;
     this.solverPrimary = null;
     this.solverSecondary = null;
@@ -285,6 +289,10 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 
   rebuildGrid(width: number, height: number): void {
+    if (this.rafHandle !== null) {
+      this.cancelAnimationFrame(this.rafHandle);
+      this.rafHandle = null;
+    }
     const safeSize = clampGridSizeByCells(width, height);
     const safeWidth = safeSize.width;
     const safeHeight = safeSize.height;

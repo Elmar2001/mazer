@@ -34,6 +34,11 @@ interface PhysarumContext {
   path: number[];
   pathCursor: number;
   currentPathIndex: number;
+  phase: "flow" | "extract" | "done";
+  frontierSize: number;
+  visitedCount: number;
+  firstStep: boolean;
+  currentIndex: number;
 }
 
 const SIGMA = 0.45;
@@ -84,6 +89,7 @@ export const physarumSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> =
       path: [],
       pathCursor: 0,
       currentPathIndex: -1,
+      currentIndex: -1,
     };
 
     return {
