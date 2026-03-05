@@ -31,6 +31,7 @@ interface FractalContext {
   touched: Uint8Array;
   visitedCount: number;
   current: number;
+  prevFrontier: number[];
 }
 
 export const fractalTessellationGenerator: GeneratorPlugin<
@@ -49,6 +50,7 @@ export const fractalTessellationGenerator: GeneratorPlugin<
       touched: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       current: -1,
+      prevFrontier: [],
     };
 
     return {
@@ -68,6 +70,14 @@ function stepFractal(context: FractalContext) {
     context.current = -1;
   }
 
+  for (const index of context.prevFrontier) {
+    patches.push({
+      index,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+  context.prevFrontier = [];
+
   if (context.cursor >= context.edges.length) {
     return {
       done: true,
@@ -85,31 +95,41 @@ function stepFractal(context: FractalContext) {
 
   patches.push(...carvePatch(edge.a, edge.b, edge.wallA, edge.wallB));
 
+  const newFrontier: number[] = [];
+
   if (context.touched[edge.a] === 0) {
     context.touched[edge.a] = 1;
     context.visitedCount += 1;
     patches.push({ index: edge.a, overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier });
+    newFrontier.push(edge.a);
   }
 
   if (context.touched[edge.b] === 0) {
     context.touched[edge.b] = 1;
     context.visitedCount += 1;
     patches.push({ index: edge.b, overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier });
+    newFrontier.push(edge.b);
   }
 
-  context.current = edge.b;
-  patches.push({
-    index: context.current,
-    overlaySet: OverlayFlag.Current,
-  });
+  context.prevFrontier = newFrontier;
+
+  const done = context.cursor >= context.edges.length;
+
+  if (!done) {
+    context.current = edge.b;
+    patches.push({
+      index: context.current,
+      overlaySet: OverlayFlag.Current,
+    });
+  }
 
   return {
-    done: context.cursor >= context.edges.length,
+    done,
     patches,
     meta: {
-      line: 5,
+      line: done ? 6 : 5,
       visitedCount: context.visitedCount,
-      frontierSize: context.edges.length - context.cursor,
+      frontierSize: done ? 0 : context.edges.length - context.cursor,
     },
   };
 }
