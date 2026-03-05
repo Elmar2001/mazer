@@ -250,8 +250,15 @@ function depthLimitedSearch(
   const frontier: number[] = [];
   let lastExplored = start;
 
+  // Track the shallowest depth at which each node was visited.
+  // Nodes already visited at depth <= current are skipped to avoid
+  // exponential path explosion in loopy mazes.
+  const bestDepth = new Uint16Array(grid.cellCount);
+  bestDepth.fill(0xFFFF);
+
   const dfs = (node: number, depth: number): boolean => {
     inPath[node] = 1;
+    bestDepth[node] = depth;
     lastExplored = node;
 
     if (discoveredFlags[node] === 0) {
@@ -275,6 +282,10 @@ function depthLimitedSearch(
 
     for (const neighbor of getOpenNeighbors(grid, node)) {
       if (inPath[neighbor] === 1) {
+        continue;
+      }
+
+      if (bestDepth[neighbor] <= depth + 1) {
         continue;
       }
 

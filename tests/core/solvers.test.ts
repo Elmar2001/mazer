@@ -791,6 +791,44 @@ describe("solver plugins", () => {
     },
   );
 
+  it("iterative-deepening-dfs solves loopy topology without hanging", () => {
+    const iddfs = solverPlugins.find(
+      (plugin) => plugin.id === "iterative-deepening-dfs",
+    );
+    if (!iddfs) {
+      throw new Error("IDDFS plugin not found");
+    }
+
+    const grid = buildMazeWithGenerator("prim-loopy", 20, 14, "iddfs-loopy");
+    const result = runSolver(iddfs, grid);
+
+    expect(result.done).toBe(true);
+    expect(result.lastMeta?.solved).toBe(true);
+    expect((grid.overlays[0] & OverlayFlag.Path) !== 0).toBe(true);
+    expect(
+      (grid.overlays[grid.cellCount - 1] & OverlayFlag.Path) !== 0,
+    ).toBe(true);
+  });
+
+  it("iterative-deepening-dfs solves open grid without hanging", () => {
+    const iddfs = solverPlugins.find(
+      (plugin) => plugin.id === "iterative-deepening-dfs",
+    );
+    if (!iddfs) {
+      throw new Error("IDDFS plugin not found");
+    }
+
+    const grid = buildOpenGrid(12, 8);
+    const result = runSolver(iddfs, grid);
+
+    expect(result.done).toBe(true);
+    expect(result.lastMeta?.solved).toBe(true);
+    expect((grid.overlays[0] & OverlayFlag.Path) !== 0).toBe(true);
+    expect(
+      (grid.overlays[grid.cellCount - 1] & OverlayFlag.Path) !== 0,
+    ).toBe(true);
+  });
+
   it.each(["bfs", "dijkstra", "bellman-ford"] as const)(
     "%s solves braid topology",
     (solverId) => {
