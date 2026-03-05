@@ -15,6 +15,7 @@ interface UnicursalContext {
   visited: Uint8Array;
   visitedCount: number;
   current: number;
+  prevFrontier: number[];
 }
 
 export const unicursalGenerator: GeneratorPlugin<
@@ -34,6 +35,7 @@ export const unicursalGenerator: GeneratorPlugin<
       visited: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       current: -1,
+      prevFrontier: [],
     };
 
     return {
@@ -52,6 +54,7 @@ function stepUnicursal(context: UnicursalContext) {
     context.visited[start] = 1;
     context.visitedCount = 1;
     context.current = start;
+    context.prevFrontier = [start];
 
     patches.push({
       index: start,
@@ -77,6 +80,14 @@ function stepUnicursal(context: UnicursalContext) {
     context.current = -1;
   }
 
+  for (const index of context.prevFrontier) {
+    patches.push({
+      index,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+  context.prevFrontier = [];
+
   if (context.cursor >= context.order.length - 1) {
     return {
       done: true,
@@ -100,21 +111,26 @@ function stepUnicursal(context: UnicursalContext) {
     context.visited[to] = 1;
     context.visitedCount += 1;
     patches.push({ index: to, overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier });
+    context.prevFrontier = [to];
   }
 
-  context.current = to;
-  patches.push({
-    index: to,
-    overlaySet: OverlayFlag.Current,
-  });
+  const done = context.cursor >= context.order.length - 1;
+
+  if (!done) {
+    context.current = to;
+    patches.push({
+      index: to,
+      overlaySet: OverlayFlag.Current,
+    });
+  }
 
   return {
-    done: context.cursor >= context.order.length - 1,
+    done,
     patches,
     meta: {
-      line: 4,
+      line: done ? 5 : 4,
       visitedCount: context.visitedCount,
-      frontierSize: context.cursor >= context.order.length - 1 ? 0 : 1,
+      frontierSize: done ? 0 : 1,
     },
   };
 }
