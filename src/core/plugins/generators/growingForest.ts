@@ -31,6 +31,7 @@ interface GrowingForestContext {
   touched: Uint8Array;
   visitedCount: number;
   current: number;
+  prevFrontier: number[];
 }
 
 export const growingForestGenerator: GeneratorPlugin<
@@ -51,6 +52,7 @@ export const growingForestGenerator: GeneratorPlugin<
       touched: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       current: -1,
+      prevFrontier: [],
     };
 
     return {
@@ -73,6 +75,7 @@ function stepGrowingForest(context: GrowingForestContext) {
         overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
       });
     }
+    context.prevFrontier = [...context.seeds];
 
     if (context.seeds.length > 0) {
       context.current = context.seeds[0] as number;
@@ -80,10 +83,6 @@ function stepGrowingForest(context: GrowingForestContext) {
         index: context.current,
         overlaySet: OverlayFlag.Current,
       });
-    }
-
-    if (context.operations.length === 0) {
-      clearTransientOverlays(context, patches);
     }
 
     return {
@@ -105,9 +104,15 @@ function stepGrowingForest(context: GrowingForestContext) {
     context.current = -1;
   }
 
-  if (context.cursor >= context.operations.length) {
-    clearTransientOverlays(context, patches);
+  for (const index of context.prevFrontier) {
+    patches.push({
+      index,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+  context.prevFrontier = [];
 
+  if (context.cursor >= context.operations.length) {
     return {
       done: true,
       patches,
@@ -123,6 +128,8 @@ function stepGrowingForest(context: GrowingForestContext) {
   context.cursor += 1;
   patches.push(...operation);
 
+  const newFrontier: number[] = [];
+
   for (const patch of operation) {
     if (context.touched[patch.index] === 1) {
       continue;
@@ -134,19 +141,19 @@ function stepGrowingForest(context: GrowingForestContext) {
       index: patch.index,
       overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
     });
+    newFrontier.push(patch.index);
   }
 
-  if (operation.length > 0) {
+  context.prevFrontier = newFrontier;
+
+  const done = context.cursor >= context.operations.length;
+
+  if (!done && operation.length > 0) {
     context.current = operation[operation.length - 1]!.index;
     patches.push({
       index: context.current,
       overlaySet: OverlayFlag.Current,
     });
-  }
-
-  const done = context.cursor >= context.operations.length;
-  if (done) {
-    clearTransientOverlays(context, patches);
   }
 
   return {
@@ -155,27 +162,9 @@ function stepGrowingForest(context: GrowingForestContext) {
     meta: {
       line: context.cursor <= context.growthOpsCount ? 4 : 5,
       visitedCount: context.visitedCount,
-      frontierSize: context.operations.length - context.cursor,
+      frontierSize: done ? 0 : context.operations.length - context.cursor,
     },
   };
-}
-
-function clearTransientOverlays(
-  context: GrowingForestContext,
-  patches: CellPatch[],
-): void {
-  const clearMask = OverlayFlag.Frontier | OverlayFlag.Current;
-
-  for (let i = 0; i < context.touched.length; i += 1) {
-    if (context.touched[i] === 1) {
-      patches.push({
-        index: i,
-        overlayClear: clearMask,
-      });
-    }
-  }
-
-  context.current = -1;
 }
 
 function planGrowingForest(grid: Grid, rng: RandomSource): GrowingForestPlan {
