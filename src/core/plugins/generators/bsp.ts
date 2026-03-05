@@ -25,6 +25,7 @@ interface BspContext {
   touched: Uint8Array;
   visitedCount: number;
   current: number;
+  prevFrontier: number[];
 }
 
 export const bspGenerator: GeneratorPlugin<
@@ -43,6 +44,7 @@ export const bspGenerator: GeneratorPlugin<
       touched: new Uint8Array(grid.cellCount),
       visitedCount: 0,
       current: -1,
+      prevFrontier: [],
     };
 
     return {
@@ -62,6 +64,14 @@ function stepBsp(context: BspContext) {
     context.current = -1;
   }
 
+  for (const index of context.prevFrontier) {
+    patches.push({
+      index,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+  context.prevFrontier = [];
+
   if (context.cursor >= context.edges.length) {
     return {
       done: true,
@@ -78,35 +88,29 @@ function stepBsp(context: BspContext) {
   context.cursor += 1;
 
   patches.push(...carvePatch(edge.from, edge.to, edge.wallFrom, edge.wallTo));
-  markTouched(context, edge.from, patches);
-  markTouched(context, edge.to, patches);
 
-  context.current = edge.to;
-  patches.push({
-    index: edge.to,
-    overlaySet: OverlayFlag.Current,
-  });
+  const newFrontier: number[] = [];
+  markTouched(context, edge.from, patches, newFrontier);
+  markTouched(context, edge.to, patches, newFrontier);
+  context.prevFrontier = newFrontier;
 
   const done = context.cursor >= context.edges.length;
 
-  if (done) {
-    for (let i = 0; i < context.touched.length; i += 1) {
-      if (context.touched[i] === 1) {
-        patches.push({
-          index: i,
-          overlayClear: OverlayFlag.Frontier,
-        });
-      }
-    }
+  if (!done) {
+    context.current = edge.to;
+    patches.push({
+      index: edge.to,
+      overlaySet: OverlayFlag.Current,
+    });
   }
 
   return {
     done,
     patches,
     meta: {
-      line: 5,
+      line: done ? 6 : 5,
       visitedCount: context.visitedCount,
-      frontierSize: context.edges.length - context.cursor,
+      frontierSize: done ? 0 : context.edges.length - context.cursor,
     },
   };
 }
@@ -115,6 +119,7 @@ function markTouched(
   context: BspContext,
   index: number,
   patches: CellPatch[],
+  newFrontier: number[],
 ): void {
   if (context.touched[index] === 1) {
     return;
@@ -126,6 +131,7 @@ function markTouched(
     index,
     overlaySet: OverlayFlag.Visited | OverlayFlag.Frontier,
   });
+  newFrontier.push(index);
 }
 
 function buildBspTree(
