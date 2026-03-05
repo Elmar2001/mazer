@@ -35,6 +35,7 @@ interface WfcContext {
   frontierIndices: number[];
   applyEdges: WfcEdge[];
   applyCursor: number;
+  carvedEdges: Set<string>;
 }
 
 const WALL_BY_DIRECTION = [
@@ -69,6 +70,7 @@ export const waveFunctionCollapseGenerator: GeneratorPlugin<
       frontierIndices: [],
       applyEdges: [],
       applyCursor: 0,
+      carvedEdges: new Set(),
     };
 
     context.optionsMask.fill(FULL_TILE_MASK);
@@ -108,7 +110,8 @@ function stepWaveFunctionCollapse(context: WfcContext) {
         context.phase = "apply";
       } else {
         collapseCell(context, target, patches);
-        propagateConstraints(context, target, patches);
+        const newlyCollapsed = propagateConstraints(context, target, patches);
+        carveCollapsedEdges(context, [target, ...newlyCollapsed], patches);
 
         if (context.collapsedCount >= context.grid.cellCount) {
           prepareFinalEdges(context);
@@ -187,6 +190,41 @@ function clearTransientOverlays(
   context.frontierIndices = [];
 }
 
+function carveCollapsedEdges(
+  context: WfcContext,
+  indices: number[],
+  patches: CellPatch[],
+): void {
+  for (const idx of indices) {
+    const tileMask = context.optionsMask[idx] as number;
+    if (bitCount(tileMask) !== 1) continue;
+    const tile = firstTileFromMask(tileMask);
+
+    for (const neighbor of neighbors(context.grid, idx)) {
+      const nMask = context.optionsMask[neighbor.index] as number;
+      if (bitCount(nMask) !== 1) continue;
+      const nTile = firstTileFromMask(nMask);
+
+      const dirIndex = directionNameToIndex(neighbor.direction.name);
+      const wallFrom = WALL_BY_DIRECTION[dirIndex] as WallFlag;
+      const wallTo = OPPOSITE_BY_DIRECTION[dirIndex] as WallFlag;
+
+      const fromOpen = (tile & wallFrom) === 0;
+      const toOpen = (nTile & wallTo) === 0;
+
+      if (fromOpen && toOpen) {
+        const a = Math.min(idx, neighbor.index);
+        const b = Math.max(idx, neighbor.index);
+        const key = `${a}:${b}`;
+        if (!context.carvedEdges.has(key)) {
+          context.carvedEdges.add(key);
+          patches.push(...carvePatch(idx, neighbor.index, wallFrom, wallTo));
+        }
+      }
+    }
+  }
+}
+
 function pickLowestEntropyCell(context: WfcContext): number {
   let bestIndex = -1;
   let bestEntropy = Number.POSITIVE_INFINITY;
@@ -229,11 +267,13 @@ function propagateConstraints(
   context: WfcContext,
   rootIndex: number,
   patches: CellPatch[],
-): void {
+): number[] {
   const queue = [rootIndex];
   const inQueue = new Uint8Array(context.grid.cellCount);
   const frontierFlags = new Uint8Array(context.grid.cellCount);
   inQueue[rootIndex] = 1;
+
+  const newlyCollapsed: number[] = [];
 
   let head = 0;
   while (head < queue.length) {
@@ -258,6 +298,7 @@ function propagateConstraints(
 
       if (oldCount > 1 && nextCount === 1) {
         context.collapsedCount += 1;
+        newlyCollapsed.push(neighbor.index);
         patches.push({
           index: neighbor.index,
           overlaySet: OverlayFlag.Visited,
@@ -282,26 +323,12 @@ function propagateConstraints(
       overlaySet: OverlayFlag.Frontier,
     });
   }
+
+  return newlyCollapsed;
 }
 
 function prepareFinalEdges(context: WfcContext): void {
   const allEdges = enumerateGridEdges(context.grid);
-  const preferredEdges: WfcEdge[] = [];
-  const remainingEdges: WfcEdge[] = [];
-
-  for (const edge of allEdges) {
-    const fromTile = firstTileFromMask(context.optionsMask[edge.from] as number);
-    const toTile = firstTileFromMask(context.optionsMask[edge.to] as number);
-
-    const fromOpen = (fromTile & edge.wallFrom) === 0;
-    const toOpen = (toTile & edge.wallTo) === 0;
-
-    if (fromOpen && toOpen) {
-      preferredEdges.push(edge);
-    } else {
-      remainingEdges.push(edge);
-    }
-  }
 
   const parent = new Int32Array(context.grid.cellCount);
   const rank = new Uint8Array(context.grid.cellCount);
@@ -309,22 +336,51 @@ function prepareFinalEdges(context: WfcContext): void {
     parent[i] = i;
   }
 
+  // Account for edges already carved during collapse phase.
+  for (const key of context.carvedEdges) {
+    const sep = key.indexOf(":");
+    const a = Number(key.slice(0, sep));
+    const b = Number(key.slice(sep + 1));
+    union(a, b, parent, rank);
+  }
+
+  // Collect uncarved preferred edges and non-preferred edges separately.
+  const uncarvedPreferred: WfcEdge[] = [];
+  const nonPreferred: WfcEdge[] = [];
+
+  for (const edge of allEdges) {
+    const key = `${edge.from}:${edge.to}`;
+    if (context.carvedEdges.has(key)) continue;
+
+    const fromTile = firstTileFromMask(context.optionsMask[edge.from] as number);
+    const toTile = firstTileFromMask(context.optionsMask[edge.to] as number);
+    const fromOpen = (fromTile & edge.wallFrom) === 0;
+    const toOpen = (toTile & edge.wallTo) === 0;
+
+    if (fromOpen && toOpen) {
+      uncarvedPreferred.push(edge);
+    } else {
+      nonPreferred.push(edge);
+    }
+  }
+
   const selectedEdges: WfcEdge[] = [];
 
-  for (const edge of preferredEdges) {
+  // Carve remaining preferred edges.
+  for (const edge of uncarvedPreferred) {
     selectedEdges.push(edge);
     union(edge.from, edge.to, parent, rank);
   }
 
-  shuffleInPlace(remainingEdges, context.rng);
-
-  for (const edge of remainingEdges) {
+  // Fill connectivity gaps with non-preferred edges.
+  shuffleInPlace(nonPreferred, context.rng);
+  for (const edge of nonPreferred) {
     if (union(edge.from, edge.to, parent, rank)) {
       selectedEdges.push(edge);
     }
   }
 
-  if (selectedEdges.length <= context.grid.cellCount - 1) {
+  if (context.carvedEdges.size + selectedEdges.length <= context.grid.cellCount - 1) {
     const extra = pickExtraEdge(selectedEdges, allEdges, context.rng);
     if (extra) {
       selectedEdges.push(extra);
