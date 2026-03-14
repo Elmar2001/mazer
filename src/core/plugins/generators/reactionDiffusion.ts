@@ -12,6 +12,10 @@ import type {
     GeneratorRunOptions,
 } from "@/core/plugins/types";
 
+// How many RD iterations to advance per step() call.
+// At speed=60 this gives ~80 visible frames (≈1.3s) of diffusion animation.
+const ITERATIONS_PER_STEP = 10;
+
 interface ReactionDiffusionContext {
     grid: Grid;
     A: Float32Array;
@@ -22,6 +26,9 @@ interface ReactionDiffusionContext {
     maxIterations: number;
     phase: "reaction" | "threshold" | "connect" | "done";
     AThreshold: number;
+    // Tracks which overlay is currently shown per cell so we only emit delta patches.
+    // 0 = none, 1 = Current (A > threshold), 2 = Visited (A ≤ threshold)
+    prevVisState: Uint8Array;
     parent: Int32Array;
     rank: Uint8Array;
     unconnectedEdges: { cellIndex: number; neighborIndex: number; dir: number; opposite: number }[];
@@ -43,9 +50,10 @@ export const reactionDiffusionGenerator: GeneratorPlugin<
             nextA: new Float32Array(grid.cellCount),
             nextB: new Float32Array(grid.cellCount),
             iterations: 0,
-            maxIterations: 800, // Enough to stabilize patterns
+            maxIterations: 800,
             phase: "reaction",
             AThreshold: 0.5,
+            prevVisState: new Uint8Array(grid.cellCount), // all 0 = nothing shown yet
             parent: new Int32Array(grid.cellCount),
             rank: new Uint8Array(grid.cellCount),
             unconnectedEdges: [],
@@ -53,14 +61,13 @@ export const reactionDiffusionGenerator: GeneratorPlugin<
             components: grid.cellCount,
         };
 
-        // Initialize state
         for (let i = 0; i < grid.cellCount; i++) {
             context.A[i] = 1.0;
             context.B[i] = 0.0;
             context.parent[i] = i;
         }
 
-        // Seed the center with chemical B
+        // Seed center with chemical B
         const centerX = Math.floor(grid.width / 2);
         const centerY = Math.floor(grid.height / 2);
         const seedRadius = Math.max(2, Math.floor(Math.min(grid.width, grid.height) * 0.1));
@@ -68,7 +75,6 @@ export const reactionDiffusionGenerator: GeneratorPlugin<
         for (let y = centerY - seedRadius; y <= centerY + seedRadius; y++) {
             for (let x = centerX - seedRadius; x <= centerX + seedRadius; x++) {
                 if (x >= 0 && x < grid.width && y >= 0 && y < grid.height) {
-                    // Add some noise to the seed to break symmetry
                     if (rng.next() > 0.2) {
                         const idx = y * grid.width + x;
                         context.B[idx] = 1.0;
@@ -77,7 +83,7 @@ export const reactionDiffusionGenerator: GeneratorPlugin<
             }
         }
 
-        // Add some random noise points
+        // Scatter random noise points
         for (let i = 0; i < grid.cellCount * 0.05; i++) {
             const idx = rng.nextInt(grid.cellCount);
             context.B[idx] = 1.0;
@@ -99,10 +105,10 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
     const patches: CellPatch[] = [];
 
     if (context.phase === "reaction") {
-        // Run multiple iterations per visual frame to speed it up
-        const iterationsPerFrame = 20;
-
-        for (let step = 0; step < iterationsPerFrame; step++) {
+        // Advance the simulation ITERATIONS_PER_STEP iterations before rendering.
+        // This keeps the total step count at ~80 (800/10), giving ~1.3s of smooth
+        // animation at default speed=60 while remaining responsive at higher speeds.
+        for (let s = 0; s < ITERATIONS_PER_STEP; s++) {
             const { A, B, nextA, nextB } = context;
             for (let i = 0; i < grid.cellCount; i++) {
                 const a = A[i] as number;
@@ -120,36 +126,43 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
                 nextA[i] = a + (Da * lapA - a * b * b + f * (1 - a));
                 nextB[i] = b + (Db * lapB + a * b * b - (k + f) * b);
 
-                // Constrain values
                 if (nextA[i] < 0) nextA[i] = 0;
                 if (nextA[i] > 1) nextA[i] = 1;
                 if (nextB[i] < 0) nextB[i] = 0;
                 if (nextB[i] > 1) nextB[i] = 1;
             }
 
-            // Swap buffers
             context.A = nextA;
             context.B = nextB;
             context.nextA = A;
             context.nextB = B;
         }
 
-        context.iterations += iterationsPerFrame;
+        context.iterations += ITERATIONS_PER_STEP;
 
-        // Visualize concentration
+        // Emit DELTA patches only: cells whose visual category changed since the
+        // last step. This keeps postMessage payloads small even when many steps
+        // are batched in one frame by the engine at high speeds.
         for (let i = 0; i < grid.cellCount; i++) {
-            if (context.A[i] > 0.5) {
-                patches.push({ index: i, overlaySet: OverlayFlag.Current, overlayClear: OverlayFlag.Visited });
-            } else {
-                patches.push({ index: i, overlaySet: OverlayFlag.Visited, overlayClear: OverlayFlag.Current });
+            const newVis = context.A[i] > context.AThreshold ? 1 : 2;
+            if (newVis !== context.prevVisState[i]) {
+                if (newVis === 1) {
+                    patches.push({ index: i, overlaySet: OverlayFlag.Current, overlayClear: OverlayFlag.Visited });
+                } else {
+                    patches.push({ index: i, overlaySet: OverlayFlag.Visited, overlayClear: OverlayFlag.Current });
+                }
+                context.prevVisState[i] = newVis;
             }
         }
 
         if (context.iterations >= context.maxIterations) {
             context.phase = "threshold";
-            // Clear visual overlays
+            // Clear all overlays before carving phase
             for (let i = 0; i < grid.cellCount; i++) {
-                patches.push({ index: i, overlayClear: OverlayFlag.Current | OverlayFlag.Visited });
+                if (context.prevVisState[i] !== 0) {
+                    patches.push({ index: i, overlayClear: OverlayFlag.Current | OverlayFlag.Visited });
+                    context.prevVisState[i] = 0;
+                }
             }
         }
 
@@ -164,28 +177,21 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
         };
 
     } else if (context.phase === "threshold") {
-        // Threshold the continuous data into binary passages
-        // Every cell with A > threshold is a passage, else a wall
-        // To create passages, we carve between adjacent cells if both are "passage"
-
         const thresholded = new Uint8Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {
             thresholded[i] = context.A[i] > context.AThreshold ? 1 : 0;
         }
 
         for (let i = 0; i < grid.cellCount; i++) {
-            if (thresholded[i] === 0) continue; // It's a wall block
+            if (thresholded[i] === 0) continue;
 
             const currentNeighbors = neighbors(grid, i);
             for (const n of currentNeighbors) {
-                // Only carve forward to avoid duplicate carving
                 if (n.index > i && thresholded[n.index] === 1) {
                     patches.push(...carvePatch(i, n.index, n.direction.wall, n.direction.opposite));
                     union(i, n.index, context.parent, context.rank);
                     context.components--;
                 } else if (thresholded[n.index] === 0) {
-                    // Remember edges between passage and wall blocks for fixing unreachability
-                    // Actually, just edges between disjoint sets
                     context.unconnectedEdges.push({
                         cellIndex: i,
                         neighborIndex: n.index,
@@ -198,7 +204,7 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
             patches.push({ index: i, overlaySet: OverlayFlag.Visited });
         }
 
-        // Shuffle unconnected edges so we combine components randomly
+        // Shuffle unconnected edges so components are joined in random order
         const arr = context.unconnectedEdges;
         for (let i = arr.length - 1; i > 0; i--) {
             const j = rng.nextInt(i + 1);
@@ -219,7 +225,6 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
         };
 
     } else if (context.phase === "connect") {
-        // Connect disjoint components until components = 1
         let carvedCount = 0;
 
         while (context.currentEdgeIndex < context.unconnectedEdges.length && carvedCount < 50) {
@@ -236,7 +241,6 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
         if (context.components <= 1 || context.currentEdgeIndex >= context.unconnectedEdges.length) {
             context.phase = "done";
 
-            // Clear all overlays for clean finish
             for (let i = 0; i < grid.cellCount; i++) {
                 patches.push({ index: i, overlayClear: OverlayFlag.Visited | OverlayFlag.Current });
             }
@@ -251,13 +255,11 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
                 frontierSize: Math.max(0, context.components - 1),
             }
         };
-
     }
 
     return { done: true, patches, meta: { line: 4, visitedCount: grid.cellCount, frontierSize: 0 } };
 }
 
-// Disjoint Set Union functions
 function find(index: number, parent: Int32Array): number {
     let root = index;
     while (parent[root] !== root) {
