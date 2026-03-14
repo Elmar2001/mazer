@@ -393,7 +393,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "resonant-phase-lock": {
-    title: "Resonant Phase-Lock",
+    title: "Resonant Phase-Lock (Noise-Weighted Growing Tree)",
     summary: "Frontier growth guided by a dynamic interference-phase resonance score.",
     lines: [
       "initialize interference field, seed visited root, and add frontier",
@@ -441,7 +441,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "quantum-seismogenesis": {
-    title: "Quantum Seismogenesis",
+    title: "Quantum Seismogenesis (Multi-Source Prim's)",
     summary: "Build stress in the grid until a rapid fracture connects disjoint sets.",
     lines: [
       "if all components merged: finish",
@@ -453,7 +453,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "mycelial-anastomosis": {
-    title: "Mycelial Anastomosis",
+    title: "Mycelial Anastomosis (Multi-Source Kruskal's & Random Walk)",
     summary: "Concurrent organic growth from multiple spores, merging on contact.",
     lines: [
       "if all components merged: clear frontiers and finish",
@@ -465,7 +465,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "counterfactual-cycle-annealing": {
-    title: "Counterfactual Cycle Annealing",
+    title: "Counterfactual Cycle Annealing (Simulated Graph Annealing)",
     summary:
       "Seed a tree, then repeatedly swap one added chord and one removed cycle edge using annealed counterfactual scoring.",
     lines: [

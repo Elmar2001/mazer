@@ -84,7 +84,7 @@ export const counterfactualCycleAnnealingGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "counterfactual-cycle-annealing",
-  label: "Counterfactual Cycle Annealing",
+  label: "Counterfactual Cycle Annealing (Simulated Graph Annealing)",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&

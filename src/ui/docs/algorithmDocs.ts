@@ -670,7 +670,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "resonant-phase-lock",
-    name: "Resonant Phase-Lock",
+    name: "Resonant Phase-Lock (Noise-Weighted Growing Tree)",
     kind: "Generator",
     summary:
       "Builds a spanning tree by choosing frontier cells using a self-updating resonance field derived from synthetic wave interference.",
@@ -730,7 +730,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "quantum-seismogenesis",
-    name: "Quantum Seismogenesis",
+    name: "Quantum Seismogenesis (Multi-Source Prim's)",
     kind: "Generator",
     summary:
       "Accumulates synthetic stress and propagates fracture tips that carve only when they connect disjoint components.",
@@ -759,7 +759,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "mycelial-anastomosis",
-    name: "Mycelial Anastomosis",
+    name: "Mycelial Anastomosis (Multi-Source Kruskal's & Random Walk)",
     kind: "Generator",
     summary:
       "Simulates fungal hyphae that grow from multiple spores, branch, and occasionally merge separate growth networks.",
@@ -788,7 +788,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "counterfactual-cycle-annealing",
-    name: "Counterfactual Cycle Annealing",
+    name: "Counterfactual Cycle Annealing (Simulated Graph Annealing)",
     kind: "Generator",
     summary:
       "Starts from a valid spanning tree, then performs objective-driven edge swaps (add chord, remove cycle edge) under simulated annealing.",

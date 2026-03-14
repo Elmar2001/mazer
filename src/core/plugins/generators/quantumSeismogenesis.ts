@@ -32,7 +32,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
     AlgorithmStepMeta
 > = {
     id: "quantum-seismogenesis",
-    label: "Quantum Seismogenesis",
+    label: "Quantum Seismogenesis (Multi-Source Prim's)",
     create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {
