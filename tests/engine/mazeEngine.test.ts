@@ -43,6 +43,75 @@ function solveMaze(engine: MazeEngine): void {
   }
 }
 
+describe("maze engine frame loop (onFrame)", () => {
+  it("processes steps via fake timer advances", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    let phaseChange: string | undefined;
+    engine.setCallbacks({
+      onPhaseChange: (p) => { phaseChange = p; },
+    });
+
+    engine.startGeneration();
+    expect(engine.getPhase()).toBe("Generating");
+
+    // Advance timers so the RAF-via-setTimeout fires repeatedly until done
+    let iterations = 0;
+    while (engine.getPhase() === "Generating" && iterations < 500) {
+      vi.advanceTimersByTime(100);
+      iterations += 1;
+    }
+
+    expect(engine.getPhase()).toBe("Generated");
+    expect(phaseChange).toBe("Generated");
+    engine.destroy();
+  });
+
+  it("runs solving through the frame loop", () => {
+    const engine = new MazeEngine({ ...BASE_OPTIONS, width: 4, height: 4 });
+
+    engine.startGeneration();
+    while (engine.getPhase() === "Generating") {
+      vi.advanceTimersByTime(100);
+    }
+    expect(engine.getPhase()).toBe("Generated");
+
+    engine.startSolving();
+    let iterations = 0;
+    while (engine.getPhase() === "Solving" && iterations < 500) {
+      vi.advanceTimersByTime(100);
+      iterations += 1;
+    }
+
+    expect(engine.getPhase()).toBe("Solved");
+    engine.destroy();
+  });
+
+  it("emits patchesApplied during frame loop", () => {
+    let patchesFired = false;
+    const engine = new MazeEngine(BASE_OPTIONS, {
+      onPatchesApplied: () => { patchesFired = true; },
+    });
+
+    engine.startGeneration();
+    vi.advanceTimersByTime(200);
+
+    expect(patchesFired).toBe(true);
+    engine.pause();
+    engine.destroy();
+  });
+
+  it("does not reschedule when paused mid-loop", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration();
+    vi.advanceTimersByTime(20);
+    engine.pause();
+    const timersBefore = vi.getTimerCount();
+    vi.advanceTimersByTime(200);
+    expect(vi.getTimerCount()).toBe(timersBefore);
+    engine.destroy();
+  });
+});
+
 describe("maze engine scheduler", () => {
   it("stops scheduling frames while paused and restarts on resume", () => {
     const engine = new MazeEngine(BASE_OPTIONS);
