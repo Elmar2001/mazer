@@ -280,6 +280,89 @@ describe("maze engine battle mode", () => {
   });
 });
 
+describe("maze engine edge cases", () => {
+  it("resume when already running is a no-op", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration(); // paused=false
+    // Call resume without pausing first — should early-return (line 233)
+    engine.resume();
+    expect(engine.getPhase()).toBe("Generating");
+    engine.pause();
+    engine.destroy();
+  });
+
+  it("stepOnce when Idle returns without error", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    // Phase is Idle — processStep returns null (line 244-245)
+    engine.stepOnce();
+    expect(engine.getPhase()).toBe("Idle");
+    engine.destroy();
+  });
+
+  it("stepOnce when Generated returns without error", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    generateMaze(engine);
+    expect(engine.getPhase()).toBe("Generated");
+    engine.stepOnce(); // processStep returns null (line 244-245)
+    expect(engine.getPhase()).toBe("Generated");
+    engine.destroy();
+  });
+
+  it("reset while running cancels the RAF handle", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration();
+    // rafHandle is set — reset cancels it (lines 255-257)
+    engine.reset();
+    expect(engine.getPhase()).toBe("Idle");
+    expect(vi.getTimerCount()).toBe(0);
+    engine.destroy();
+  });
+
+  it("ensureLoop guard: calling startGeneration twice without advancing timers", () => {
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration(); // schedules RAF handle
+    const timersBefore = vi.getTimerCount();
+    // Second startGeneration → ensureLoop guard fires (lines 331-332)
+    engine.startGeneration();
+    expect(vi.getTimerCount()).toBe(timersBefore);
+    engine.pause();
+    engine.destroy();
+  });
+
+  it("requestAnimationFrame uses real rAF when available", () => {
+    const rafCalls: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      rafCalls.push(cb);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration(); // should call globalThis.requestAnimationFrame
+
+    expect(rafCalls.length).toBeGreaterThan(0);
+
+    // Invoke the RAF callback manually to exercise cancelAnimationFrame path
+    engine.pause(); // calls cancelAnimationFrame
+    engine.destroy();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("nowMs fallback uses Date.now when performance is unavailable", () => {
+    vi.stubGlobal("performance", undefined);
+
+    const engine = new MazeEngine(BASE_OPTIONS);
+    engine.startGeneration();
+    // Advance timers — nowMs() will be called inside onFrame via the setTimeout fallback
+    vi.advanceTimersByTime(100);
+    engine.pause();
+    engine.destroy();
+
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("maze engine api surface", () => {
   it("getOptions returns current options", () => {
     const engine = new MazeEngine(BASE_OPTIONS);
