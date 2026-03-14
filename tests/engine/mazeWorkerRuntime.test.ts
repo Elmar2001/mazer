@@ -241,4 +241,120 @@ describe("maze worker runtime", () => {
 
     runtime.dispose();
   });
+
+  it("handles setSpeed command", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: BASE_OPTIONS });
+    events.length = 0;
+
+    send({ type: "setSpeed", speed: 500 });
+    // No error should be emitted
+    expect(findLastEvent(events, "error")).toBeUndefined();
+
+    runtime.dispose();
+  });
+
+  it("handles rebuildGrid command", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: BASE_OPTIONS });
+    events.length = 0;
+
+    send({ type: "rebuildGrid", width: 10, height: 10 });
+
+    const gridEvent = findLastEvent(events, "gridRebuilt");
+    expect(gridEvent).toBeDefined();
+    expect(gridEvent?.grid.width).toBe(10);
+    expect(gridEvent?.grid.height).toBe(10);
+
+    const phaseEvent = findLastEvent(events, "phaseChange");
+    expect(phaseEvent?.phase).toBe("Idle");
+
+    runtime.dispose();
+  });
+
+  it("handles reset command and returns to Idle", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: { ...BASE_OPTIONS, width: 4, height: 4 } });
+
+    send({ type: "generate" });
+    send({ type: "pause" });
+    for (let i = 0; i < 300; i += 1) {
+      send({ type: "stepOnce" });
+      if (findLastEvent(events, "phaseChange")?.phase === "Generated") break;
+    }
+
+    events.length = 0;
+    send({ type: "reset" });
+
+    const phaseEvent = findLastEvent(events, "phaseChange");
+    expect(phaseEvent?.phase).toBe("Idle");
+
+    runtime.dispose();
+  });
+
+  it("handles resume command during active solving", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: { ...BASE_OPTIONS, width: 4, height: 4 } });
+
+    send({ type: "generate" });
+    send({ type: "pause" });
+    for (let i = 0; i < 300; i += 1) {
+      send({ type: "stepOnce" });
+      if (findLastEvent(events, "phaseChange")?.phase === "Generated") break;
+    }
+
+    send({ type: "solve" });
+    send({ type: "pause" });
+    events.length = 0;
+
+    send({ type: "resume" });
+    const snapshot = findLastEvent(events, "runtimeSnapshot");
+    expect(snapshot?.runtime.phase).toBe("Solving");
+    expect(snapshot?.runtime.paused).toBe(false);
+
+    send({ type: "pause" });
+    runtime.dispose();
+  });
+
+  it("handles dispose command via handleCommand", () => {
+    const { events, send } = createHarness();
+    send({ type: "init", options: BASE_OPTIONS });
+    events.length = 0;
+
+    // Should not throw
+    send({ type: "dispose" });
+    expect(findLastEvent(events, "error")).toBeUndefined();
+  });
+
+  it("re-initializes engine on second init command", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: BASE_OPTIONS });
+    events.length = 0;
+
+    // Second init should dispose existing engine and create a new one
+    send({ type: "init", options: { ...BASE_OPTIONS, width: 6, height: 6 } });
+
+    const gridEvent = findLastEvent(events, "gridRebuilt");
+    expect(gridEvent).toBeDefined();
+    expect(gridEvent?.grid.width).toBe(6);
+
+    runtime.dispose();
+  });
+
+  it("applyLineMeta tracks generator active line from step meta", () => {
+    const { events, runtime, send } = createHarness();
+    send({ type: "init", options: { ...BASE_OPTIONS, width: 5, height: 5 } });
+    events.length = 0;
+
+    send({ type: "generate" });
+    send({ type: "pause" });
+    send({ type: "stepOnce" });
+
+    const snapshot = findLastEvent(events, "runtimeSnapshot");
+    expect(snapshot).toBeDefined();
+    // generatorActiveLine may be a number or null depending on the generator
+    expect(snapshot?.runtime.generatorActiveLine === null || typeof snapshot?.runtime.generatorActiveLine === "number").toBe(true);
+
+    runtime.dispose();
+  });
 });
