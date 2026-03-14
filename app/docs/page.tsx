@@ -166,6 +166,12 @@ export default function DocsPage() {
             <a href="#solvers" className="docsBtn docsBtnGhost">
               Jump to Solvers
             </a>
+            <Link href="/architecture" className="docsBtn docsBtnArch">
+              View Architecture
+            </Link>
+            <Link href="/architecture-gemini" className="docsBtn docsBtnArchGemini">
+              View Architecture (Gemini)
+            </Link>
           </div>
         </div>
 
