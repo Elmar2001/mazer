@@ -36,7 +36,8 @@ export const culDeSacFillerSolver: SolverPlugin<
 > = {
   id: "cul-de-sac-filler",
   label: "Cul-de-sac Filler (Dead-End Filling)",
-  implementationKind: "native",
+  implementationKind: "alias",
+  aliasOf: "dead-end-filling",
   create({ grid, options }) {
     const parents = new Int32Array(grid.cellCount);
     parents.fill(-1);

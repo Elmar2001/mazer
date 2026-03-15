@@ -69,7 +69,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "prim-modified": {
-    title: "Prim (Modified)",
+    title: "Prim (Modified) (Growing Tree)",
     summary: "Random-active-cell growth (Growing Tree random policy).",
     lines: [
       "if first step: seed active list with start",
@@ -249,7 +249,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "bfs-tree": {
-    title: "Randomized BFS Tree",
+    title: "Randomized BFS Tree (Growing Tree)",
     summary: "Queue-driven wavefront spanning tree.",
     lines: [
       "if first step: enqueue and visit start",
@@ -333,7 +333,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   braid: {
-    title: "Braid (Dead-End Reduction)",
+    title: "Braid (Dead-End Reduction DFS)",
     summary: "Generate a perfect maze, then open select dead ends to add loops.",
     lines: [
       "generate a base perfect maze (DFS backtracker)",
@@ -357,7 +357,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   vortex: {
-    title: "Vortex Maze (Xu/Kaplan-inspired DFS)",
+    title: "Vortex Maze (DFS Backtracker)",
     summary: "DFS-style growth with swirl-biased neighbor scoring around vortex centers.",
     lines: [
       "seed several random vortex centers",
@@ -453,7 +453,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "mycelial-anastomosis": {
-    title: "Mycelial Anastomosis (Multi-Source Kruskal's & Random Walk)",
+    title: "Mycelial Anastomosis (Multi-Source Kruskal's)",
     summary: "Concurrent organic growth from multiple spores, merging on contact.",
     lines: [
       "if all components merged: clear frontiers and finish",
@@ -514,7 +514,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "ising-model": {
-    title: "Magnetic Spin Crystallization (Ising-Weighted Kruskal's)",
+    title: "Magnetic Spin Crystallization (Kruskal's)",
     summary: "Simulate Ising spins via Metropolis-Hastings, crystallizing spin networks into passage weights.",
     lines: [
       "if all cells are connected: finish",

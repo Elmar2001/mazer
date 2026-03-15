@@ -55,6 +55,9 @@ export const resonantPhaseLockGenerator: GeneratorPlugin<
 > = {
   id: "resonant-phase-lock",
   label: "Resonant Phase-Lock (Noise-Weighted Growing Tree)",
+  tier: "alias",
+  implementationKind: "alias",
+  aliasOf: "growing-tree",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&

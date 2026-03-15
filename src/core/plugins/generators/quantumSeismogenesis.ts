@@ -33,6 +33,9 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 > = {
     id: "quantum-seismogenesis",
     label: "Quantum Seismogenesis (Multi-Source Prim's)",
+    tier: "alias",
+    implementationKind: "alias",
+    aliasOf: "prim",
     create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {

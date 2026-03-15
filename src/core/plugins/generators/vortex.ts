@@ -32,7 +32,9 @@ export const vortexGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "vortex",
-  label: "Vortex Maze (Xu/Kaplan-inspired DFS)",
+  label: "Vortex Maze (DFS Backtracker)",
+  implementationKind: "alias",
+  aliasOf: "dfs-backtracker",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&

@@ -31,7 +31,10 @@ export const weightedAStarSolver: SolverPlugin<
   AlgorithmStepMeta
 > = {
   id: "weighted-astar",
-  label: "Weighted A*",
+  label: "Weighted A* (Greedy-Biased)",
+  tier: "alias",
+  implementationKind: "alias",
+  aliasOf: "astar",
   create({ grid, options }) {
     const parents = new Int32Array(grid.cellCount);
     parents.fill(-1);

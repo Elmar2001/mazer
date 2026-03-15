@@ -22,8 +22,10 @@ interface TremauxContext {
 
 export const tremauxSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
   id: "tremaux",
-  label: "Tremaux",
-  implementationKind: "native",
+  label: "Tremaux (DFS Path-Marking)",
+  tier: "alias",
+  implementationKind: "alias",
+  aliasOf: "dfs",
   create({ grid, rng, options }) {
     const parents = new Int32Array(grid.cellCount);
     parents.fill(-1);

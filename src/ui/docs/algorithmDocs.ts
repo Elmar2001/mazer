@@ -229,7 +229,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "bfs-tree",
-    name: "Randomized BFS Tree",
+    name: "Randomized BFS Tree (Growing Tree)",
     kind: "Generator",
     summary: "Builds a spanning tree layer-by-layer from a queue frontier.",
     howItWorks: [
@@ -420,7 +420,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "prim-modified",
-    name: "Prim (Modified)",
+    name: "Prim (Modified) (Growing Tree)",
     kind: "Generator",
     summary: "Random-active-cell variant close to Growing Tree random policy.",
     howItWorks: [
@@ -554,7 +554,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "braid",
-    name: "Braid (Dead-End Reduction)",
+    name: "Braid (Dead-End Reduction DFS)",
     kind: "Generator",
     summary:
       "Builds a perfect maze first, then removes dead ends by opening selected extra connections.",
@@ -594,7 +594,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "vortex",
-    name: "Vortex Maze (Xu/Kaplan-inspired DFS)",
+    name: "Vortex Maze (DFS Backtracker)",
     kind: "Generator",
     summary: "Swirl-biased depth-first carving guided by local vortex centers.",
     howItWorks: [
@@ -759,7 +759,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "mycelial-anastomosis",
-    name: "Mycelial Anastomosis (Multi-Source Kruskal's & Random Walk)",
+    name: "Mycelial Anastomosis (Multi-Source Kruskal's)",
     kind: "Generator",
     summary:
       "Simulates fungal hyphae that grow from multiple spores, branch, and occasionally merge separate growth networks.",
@@ -886,7 +886,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "ising-model",
-    name: "Magnetic Spin Crystallization (Ising-Weighted Kruskal's)",
+    name: "Magnetic Spin Crystallization (Kruskal's)",
     kind: "Generator",
     summary: "Uses simulated annealing with an Ising model to crystallize a random grid.",
     howItWorks: [
@@ -962,7 +962,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "astar-euclidean",
-    name: "A* (Euclidean)",
+    name: "A* (Euclidean Heuristic)",
     kind: "Solver",
     summary: "A* variant using straight-line distance heuristic.",
     howItWorks: [
@@ -981,7 +981,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "weighted-astar",
-    name: "Weighted A*",
+    name: "Weighted A* (Greedy-Biased)",
     kind: "Solver",
     summary:
       "Biases A* harder toward the heuristic for more aggressive search on unit-cost maze edges.",
@@ -1213,7 +1213,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "pledge",
-    name: "Pledge Algorithm",
+    name: "Pledge Algorithm (Wall Follower Extension)",
     kind: "Solver",
     summary: "Wall-following with turn accounting to escape loops/islands.",
     howItWorks: [
@@ -1232,7 +1232,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "tremaux",
-    name: "Tremaux",
+    name: "Tremaux (DFS Path-Marking)",
     kind: "Solver",
     summary: "Mark-based exploration that avoids repeatedly traversing passages.",
     howItWorks: [

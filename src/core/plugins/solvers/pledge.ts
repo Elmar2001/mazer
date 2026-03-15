@@ -29,8 +29,10 @@ interface PledgeContext {
 
 export const pledgeSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
   id: "pledge",
-  label: "Pledge Algorithm",
-  implementationKind: "native",
+  label: "Pledge Algorithm (Wall Follower Extension)",
+  tier: "alias",
+  implementationKind: "alias",
+  aliasOf: "wall-follower",
   create({ grid, options }) {
     const parents = new Int32Array(grid.cellCount);
     parents.fill(-1);

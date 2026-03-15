@@ -31,7 +31,10 @@ export const mycelialAnastomosisGenerator: GeneratorPlugin<
     AlgorithmStepMeta
 > = {
     id: "mycelial-anastomosis",
-    label: "Mycelial Anastomosis (Multi-Source Kruskal's & Random Walk)",
+    label: "Mycelial Anastomosis (Multi-Source Kruskal's)",
+    tier: "alias",
+    implementationKind: "alias",
+    aliasOf: "kruskal",
     create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {

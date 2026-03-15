@@ -22,7 +22,9 @@ export const primModifiedGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "prim-modified",
-  label: "Prim (Modified)",
+  label: "Prim (Modified) (Growing Tree)",
+  implementationKind: "alias",
+  aliasOf: "growing-tree",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&

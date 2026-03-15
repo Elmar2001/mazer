@@ -23,7 +23,9 @@ export const bfsTreeGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "bfs-tree",
-  label: "Randomized BFS Tree",
+  label: "Randomized BFS Tree (Growing Tree)",
+  implementationKind: "alias",
+  aliasOf: "growing-tree",
   create({ grid, rng, options }) {
     const start =
       typeof options.startIndex === "number" &&
