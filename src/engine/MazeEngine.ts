@@ -372,7 +372,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
         stepped = true;
         latestMeta = result.meta;
-        patches.push(...result.patches);
+        for (const patch of result.patches) patches.push(patch);
         for (const cell of result.dirtyCells) {
           dirtySet.add(cell);
         }
@@ -461,7 +461,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       const result = this.processSolverRuntime(this.solverPrimary);
       anyWork = true;
       latestMeta = result.meta;
-      patches.push(...result.patches);
+      for (const patch of result.patches) patches.push(patch);
       for (const cell of result.dirtyCells) {
         dirtySet.add(cell);
       }
@@ -471,7 +471,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       const result = this.processSolverRuntime(this.solverSecondary);
       anyWork = true;
       latestMeta = result.meta;
-      patches.push(...result.patches);
+      for (const patch of result.patches) patches.push(patch);
       for (const cell of result.dirtyCells) {
         dirtySet.add(cell);
       }

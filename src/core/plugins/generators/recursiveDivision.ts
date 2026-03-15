@@ -62,7 +62,7 @@ function stepRecursiveDivision(context: DivisionContext) {
   const stepPatches = context.steps[context.cursor] as CellPatch[];
   context.cursor += 1;
 
-  patches.push(...stepPatches);
+  for (const patch of stepPatches) patches.push(patch);
 
   for (const patch of stepPatches) {
     if (context.touched[patch.index] === 1) {
