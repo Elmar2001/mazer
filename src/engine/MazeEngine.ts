@@ -96,6 +96,14 @@ export class MazeEngine implements MazeEnginePublicApi {
 
   private accumulatorMs = 0;
 
+  private activeDirtySet = new Set<number>();
+
+  private framePatches: CellPatch[] = [];
+
+  private stepPatches: CellPatch[] = [];
+
+  private stepDirtyCells: number[] = [];
+
   constructor(options: MazeEngineOptions, callbacks: MazeEngineCallbacks = {}) {
     const safeSize = clampGridSizeByCells(options.width, options.height);
     this.options = {
@@ -354,8 +362,8 @@ export class MazeEngine implements MazeEnginePublicApi {
       const stepInterval = 1000 / this.options.speed;
       this.accumulatorMs += delta;
 
-      const dirtySet = new Set<number>();
-      const patches: CellPatch[] = [];
+      this.activeDirtySet.clear();
+      this.framePatches.length = 0;
       let latestMeta: StepMeta | undefined;
       let stepped = false;
       let iteration = 0;
@@ -372,9 +380,9 @@ export class MazeEngine implements MazeEnginePublicApi {
 
         stepped = true;
         latestMeta = result.meta;
-        for (const patch of result.patches) patches.push(patch);
+        for (const patch of result.patches) this.framePatches.push(patch);
         for (const cell of result.dirtyCells) {
-          dirtySet.add(cell);
+          this.activeDirtySet.add(cell);
         }
 
         this.accumulatorMs -= stepInterval;
@@ -386,10 +394,11 @@ export class MazeEngine implements MazeEnginePublicApi {
       }
 
       if (stepped) {
-        this.metrics.dirtyCellCount += dirtySet.size;
+        this.metrics.dirtyCellCount += this.activeDirtySet.size;
         this.recomputeDerivedMetrics();
         this.syncBattleMetricsSnapshot();
-        this.emitPatches(Array.from(dirtySet), patches, latestMeta);
+        const dirtyArray = Array.from(this.activeDirtySet);
+        this.emitPatches(dirtyArray, this.framePatches, latestMeta);
       }
     }
 
@@ -443,7 +452,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     return {
       done: result.done,
-      dirtyCells,
+      dirtyCells: result.patches.map(p => p.index),
       patches: result.patches,
       meta: result.meta,
     };
@@ -452,8 +461,10 @@ export class MazeEngine implements MazeEnginePublicApi {
   private processSolvingStep():
     | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
     | null {
-    const dirtySet = new Set<number>();
-    const patches: CellPatch[] = [];
+    const dirtyCells = this.stepDirtyCells;
+    const patches = this.stepPatches;
+    dirtyCells.length = 0;
+    patches.length = 0;
     let latestMeta: StepMeta | undefined;
     let anyWork = false;
 
@@ -463,7 +474,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       latestMeta = result.meta;
       for (const patch of result.patches) patches.push(patch);
       for (const cell of result.dirtyCells) {
-        dirtySet.add(cell);
+        dirtyCells.push(cell);
       }
     }
 
@@ -473,7 +484,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       latestMeta = result.meta;
       for (const patch of result.patches) patches.push(patch);
       for (const cell of result.dirtyCells) {
-        dirtySet.add(cell);
+        dirtyCells.push(cell);
       }
     }
 
@@ -498,7 +509,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     return {
       done,
-      dirtyCells: Array.from(dirtySet),
+      dirtyCells,
       patches,
       meta: latestMeta,
     };

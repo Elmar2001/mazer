@@ -49,6 +49,8 @@ export class MazeWorkerRuntime {
 
   private activeLines: ActiveLineState = createEmptyLineState();
 
+  private lastSnapshotTs = 0;
+
   constructor(private readonly emit: MazeWorkerEventEmitter) {}
 
   handleCommand(command: MazeWorkerCommand): void {
@@ -207,6 +209,15 @@ export class MazeWorkerRuntime {
   }
 
   private emitRuntimeSnapshot(metrics: MazeMetrics): void {
+    const isTest = typeof process !== "undefined" && process.env.NODE_ENV === "test";
+    const now = Date.now();
+    if (!isTest && now - this.lastSnapshotTs < 60) {
+      if (this.phase !== "Solved" && this.phase !== "Generated" && this.phase !== "Idle") {
+        return;
+      }
+    }
+    this.lastSnapshotTs = now;
+
     const runtime: WorkerRuntimeSnapshot = {
       phase: this.phase,
       paused: this.paused,

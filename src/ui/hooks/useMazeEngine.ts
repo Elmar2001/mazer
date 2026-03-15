@@ -160,7 +160,7 @@ export function useMazeEngine(): UseMazeEngineResult {
           }
         }
 
-        rendererRef.current?.renderDirty(event.dirtyCells);
+        rendererRef.current?.renderDirty(event.dirtyCells, settingsRef.current.speed);
         return;
       }
 

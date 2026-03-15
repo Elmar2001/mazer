@@ -2,6 +2,8 @@ import { CrossingKind, OverlayFlag, WallFlag, type Grid } from "@/core/grid";
 import {
   CANVAS_MAX_BACKING_DIMENSION,
   CANVAS_MAX_BACKING_PIXELS,
+  RENDERING_SHADOW_CELL_SIZE_THRESHOLD,
+  RENDERING_SHADOW_SPEED_THRESHOLD,
 } from "@/config/limits";
 import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
 
@@ -29,6 +31,12 @@ export class CanvasRenderer {
 
   private dpr = 1;
 
+  private dirtyMask: Uint8Array | null = null;
+
+  private expandedDirtyIndices: number[] = [];
+
+  private isHighPerformance = true;
+
   constructor(
     canvas: HTMLCanvasElement,
     grid: Grid,
@@ -46,12 +54,14 @@ export class CanvasRenderer {
     this.colors = settings.colors ?? DEFAULT_COLOR_THEME;
 
     this.resize();
+    this.initBuffers();
     this.renderAll();
   }
 
   setGrid(grid: Grid): void {
     this.grid = grid;
     this.resize();
+    this.initBuffers();
     this.renderAll();
   }
 
@@ -66,6 +76,7 @@ export class CanvasRenderer {
     }
 
     this.resize();
+    this.initBuffers();
     this.renderAll();
   }
 
@@ -100,36 +111,66 @@ export class CanvasRenderer {
   renderAll(): void {
     const widthPx = this.grid.width * this.settings.cellSize;
     const heightPx = this.grid.height * this.settings.cellSize;
+    const size = this.settings.cellSize;
 
     this.ctx.fillStyle = this.colors.background;
     this.ctx.fillRect(0, 0, widthPx, heightPx);
 
+    // Batch checkerboard draws
+    this.ctx.fillStyle = this.colors.cellA;
+    this.ctx.beginPath();
+    for (let r = 0; r < this.grid.height; r++) {
+      for (let c = 0; c < this.grid.width; c++) {
+        if (((r + c) & 1) === 0) {
+          this.ctx.rect(c * size, r * size, size, size);
+        }
+      }
+    }
+    this.ctx.fill();
+
+    this.ctx.fillStyle = this.colors.cellB;
+    this.ctx.beginPath();
+    for (let r = 0; r < this.grid.height; r++) {
+      for (let c = 0; c < this.grid.width; c++) {
+        if (((r + c) & 1) !== 0) {
+          this.ctx.rect(c * size, r * size, size, size);
+        }
+      }
+    }
+    this.ctx.fill();
+
     for (let index = 0; index < this.grid.cellCount; index += 1) {
-      this.drawCell(index);
+      this.drawCell(index, true); // skipBaseFill=true
     }
   }
 
-  renderDirty(dirtyCells: number[]): void {
+  renderDirty(dirtyCells: number[], speed = 0): void {
     if (dirtyCells.length === 0) {
       return;
     }
 
-    const expanded = this.expandDirty(dirtyCells);
-    for (const index of expanded) {
+    this.isHighPerformance =
+      speed < RENDERING_SHADOW_SPEED_THRESHOLD &&
+      this.settings.cellSize >= RENDERING_SHADOW_CELL_SIZE_THRESHOLD;
+
+    this.expandDirty(dirtyCells);
+    for (const index of this.expandedDirtyIndices) {
       this.drawCell(index);
     }
   }
 
-  private drawCell(index: number): void {
+  private drawCell(index: number, skipBaseFill = false): void {
     const x = (index % this.grid.width) * this.settings.cellSize;
     const y = Math.floor(index / this.grid.width) * this.settings.cellSize;
     const size = this.settings.cellSize;
     const row = Math.floor(index / this.grid.width);
     const col = index % this.grid.width;
 
-    // Base cell fill — edge-to-edge, no gaps
-    this.ctx.fillStyle = ((row + col) & 1) === 0 ? this.colors.cellA : this.colors.cellB;
-    this.ctx.fillRect(x, y, size, size);
+    if (!skipBaseFill) {
+      // Base cell fill — edge-to-edge, no gaps
+      this.ctx.fillStyle = ((row + col) & 1) === 0 ? this.colors.cellA : this.colors.cellB;
+      this.ctx.fillRect(x, y, size, size);
+    }
 
     // Cell inset highlight — subtle inner bevel
     if (size > 9 && this.settings.showCellInset !== false) {
@@ -165,7 +206,7 @@ export class CanvasRenderer {
 
     // Path overlays — full cell fill with glow for connected trail
     if (this.settings.showPath && (overlays & OverlayFlag.Path) !== 0) {
-      if (size >= 12) {
+      if (size >= 12 && this.isHighPerformance) {
         this.ctx.shadowColor = this.colors.pathA;
         this.ctx.shadowBlur = size * 0.3;
       }
@@ -176,7 +217,7 @@ export class CanvasRenderer {
     }
 
     if (this.settings.showPath && (overlays & OverlayFlag.PathB) !== 0) {
-      if (size >= 12) {
+      if (size >= 12 && this.isHighPerformance) {
         this.ctx.shadowColor = this.colors.pathB;
         this.ctx.shadowBlur = size * 0.25;
       }
@@ -215,7 +256,7 @@ export class CanvasRenderer {
     const radius = size * radiusFraction;
     const lineW = Math.max(1.2, size * 0.07);
 
-    if (size >= 12) {
+    if (size >= 12 && this.isHighPerformance) {
       this.ctx.shadowColor = color;
       this.ctx.shadowBlur = size * 0.3;
     }
@@ -271,7 +312,7 @@ export class CanvasRenderer {
     // This eliminates gaps at corners where perpendicular walls meet,
     // since each wall rect extends fully into the corner pixel.
 
-    if (this.settings.showWallShadow !== false) {
+    if (this.settings.showWallShadow !== false && this.isHighPerformance) {
       const so = 0.6; // shadow offset
       this.ctx.fillStyle = this.colors.wallShadow;
       if ((walls & WallFlag.North) !== 0) {
@@ -311,7 +352,7 @@ export class CanvasRenderer {
       const cy = y + 2 + radius;
 
       // Glow
-      if (size >= 12) {
+      if (size >= 12 && this.isHighPerformance) {
         this.ctx.shadowColor = this.colors.start;
         this.ctx.shadowBlur = size * 0.5;
       }
@@ -338,7 +379,7 @@ export class CanvasRenderer {
       const cy = y + size - 2 - radius;
 
       // Glow
-      if (size >= 12) {
+      if (size >= 12 && this.isHighPerformance) {
         this.ctx.shadowColor = this.colors.goal;
         this.ctx.shadowBlur = size * 0.5;
       }
@@ -368,31 +409,62 @@ export class CanvasRenderer {
     }
   }
 
-  private expandDirty(cells: number[]): number[] {
-    const output = new Set<number>();
+  private expandDirty(cells: number[]): void {
+    if (!this.dirtyMask) return;
+    this.dirtyMask.fill(0);
+    this.expandedDirtyIndices.length = 0;
+
+    const { width, height } = this.grid;
 
     for (const index of cells) {
-      output.add(index);
-      const x = index % this.grid.width;
-      const y = Math.floor(index / this.grid.width);
-
-      if (x > 0) {
-        output.add(index - 1);
+      // Self
+      if (this.dirtyMask[index] === 0) {
+        this.dirtyMask[index] = 1;
+        this.expandedDirtyIndices.push(index);
       }
 
-      if (x + 1 < this.grid.width) {
-        output.add(index + 1);
-      }
+      const x = index % width;
+      const y = Math.floor(index / width);
 
+      // North
       if (y > 0) {
-        output.add(index - this.grid.width);
+        const i = index - width;
+        if (this.dirtyMask[i] === 0) {
+          this.dirtyMask[i] = 1;
+          this.expandedDirtyIndices.push(i);
+        }
       }
-
-      if (y + 1 < this.grid.height) {
-        output.add(index + this.grid.width);
+      // South
+      if (y + 1 < height) {
+        const i = index + width;
+        if (this.dirtyMask[i] === 0) {
+          this.dirtyMask[i] = 1;
+          this.expandedDirtyIndices.push(i);
+        }
+      }
+      // West
+      if (x > 0) {
+        const i = index - 1;
+        if (this.dirtyMask[i] === 0) {
+          this.dirtyMask[i] = 1;
+          this.expandedDirtyIndices.push(i);
+        }
+      }
+      // East
+      if (x + 1 < width) {
+        const i = index + 1;
+        if (this.dirtyMask[i] === 0) {
+          this.dirtyMask[i] = 1;
+          this.expandedDirtyIndices.push(i);
+        }
       }
     }
+  }
 
-    return Array.from(output);
+  private initBuffers(): void {
+    if (!this.dirtyMask || this.dirtyMask.length !== this.grid.cellCount) {
+      this.dirtyMask = new Uint8Array(this.grid.cellCount);
+      this.expandedDirtyIndices = [];
+    }
   }
 }
