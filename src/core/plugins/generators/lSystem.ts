@@ -256,6 +256,13 @@ function advanceTurtle(context: LSystemContext, patches: CellPatch[]): void {
   touchCell(current, context, patches);
   touchCell(next, context, patches);
 
+  if (context.trailIndex !== -1 && context.trailIndex !== next) {
+    patches.push({
+      index: context.trailIndex,
+      overlayClear: OverlayFlag.Frontier,
+    });
+  }
+
   context.trailIndex = next;
   patches.push({
     index: next,
