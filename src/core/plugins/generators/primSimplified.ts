@@ -10,7 +10,7 @@ export const primSimplifiedGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "prim-simplified",
-  label: "Prim (Simplified)",
+  label: "Prim (Simplified - Randomized Prim)",
   implementationKind: "alias",
   aliasOf: "prim",
   create(params) {

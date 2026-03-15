@@ -47,7 +47,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "prim-true": {
-    title: "Prim (True Frontier Edges)",
+    title: "Prim (True Frontier Edges - Random Prim)",
     summary: "Alias wrapper for Prim (Frontier Edges).",
     lines: [
       "delegate stepper creation to prim-frontier-edges",
@@ -58,7 +58,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "prim-simplified": {
-    title: "Prim (Simplified)",
+    title: "Prim (Simplified - Randomized Prim)",
     summary: "Alias wrapper for Randomized Prim.",
     lines: [
       "delegate stepper creation to prim",
@@ -357,7 +357,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   vortex: {
-    title: "Vortex Maze (Xu/Kaplan-inspired)",
+    title: "Vortex Maze (Xu/Kaplan-inspired DFS)",
     summary: "DFS-style growth with swirl-biased neighbor scoring around vortex centers.",
     lines: [
       "seed several random vortex centers",
@@ -478,7 +478,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "sandpile-avalanche": {
-    title: "Sandpile Avalanche",
+    title: "Sandpile Avalanche (Self-Organized Criticality)",
     summary: "Self-organized criticality: drop sand, topple at threshold, carve passages during avalanche cascades.",
     lines: [
       "pre-seed each cell with 1–3 sand grains (near criticality)",
@@ -514,7 +514,7 @@ export const GENERATOR_PSEUDOCODE: Record<
     ],
   },
   "ising-model": {
-    title: "Magnetic Spin Crystallization",
+    title: "Magnetic Spin Crystallization (Ising-Weighted Kruskal's)",
     summary: "Simulate Ising spins via Metropolis-Hastings, crystallizing spin networks into passage weights.",
     lines: [
       "if all cells are connected: finish",

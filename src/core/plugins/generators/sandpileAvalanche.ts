@@ -43,7 +43,7 @@ export const sandpileAvalancheGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "sandpile-avalanche",
-  label: "Sandpile Avalanche",
+  label: "Sandpile Avalanche (Self-Organized Criticality)",
   create({ grid, rng }) {
     const sand = new Uint8Array(grid.cellCount);
     const parent = new Int32Array(grid.cellCount);

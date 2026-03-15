@@ -10,7 +10,7 @@ export const primTrueGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "prim-true",
-  label: "Prim (True Frontier Edges)",
+  label: "Prim (True Frontier Edges - Random Prim)",
   implementationKind: "alias",
   aliasOf: "prim-frontier-edges",
   create(params) {

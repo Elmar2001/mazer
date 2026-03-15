@@ -382,7 +382,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "prim-true",
-    name: "Prim (True Frontier Edges)",
+    name: "Prim (True Frontier Edges - Random Prim)",
     kind: "Generator",
     summary: "Alias of Prim (Frontier Edges), kept for naming compatibility.",
     howItWorks: [
@@ -401,7 +401,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "prim-simplified",
-    name: "Prim (Simplified)",
+    name: "Prim (Simplified - Randomized Prim)",
     kind: "Generator",
     summary: "Alias of Randomized Prim (frontier-cell variant) with alternate naming.",
     howItWorks: [
@@ -594,7 +594,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "vortex",
-    name: "Vortex Maze (Xu/Kaplan-inspired)",
+    name: "Vortex Maze (Xu/Kaplan-inspired DFS)",
     kind: "Generator",
     summary: "Swirl-biased depth-first carving guided by local vortex centers.",
     howItWorks: [
@@ -819,7 +819,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "sandpile-avalanche",
-    name: "Sandpile Avalanche",
+    name: "Sandpile Avalanche (Self-Organized Criticality)",
     kind: "Generator",
     summary:
       "Builds a maze through self-organized criticality: sand grains accumulate and topple in cascading avalanches that carve passages at component boundaries.",
@@ -886,7 +886,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "ising-model",
-    name: "Magnetic Spin Crystallization",
+    name: "Magnetic Spin Crystallization (Ising-Weighted Kruskal's)",
     kind: "Generator",
     summary: "Uses simulated annealing with an Ising model to crystallize a random grid.",
     howItWorks: [

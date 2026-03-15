@@ -31,7 +31,7 @@ export const isingModelGenerator: GeneratorPlugin<
     AlgorithmStepMeta
 > = {
     id: "ising-model",
-    label: "Magnetic Spin Crystallization",
+  label: "Magnetic Spin Crystallization (Ising-Weighted Kruskal's)",
     create({ grid, rng }) {
         const context: IsingModelContext = {
             grid,
