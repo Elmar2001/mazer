@@ -70,7 +70,9 @@ function stepWeave(context: WeaveContext) {
 
   if (context.phase === "base") {
     const base = context.baseStepper.step();
-    patches.push(...base.patches);
+    for (const p of base.patches) {
+      patches.push(p);
+    }
 
     if (!base.done) {
       return {

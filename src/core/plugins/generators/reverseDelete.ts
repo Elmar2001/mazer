@@ -69,7 +69,9 @@ function stepReverseDelete(context: ReverseDeleteContext) {
 
   if (!context.opened) {
     context.opened = true;
-    patches.push(...buildOpenInternalPatches(context.grid));
+    for (const p of buildOpenInternalPatches(context.grid)) {
+      patches.push(p);
+    }
 
     return {
       done: context.edges.length === 0,
