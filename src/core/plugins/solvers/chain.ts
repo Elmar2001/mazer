@@ -4,7 +4,7 @@ import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
 
 export const chainSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
   id: "chain",
-  label: "Chain",
+  label: "Chain (Bidirectional BFS)",
   implementationKind: "alias",
   aliasOf: "bidirectional-bfs",
   create(params) {

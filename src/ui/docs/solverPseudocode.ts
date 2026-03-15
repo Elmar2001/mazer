@@ -119,7 +119,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "collision-solver": {
-    title: "Collision Solver",
+    title: "Collision Solver (Bidirectional BFS)",
     summary: "Alias wrapper for Bidirectional BFS.",
     lines: [
       "delegate stepper creation to bidirectional-bfs",
@@ -141,7 +141,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "cul-de-sac-filler": {
-    title: "Cul-de-sac Filler",
+    title: "Cul-de-sac Filler (Dead-End Filling)",
     summary: "Prune cul-de-sac branches first, then route on the reduced graph.",
     lines: [
       "initialize node degrees and enqueue removable non-endpoint leaves",
@@ -154,7 +154,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "blind-alley-sealer": {
-    title: "Blind Alley Sealer",
+    title: "Blind Alley Sealer (Dead-End Filling)",
     summary: "Alias wrapper for Dead-End Filling.",
     lines: [
       "delegate stepper creation to dead-end-filling",
@@ -165,7 +165,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "blind-alley-filler": {
-    title: "Blind Alley Filler",
+    title: "Blind Alley Filler (Dead-End Filling)",
     summary: "Alias wrapper for Dead-End Filling.",
     lines: [
       "delegate stepper creation to dead-end-filling",
@@ -199,7 +199,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "flood-fill": {
-    title: "Flood Fill",
+    title: "Flood Fill (Lee Wavefront)",
     summary: "Alias wrapper for Lee Wavefront.",
     lines: [
       "delegate stepper creation to lee-wavefront",
@@ -210,7 +210,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   "shortest-path-finder": {
-    title: "Shortest Path Finder",
+    title: "Shortest Path Finder (BFS)",
     summary: "Alias wrapper for Breadth-First Search (BFS).",
     lines: [
       "delegate stepper creation to bfs",
@@ -279,7 +279,7 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
     ],
   },
   chain: {
-    title: "Chain",
+    title: "Chain (Bidirectional BFS)",
     summary: "Global-map guided chaining between expanding fronts.",
     lines: [
       "initialize chained frontiers from both ends",

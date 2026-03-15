@@ -35,7 +35,7 @@ export const culDeSacFillerSolver: SolverPlugin<
   AlgorithmStepMeta
 > = {
   id: "cul-de-sac-filler",
-  label: "Cul-de-sac Filler",
+  label: "Cul-de-sac Filler (Dead-End Filling)",
   implementationKind: "native",
   create({ grid, options }) {
     const parents = new Int32Array(grid.cellCount);

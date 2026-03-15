@@ -7,7 +7,7 @@ export const shortestPathFinderSolver: SolverPlugin<
   AlgorithmStepMeta
 > = {
   id: "shortest-path-finder",
-  label: "Shortest Path Finder",
+  label: "Shortest Path Finder (BFS)",
   implementationKind: "alias",
   aliasOf: "bfs",
   create(params) {

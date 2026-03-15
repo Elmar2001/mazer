@@ -4,7 +4,7 @@ import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
 
 export const floodFillSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
   id: "flood-fill",
-  label: "Flood Fill",
+  label: "Flood Fill (Lee Wavefront)",
   implementationKind: "alias",
   aliasOf: "lee-wavefront",
   create(params) {

@@ -7,7 +7,7 @@ export const blindAlleyFillerSolver: SolverPlugin<
   AlgorithmStepMeta
 > = {
   id: "blind-alley-filler",
-  label: "Blind Alley Filler",
+  label: "Blind Alley Filler (Dead-End Filling)",
   implementationKind: "alias",
   aliasOf: "dead-end-filling",
   create(params) {

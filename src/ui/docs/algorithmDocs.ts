@@ -1195,7 +1195,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "flood-fill",
-    name: "Flood Fill",
+    name: "Flood Fill (Lee Wavefront)",
     kind: "Solver",
     summary: "Alias of Lee Wavefront under an alternative name.",
     howItWorks: [
@@ -1251,7 +1251,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "chain",
-    name: "Chain",
+    name: "Chain (Bidirectional BFS)",
     kind: "Solver",
     summary: "Alias of Bidirectional BFS with legacy naming.",
     howItWorks: [
@@ -1270,7 +1270,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "cul-de-sac-filler",
-    name: "Cul-de-sac Filler",
+    name: "Cul-de-sac Filler (Dead-End Filling)",
     kind: "Solver",
     summary: "Extends dead-end elimination to prune cul-de-sac style branches.",
     howItWorks: [
@@ -1288,7 +1288,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "blind-alley-sealer",
-    name: "Blind Alley Sealer",
+    name: "Blind Alley Sealer (Dead-End Filling)",
     kind: "Solver",
     summary: "Alias of Dead-End Filling with alternate terminology.",
     howItWorks: [
@@ -1306,7 +1306,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "blind-alley-filler",
-    name: "Blind Alley Filler",
+    name: "Blind Alley Filler (Dead-End Filling)",
     kind: "Solver",
     summary: "Alias of Dead-End Filling with alternate terminology.",
     howItWorks: [
@@ -1324,7 +1324,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "collision-solver",
-    name: "Collision Solver",
+    name: "Collision Solver (Bidirectional BFS)",
     kind: "Solver",
     summary: "Alias of Bidirectional BFS with collision-focused naming.",
     howItWorks: [
@@ -1362,7 +1362,7 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
   },
   {
     id: "shortest-path-finder",
-    name: "Shortest Path Finder",
+    name: "Shortest Path Finder (BFS)",
     kind: "Solver",
     summary: "Alias of BFS for single shortest-path extraction.",
     howItWorks: [

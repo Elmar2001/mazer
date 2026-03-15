@@ -4,7 +4,7 @@ import type { AlgorithmStepMeta, SolverRunOptions } from "@/core/plugins/types";
 
 export const collisionSolver: SolverPlugin<SolverRunOptions, AlgorithmStepMeta> = {
   id: "collision-solver",
-  label: "Collision Solver",
+  label: "Collision Solver (Bidirectional BFS)",
   implementationKind: "alias",
   aliasOf: "bidirectional-bfs",
   create(params) {
