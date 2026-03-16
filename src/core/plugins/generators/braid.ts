@@ -24,10 +24,9 @@ export const braidGenerator: GeneratorPlugin<
   AlgorithmStepMeta
 > = {
   id: "braid",
-  label: "Braid (Dead-End Reduction DFS)",
-  tier: "alias",
-  implementationKind: "alias",
-  aliasOf: "dfs-backtracker",
+  label: "Braid (DFS + Dead-End Reduction)",
+  tier: "advanced",
+  implementationKind: "hybrid",
   create({ grid, rng, options }) {
     const baseStepper = dfsBacktrackerGenerator.create({
       grid,
