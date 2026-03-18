@@ -275,6 +275,54 @@ expect(isFullyConnected(g1)).toBe(true);       // connectivity
 expect(analyzeMazeGraph(g1, 0, 99).cycleCount).toBe(0); // topology
 ```
 
+## Adding a new algorithm (checklist)
+
+When adding a new generator or solver plugin, **all** of the following must be updated or CI will fail:
+
+### Generator
+1. Create `src/core/plugins/generators/<kebab-name>.ts` — export a `GeneratorPlugin` object with `id`, `name`, `label`, `create()`.
+2. Register it in `src/core/plugins/generators/index.ts` — add to imports, `GENERATOR_TOPOLOGY` (if not `perfect-planar`), and the `generatorPlugins` catalog array.
+3. Add pseudocode in `src/ui/docs/generatorPseudocode.ts` — keyed by plugin ID; `algorithmCatalog.test.ts` enforces this.
+4. Add a doc entry in `src/ui/docs/algorithmDocs.ts` — `GENERATOR_DOCS` array; same test enforces this.
+5. Tests: `tests/core/generators.test.ts` auto-covers all registered generators (determinism, connectivity, topology). No manual test addition needed unless the algorithm has special params.
+
+### Solver
+1. Create `src/core/plugins/solvers/<kebab-name>.ts` — export a `SolverPlugin` object.
+2. Register in `src/core/plugins/solvers/index.ts` — add to imports, optionally to `NO_LOOPY_SUPPORT` / `NO_WEAVE_SUPPORT` deny-lists, and the `solverPlugins` catalog array.
+3. Add pseudocode in `src/ui/docs/solverPseudocode.ts`.
+4. Add a doc entry in `src/ui/docs/algorithmDocs.ts` — `SOLVER_DOCS` array.
+5. Tests: `tests/core/solvers.test.ts` auto-covers all registered solvers.
+
+### Alias algorithms
+Some plugins are aliases (thin wrappers) around another algorithm with different default params (e.g., `primModified`, `primSimplified`, `primTrue`, `bfsTree`). These still need full registry + docs + pseudocode entries.
+
+## Solver compatibility model
+
+Compatibility is **deny-list based**, not per-plugin opt-in (`src/core/plugins/solvers/index.ts:59-137`):
+- `NO_LOOPY_SUPPORT`: solvers that break on mazes with cycles (e.g., wall followers, dead-end fillers).
+- `NO_WEAVE_SUPPORT`: solvers that can't handle tunnel/crossing topology.
+- A solver **not** in either deny-list is assumed compatible with all topologies.
+- One incorrect deny-list entry misclassifies the solver for every generator that produces that topology — verify compatibility carefully.
+
+Generator topology output (`src/core/plugins/generators/index.ts:87-114`):
+- Generators not listed in `GENERATOR_TOPOLOGY` default to `perfect-planar`.
+- Valid topologies: `perfect-planar`, `loopy-planar`, `weave`.
+
+## Silent failure behaviors
+
+These are intentional design choices, not bugs — but they can confuse debugging:
+
+- `sendCommand()` is a **no-op** when no worker/runtime transport exists (`useMazeEngine.ts:81-95`).
+- `startSolving()` **silently returns** if phase is not `Generated` or `Solved` (`MazeEngine.ts:176-179`).
+- Worker creation failures are **logged to console and downgraded** to in-thread fallback — no user-visible error (`useMazeEngine.ts:221-225`).
+- An exception inside `step()` **silently crashes** the animation loop (no error boundary — see known issues).
+
+## Worker runtime details
+
+- **Snapshot throttling**: runtime snapshots are emitted at most once per 60ms, except in terminal phases where they emit immediately. In test mode (`NODE_ENV === "test"`), throttling is disabled entirely (`mazeWorkerRuntime.ts:211-234`).
+- **Grid transfer**: `gridRebuilt` events use `Transferable` (zero-copy), but `createGridSnapshot` first `.slice()`s every typed array — so it's actually a full copy before transfer (`mazeWorkerProtocol.ts:90-109`).
+- **Patch events**: use structured clone (not transferable), so they're copied on every frame.
+
 ## Known issues / improvement areas
 
 - **No plugin error boundary**: an exception inside `step()` propagates to the RAF callback and silently crashes the animation loop. Should add try/catch in `processGenerationStep`/`processSolverRuntime` to emit an `error` event and transition to `Idle`.
