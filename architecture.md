@@ -1,1355 +1,914 @@
 # Mazer Architecture
 
-> **Definitive technical reference for the Mazer maze algorithm visualizer.**
-> Covers every architectural layer, data model, execution loop, and design decision.
-> All source references are precise: file paths and line numbers were verified against the actual codebase.
+## 1. Project Overview
 
----
+`Mazer` is a deterministic maze generation and solving visualizer built as a Next.js App Router application with a React client, a canvas renderer, and a worker-backed execution path. The functional core of the system is a large plugin catalog of maze generators and solvers, each exposed through shared interfaces and stepped incrementally so the UI can animate algorithm progress instead of jumping directly to the final state. The visible users are people exploring or comparing maze algorithms through the browser UI, while the code also supports internal documentation routes that expose algorithm metadata and architectural notes.
 
-## Table of Contents
+[INFERRED]: The business domain is developer tooling / educational visualization rather than transactional SaaS, because the repository contains no account system, billing, persistence, or business workflow code, but it does contain rich algorithm catalogs, pseudocode traces, and architecture-documentation routes (`README.md:3`, `app/docs/page.tsx:144-219`, `src/ui/docs/algorithmDocs.ts:17-220`).
 
-1. [Project Overview & Domain](#1-project-overview--domain)
-2. [Tech Stack & Environment](#2-tech-stack--environment)
-3. [Project Structure & Boundary Enforcement](#3-project-structure--boundary-enforcement)
-4. [Architecture & Design Patterns](#4-architecture--design-patterns)
-5. [Core Components & High-Performance Data Models](#5-core-components--high-performance-data-models)
-6. [Algorithm Plugin Ecosystem](#6-algorithm-plugin-ecosystem)
-7. [Data Flow & Execution Lifecycle](#7-data-flow--execution-lifecycle)
-8. [State Management](#8-state-management)
-9. [Configuration & Ecosystem Tuning](#9-configuration--ecosystem-tuning)
-10. [Testing Strategy & CI Considerations](#10-testing-strategy--ci-considerations)
-11. [Security & Edge Case Analysis](#11-security--edge-case-analysis)
-12. [Performance & Scalability Analysis](#12-performance--scalability-analysis)
-13. [Architectural Diagrams](#13-architectural-diagrams)
-14. [Interesting & Non-Obvious Facts](#14-interesting--non-obvious-facts)
-15. [Improvement Recommendations](#15-improvement-recommendations)
+[INFERRED]: Scale and tenancy are browser-local and single-session. The application exports statically (`next.config.ts:3-6`), keeps runtime state in memory with Zustand (`src/ui/store/mazeStore.ts:144-147`), stores maze state in typed arrays (`src/core/grid.ts:53-61`), and does not define any server-side database, authentication, or tenant partitioning.
 
----
+Concrete finding: the product surface is entirely centered on local maze execution, visualization, and documentation; no multi-user or backend service behavior is present in the codebase.
 
-## 1. Project Overview & Domain
+## 2. Tech Stack
 
-### What Is Mazer?
+| Layer | Technology | Version | Purpose |
+|-------|------------|---------|---------|
+| Runtime | Node.js | `20` | CI runtime declared in `.github/workflows/ci.yml:15-19` for lint, typecheck, test, and build. |
+| Runtime | Browser Web APIs | Browser-provided | Canvas rendering, `requestAnimationFrame`, and `Worker` transport (`src/render/CanvasRenderer.ts:40-59`, `src/ui/hooks/useMazeEngine.ts:194-239`). |
+| Language | TypeScript | `5.7.3` | Primary implementation language from `package.json:27`. |
+| Framework | Next.js | `15.2.2` | App Router framework and static export host (`package.json:15`, `next.config.ts:3-6`). |
+| UI | React | `19.0.0` | Client component model (`package.json:16`). |
+| UI | React DOM | `19.0.0` | Browser rendering runtime (`package.json:17`). |
+| State Management | Zustand | `5.0.2` | Client-side state container (`package.json:18`, `src/ui/store/mazeStore.ts:1-2`). |
+| Build / Dev | Turbopack | Bundled with `next@15.2.2` | Development bundler via `next dev --turbopack` (`package.json:6`). |
+| Build / Typecheck | TypeScript Compiler (`tsc`) | `5.7.3` | Static type checking via `npm run typecheck` (`package.json:10`, `package.json:27`). |
+| Linting | ESLint | `^9.39.3` | Lint runner dependency (`package.json:25`). |
+| Linting | `eslint-config-next` | `^16.1.6` | Next.js ESLint ruleset (`package.json:26`, `eslint.config.mjs:1-6`). |
+| Testing | Vitest | `3.0.5` | Unit and integration-style test runner (`package.json:28`, `vitest.config.ts:4-13`). |
+| Testing | `@vitest/coverage-v8` | `^3.0.5` | Coverage provider dependency (`package.json:24`). |
+| Types | `@types/node` | `22.13.8` | Node typings (`package.json:21`). |
+| Types | `@types/react` | `19.0.10` | React typings (`package.json:22`). |
+| Types | `@types/react-dom` | `19.0.4` | React DOM typings (`package.json:23`). |
+| CI/CD | GitHub Actions `actions/checkout` | `v4` | Source checkout in CI (`.github/workflows/ci.yml:12-13`). |
+| CI/CD | GitHub Actions `actions/setup-node` | `v4` | Node provisioning and npm cache in CI (`.github/workflows/ci.yml:15-19`). |
 
-Mazer is a **deterministic maze generation and solving visualizer**. It renders the step-by-step internal state of classic and exotic graph algorithms directly onto an HTML5 Canvas, frame by frame, so users can watch the "thinking process" of algorithms like Prim's MST, Recursive Division, Wilson's loop-erased random walk, Wave Function Collapse, or A* pathfinding in real time.
+[INFERRED]: `next@15.2.2` is behind the current documented Next.js major release, because the official Next.js upgrade guide is titled “How to upgrade to version 16” and is dated March 16, 2026.  
+[INFERRED]: `eslint-config-next@^16.1.6` is one major version ahead of `next@15.2.2`, so the repository has a Next/ESLint package-major mismatch directly in `package.json:15-27`.  
+[INFERRED]: The CI runtime `Node.js 20` is not end-of-life at time of analysis; the official Node.js release table lists `v20` as `Maintenance LTS`, not unsupported.
 
-The core educational proposition is **algorithm transparency**: rather than presenting a finished maze, Mazer exposes every intermediate state transition as a visual event. Each cell carving, frontier expansion, path relaxation, or solver backtrack is rendered at the exact frame it occurs.
+Concrete finding: the stack is intentionally small and front-end-heavy, but the linting toolchain is version-skewed relative to the framework version in use.
 
-### Domain Model
+## 3. Project Structure
 
-The problem domain is a **2D grid maze** modeled as a planar graph:
-
-- **Cells** are nodes.
-- **Walls** are the *absence* of edges between adjacent nodes.
-- **Generation** = building a spanning tree (or loopy graph) by progressively removing walls.
-- **Solving** = traversing the resulting graph from `index=0` (top-left) to `index=cellCount-1` (bottom-right).
-
-Mazer supports three topological categories:
-
-| Topology | Description | Example Algorithms |
-|---|---|---|
-| `perfect-planar` | Spanning tree — exactly one path between any two cells | DFS Backtracker, Prim, Wilson, Eller |
-| `loopy-planar` | Contains cycles — multiple paths may exist | Braid, Percolation, Reaction Diffusion |
-| `weave` | Cells can cross over/under each other via tunnels | Weave Growing Tree |
-
-### Likely Users
-
-- **Computer science students** studying graph algorithms and data structures.
-- **Algorithm enthusiasts** exploring the visual aesthetics of maze-construction heuristics.
-- **Educators** demonstrating BFS vs. DFS, MST algorithms, or heuristic search.
-- **Developers** evaluating Mazer as a reference implementation of a plugin-based step visualization engine.
-
----
-
-## 2. Tech Stack & Environment
-
-### Frontend Stack
-
-| Concern | Technology | Version |
-|---|---|---|
-| Framework | Next.js (App Router) | 15.x |
-| UI Library | React | 19.x |
-| Language | TypeScript (strict) | 5.7.x |
-| State Management | Zustand | 5.x |
-| Styling | CSS Modules + global CSS | — |
-| Fonts | Google Fonts via Next.js font optimization | — |
-
-### Rendering Layer
-
-- **Raw HTML5 Canvas 2D API** — no WebGL, no third-party canvas library.
-- **DPR-aware scaling**: the renderer computes a safe device pixel ratio that respects both native DPR and hard limits on canvas backing-store dimensions (`CANVAS_MAX_BACKING_DIMENSION = 16,384px`, `CANVAS_MAX_BACKING_PIXELS = 48,000,000`).
-- **Dirty-cell redraw**: only cells that changed (plus their cardinal neighbors) are redrawn per frame.
-
-### Build & Test Tools
-
-| Tool | Purpose |
-|---|---|
-| Next.js (webpack/turbopack) | App bundle, static export |
-| TypeScript `tsc --noEmit` | Full type checking |
-| ESLint (`--max-warnings=0`) | Zero-warning lint gate |
-| Vitest 3.x | Unit + integration tests (Node environment) |
-| Vitest fake timers | RAF/setTimeout mocking in engine tests |
-
-### Runtime Environments
-
-- **Browser**: Primary runtime. `requestAnimationFrame` drives the visualization loop. The engine runs inside a Web Worker (preferred) or falls back to the main thread.
-- **Node.js**: Used exclusively by Vitest for tests. The engine detects the absence of `requestAnimationFrame` and falls back to `setTimeout(..., 16)` at `MazeEngine.ts:779`.
-- **Web Worker**: `maze.worker.ts` provides algorithmic isolation from the main thread. Transferable `ArrayBuffer` objects enable zero-copy grid snapshots over the worker boundary.
-
----
-
-## 3. Project Structure & Boundary Enforcement
-
-### Annotated Directory Tree
-
-```
-mazer/
-├── app/                          # Next.js App Router entry points
-│   ├── layout.tsx                # Root HTML shell, font config, metadata
-│   ├── page.tsx                  # Single-page client component ("use client")
-│   └── globals.css               # Global CSS resets, font variables
-│
-├── src/
+```text
+/
+├── .claude/                                   # Local assistant configuration for this workspace
+│   └── settings.local.json                    # Tooling/assistant local settings artifact
+├── .github/                                   # Repository automation metadata
+│   └── workflows/
+│       └── ci.yml                             # CI pipeline: install, lint, typecheck, test, build
+├── .git/                                      # [GENERATED — do not edit] Git metadata directory
+├── .next/                                     # [GENERATED — do not edit] Next.js build metadata
+├── .worktrees/                                # Local git worktree support directory
+├── AGENTS.md                                  # Repository operating instructions for coding agents
+├── AUDIT_IMPOSTOR_ALGORITHMS_2026-03-16.md    # Supplemental audit document
+├── AUDIT_KEY_FINDINGS.md                      # Supplemental audit findings document
+├── CLAUDE.md                                  # Supplemental assistant-facing project notes
+├── Experimental_change.md                     # Supplemental design/change note
+├── GEMINI.md                                  # Supplemental assistant-facing project notes
+├── IMPOSTOR_AUDIT_IMPLEMENTATION_SUMMARY.md   # Supplemental audit summary document
+├── README.md                                  # Primary repository overview and usage guide
+├── app/                                       # [PRIMARY SOURCE] Next.js App Router routes and global styles
+│   ├── architecture/
+│   │   └── page.tsx                           # [ENTRY POINT] Server component that reads and renders `architecture.md`
+│   ├── architecture-gemini/
+│   │   └── page.tsx                           # [ENTRY POINT] Server component that reads and renders `architecture_gemini.md`
+│   ├── docs/
+│   │   └── page.tsx                           # [ENTRY POINT] Algorithm documentation route
+│   ├── globals.css                            # Global CSS for application and docs routes
+│   ├── layout.tsx                             # [ENTRY POINT] Root layout, metadata, and font wiring
+│   └── page.tsx                               # [ENTRY POINT] Main visualizer route
+├── architecture.md                            # [PRIMARY DOC] Verified architecture document for this repository
+├── architecture_gemini.md                     # Alternate architecture document consumed by `/architecture-gemini`
+├── architecture_legacy.md                     # Legacy architecture write-up retained in repo
+├── autoresearch-results.tsv                   # Supplemental research artifact
+├── coverage/                                  # [GENERATED — do not edit] Test coverage output directory
+├── eslint.config.mjs                          # ESLint flat config composed from Next.js presets
+├── next-env.d.ts                              # [GENERATED — do not edit] Next.js TypeScript ambient types
+├── next.config.ts                             # Next.js runtime config (`reactStrictMode`, static export)
+├── node_modules/                              # [GENERATED — do not edit] Installed package dependencies
+├── out/                                       # [GENERATED — do not edit] Static export output directory
+├── package-lock.json                          # [GENERATED — do not edit] npm dependency lockfile
+├── package.json                               # Dependency manifest and npm scripts
+├── review.md                                  # Supplemental review notes
+├── src/                                       # [PRIMARY SOURCE] Application implementation
+│   ├── .DS_Store                              # [UNCLASSIFIED] macOS Finder metadata artifact
 │   ├── config/
-│   │   └── limits.ts             # All numeric constants & clamping functions
-│   │
-│   ├── core/                     # ✦ Pure algorithmic logic — NO UI imports
-│   │   ├── grid.ts               # Grid model, bitmask enums, TypedArrays
-│   │   ├── patches.ts            # CellPatch & StepResult interfaces
-│   │   ├── rng.ts                # Mulberry32 PRNG, FNV-1a string hash
+│   │   └── limits.ts                          # Numeric safety limits and clamping helpers
+│   ├── core/                                  # Pure maze model, plugin contracts, and algorithm implementations
 │   │   ├── analysis/
-│   │   │   └── graphMetrics.ts   # Degree analysis, BFS, shortest-path count
-│   │   └── plugins/
-│   │       ├── pluginMetadata.ts # PluginMetadata, PluginTier, MazeTopology
-│   │       ├── GeneratorPlugin.ts# GeneratorPlugin<TOptions, TMeta> interface
-│   │       ├── SolverPlugin.ts   # SolverPlugin<TOptions, TMeta> interface
-│   │       ├── types.ts          # AlgorithmStepMeta, GeneratorRunOptions, etc.
-│   │       ├── generators/       # 40 generator plugin implementations
-│   │       │   └── index.ts      # Catalog: generatorPlugins[]
-│   │       └── solvers/          # 34 solver plugin implementations
-│   │           └── index.ts      # Catalog: solverPlugins[]
-│   │
-│   ├── engine/                   # ✦ Runtime orchestration — no React/DOM
-│   │   ├── MazeEngine.ts         # Phase state machine, RAF loop, metrics
-│   │   ├── types.ts              # MazePhase, MazeMetrics, MazeEngineOptions, etc.
-│   │   ├── mazeWorkerProtocol.ts # Command/event union types, grid serialization
-│   │   ├── mazeWorkerRuntime.ts  # MazeWorkerRuntime wrapping MazeEngine
-│   │   └── maze.worker.ts        # Web Worker entry point bootstrap
-│   │
-│   ├── render/                   # ✦ Canvas drawing — no React state
-│   │   ├── CanvasRenderer.ts     # DPR-aware renderer, dirty-cell logic
-│   │   └── colorPresets.ts       # ColorTheme interface + 4 built-in themes
-│   │
-│   └── ui/                       # ✦ React + Zustand — no raw canvas access
-│       ├── store/
-│       │   └── mazeStore.ts      # Zustand store: settings, runtime, ui slices
-│       ├── hooks/
-│       │   └── useMazeEngine.ts  # Engine lifecycle, worker/fallback transport
+│   │   │   └── graphMetrics.ts                # Graph statistics and shortest-route counting
+│   │   ├── grid.ts                            # Typed-array grid model, adjacency helpers, and patch application
+│   │   ├── patches.ts                         # Cell patch and step result types
+│   │   ├── plugins/
+│   │   │   ├── GeneratorPlugin.ts             # Generator plugin interface and stepper contract
+│   │   │   ├── SolverPlugin.ts                # Solver plugin interface and stepper contract
+│   │   │   ├── generators/
+│   │   │   │   ├── aldousBroder.ts            # Aldous-Broder generator plugin export
+│   │   │   │   ├── antColony.ts               # Ant Colony generator plugin export
+│   │   │   │   ├── bfsTree.ts                 # BFS Tree alias/hybrid generator plugin export
+│   │   │   │   ├── binaryTree.ts              # Binary Tree generator plugin export
+│   │   │   │   ├── blobbyRecursiveSubdivision.ts # Blobby recursive subdivision generator plugin export
+│   │   │   │   ├── boruvka.ts                 # Boruvka generator plugin export
+│   │   │   │   ├── braid.ts                   # Braid loopy generator plugin export
+│   │   │   │   ├── bsp.ts                     # BSP subdivision generator plugin export
+│   │   │   │   ├── caRuleHybrid.ts            # Cellular-automata hybrid helper/plugin export
+│   │   │   │   ├── cellularAutomata.ts        # Cellular automata generator plugin export
+│   │   │   │   ├── counterfactualCycleAnnealing.ts # Counterfactual Cycle Annealing generator plugin export
+│   │   │   │   ├── dfsBacktracker.ts          # DFS Backtracker generator plugin export
+│   │   │   │   ├── dla.ts                     # Diffusion-limited aggregation generator plugin export
+│   │   │   │   ├── eller.ts                   # Eller generator plugin export
+│   │   │   │   ├── erosion.ts                 # Erosion generator plugin export
+│   │   │   │   ├── fractalTessellation.ts     # Fractal Tessellation generator plugin export
+│   │   │   │   ├── growingForest.ts           # Growing Forest generator plugin export
+│   │   │   │   ├── growingTree.ts             # Growing Tree generator plugin export
+│   │   │   │   ├── hilbertCurve.ts            # Hilbert Curve generator plugin export
+│   │   │   │   ├── houston.ts                 # Houston generator plugin export
+│   │   │   │   ├── huntAndKill.ts             # Hunt-and-Kill generator plugin export
+│   │   │   │   ├── index.ts                   # Generator registry and metadata enrichment
+│   │   │   │   ├── isingModel.ts              # Ising Model generator plugin export
+│   │   │   │   ├── kruskal.ts                 # Kruskal generator plugin export
+│   │   │   │   ├── kruskalLoopy.ts            # Kruskal loopy generator plugin export
+│   │   │   │   ├── lSystem.ts                 # L-System generator plugin export
+│   │   │   │   ├── loopDensity.ts             # Loop-density helper logic
+│   │   │   │   ├── mazeCa.ts                  # Maze CA generator plugin export
+│   │   │   │   ├── mazectricCa.ts             # Mazectric CA generator plugin export
+│   │   │   │   ├── mycelialAnastomosis.ts     # Mycelial Anastomosis generator plugin export
+│   │   │   │   ├── originShift.ts             # Origin Shift generator plugin export
+│   │   │   │   ├── percolation.ts             # Percolation generator plugin export
+│   │   │   │   ├── prim.ts                    # Prim generator plugin export
+│   │   │   │   ├── primFrontierEdges.ts       # Frontier-edge Prim generator plugin export
+│   │   │   │   ├── primLoopy.ts               # Loopy Prim generator plugin export
+│   │   │   │   ├── primModified.ts            # Modified Prim alias/hybrid plugin export
+│   │   │   │   ├── primSimplified.ts          # Simplified Prim alias/hybrid plugin export
+│   │   │   │   ├── primTrue.ts                # True Prim alias/hybrid plugin export
+│   │   │   │   ├── quantumSeismogenesis.ts    # Quantum Seismogenesis generator plugin export
+│   │   │   │   ├── reactionDiffusion.ts       # Reaction Diffusion generator plugin export
+│   │   │   │   ├── recursiveDivision.ts       # Recursive Division generator plugin export
+│   │   │   │   ├── recursiveDivisionLoopy.ts  # Recursive Division loopy generator plugin export
+│   │   │   │   ├── resonantPhaseLock.ts       # Resonant Phase-Lock generator plugin export
+│   │   │   │   ├── reverseDelete.ts           # Reverse Delete generator plugin export
+│   │   │   │   ├── sandpileAvalanche.ts       # Sandpile Avalanche generator plugin export
+│   │   │   │   ├── sidewinder.ts              # Sidewinder generator plugin export
+│   │   │   │   ├── unicursal.ts               # Unicursal generator plugin export
+│   │   │   │   ├── voronoi.ts                 # Voronoi generator plugin export
+│   │   │   │   ├── vortex.ts                  # Vortex generator plugin export
+│   │   │   │   ├── waveFunctionCollapse.ts    # Wave Function Collapse generator plugin export
+│   │   │   │   ├── weaveGrowingTree.ts        # Weave topology generator plugin export
+│   │   │   │   └── wilson.ts                  # Wilson generator plugin export
+│   │   │   ├── pluginMetadata.ts              # Shared plugin metadata types
+│   │   │   ├── solvers/
+│   │   │   │   ├── aStarEuclidean.ts          # A* Euclidean solver plugin export
+│   │   │   │   ├── antColony.ts               # Ant Colony solver plugin export
+│   │   │   │   ├── astar.ts                   # A* solver plugin export
+│   │   │   │   ├── bellmanFord.ts             # Bellman-Ford solver plugin export
+│   │   │   │   ├── bfs.ts                     # BFS solver plugin export
+│   │   │   │   ├── bidirectionalBfs.ts        # Bidirectional BFS solver plugin export
+│   │   │   │   ├── blindAlleyFiller.ts        # Blind Alley Filler solver plugin export
+│   │   │   │   ├── blindAlleySealer.ts        # Blind Alley Sealer solver plugin export
+│   │   │   │   ├── chain.ts                   # Chain solver plugin export
+│   │   │   │   ├── collisionSolver.ts         # Collision solver plugin export
+│   │   │   │   ├── culDeSacFiller.ts          # Cul-de-sac Filler solver plugin export
+│   │   │   │   ├── deadEndFilling.ts          # Dead-End Filling solver plugin export
+│   │   │   │   ├── dfs.ts                     # DFS solver plugin export
+│   │   │   │   ├── dijkstra.ts                # Dijkstra solver plugin export
+│   │   │   │   ├── electricCircuit.ts         # Electric Circuit solver plugin export
+│   │   │   │   ├── floodFill.ts               # Flood Fill solver plugin export
+│   │   │   │   ├── fringeSearch.ts            # Fringe Search solver plugin export
+│   │   │   │   ├── frontierExplorer.ts        # Frontier Explorer solver plugin export
+│   │   │   │   ├── genetic.ts                 # Genetic solver plugin export
+│   │   │   │   ├── greedyBestFirst.ts         # Greedy Best-First solver plugin export
+│   │   │   │   ├── helpers.ts                 # Shared solver helper functions
+│   │   │   │   ├── idaStar.ts                 # IDA* solver plugin export
+│   │   │   │   ├── index.ts                   # Solver registry and compatibility enrichment
+│   │   │   │   ├── iterativeDeepeningDfs.ts   # IDDFS solver plugin export
+│   │   │   │   ├── leeWavefront.ts            # Lee Wavefront solver plugin export
+│   │   │   │   ├── leftWallFollower.ts        # Left-wall follower solver plugin export
+│   │   │   │   ├── physarum.ts                # Physarum solver plugin export
+│   │   │   │   ├── pledge.ts                  # Pledge solver plugin export
+│   │   │   │   ├── potentialField.ts          # Potential Field solver plugin export
+│   │   │   │   ├── qlearning.ts               # Q-Learning solver plugin export
+│   │   │   │   ├── randomMouse.ts             # Random Mouse solver plugin export
+│   │   │   │   ├── rrtStar.ts                 # RRT* solver plugin export
+│   │   │   │   ├── shortestPathFinder.ts      # Shortest Path Finder solver plugin export
+│   │   │   │   ├── shortestPathsFinder.ts     # All-shortest-paths solver plugin export
+│   │   │   │   ├── tremaux.ts                 # Tremaux solver plugin export
+│   │   │   │   ├── wallFollower.ts            # Right-wall follower solver plugin export
+│   │   │   │   └── weightedAstar.ts           # Weighted A* solver plugin export
+│   │   │   └── types.ts                       # Shared generator/solver metadata types
+│   │   └── rng.ts                             # Deterministic seeded random source
+│   ├── engine/                                # Runtime orchestration and worker protocol
+│   │   ├── MazeEngine.ts                      # Core phase machine and step scheduler
+│   │   ├── maze.worker.ts                     # [ENTRY POINT] Worker bootstrap module
+│   │   ├── mazeWorkerProtocol.ts              # Worker command/event types and grid serialization
+│   │   ├── mazeWorkerRuntime.ts               # Worker/fallback runtime adapter around `MazeEngine`
+│   │   └── types.ts                           # Engine phases, metrics, options, and callbacks
+│   ├── lib/
+│   │   └── renderMarkdown.ts                  # Custom markdown-to-HTML renderer for architecture pages
+│   ├── render/
+│   │   ├── CanvasRenderer.ts                  # Canvas renderer with dirty-cell redraw logic
+│   │   └── colorPresets.ts                    # Color themes and random theme generation
+│   └── ui/                                    # React UI, docs metadata, and store wiring
+│       ├── components/
+│       │   ├── CanvasViewport.tsx             # Canvas shell, playback buttons, legend, and hover coords
+│       │   ├── ControlPanel.tsx               # Sidebar controls, keyboard shortcuts, and topology-aware filtering
+│       │   ├── GeneratorTracePanel.tsx        # Active pseudocode trace panel for generators/solvers
+│       │   ├── MazeConfigPanel.tsx            # Theme/rendering configuration modal rendered via portal
+│       │   └── MetricsPanel.tsx               # KPI, graph, and battle metrics HUD
 │       ├── constants/
-│       │   ├── algorithms.ts     # GENERATOR_OPTIONS & SOLVER_OPTIONS arrays
-│       │   └── algorithmDocs.ts  # Pseudocode + descriptions per algorithm
-│       └── components/
-│           ├── CanvasViewport.tsx      # Canvas container, playback controls
-│           ├── ControlPanel.tsx        # Algorithm/speed/grid/seed selectors
-│           ├── MetricsPanel.tsx        # Live metrics, battle comparison cards
-│           ├── GeneratorTracePanel.tsx # Pseudocode display with line highlight
-│           └── MazeConfigPanel.tsx     # Advanced config (battle mode, params)
-│
-├── tests/
+│       │   ├── algorithms.ts                  # UI-ready algorithm option catalogs and compatibility filters
+│       │   └── llmAttribution.ts              # Hardcoded inventor attribution labels for selected algorithms
+│       ├── docs/
+│       │   ├── algorithmDocs.ts               # Human-readable algorithm summaries and complexity notes
+│       │   ├── generatorPseudocode.ts         # Generator pseudocode lines used by trace panel
+│       │   └── solverPseudocode.ts            # Solver pseudocode lines used by trace panel
+│       ├── hooks/
+│       │   └── useMazeEngine.ts               # Worker/fallback transport, renderer lifecycle, and control facade
+│       └── store/
+│           └── mazeStore.ts                   # Zustand store for settings, runtime state, and HUD toggles
+├── tests/                                     # [TEST] Vitest suites
+│   ├── .DS_Store                              # [UNCLASSIFIED] macOS Finder metadata artifact
+│   ├── config/
+│   │   └── limits.test.ts                     # Safety-limit unit tests
 │   ├── core/
-│   │   ├── generators.test.ts    # Determinism, connectivity, topology
-│   │   ├── solvers.test.ts       # Correctness, path validity, pacing
-│   │   ├── graphMetrics.test.ts  # Graph analysis accuracy
-│   │   └── rng.test.ts           # PRNG determinism
-│   ├── engine/
-│   │   ├── mazeEngine.test.ts    # Phase transitions, RAF loop, callbacks
-│   │   ├── mazeWorker.test.ts    # Worker IPC, grid serialization
-│   │   └── mazeWorkerRuntime.test.ts # Runtime state, line tracking
-│   └── config/
-│       └── limits.test.ts        # Clamping function correctness
-│
-├── next.config.ts                # output: "export" (static HTML)
-├── tsconfig.json                 # Strict mode, ES2022 target, @/ path alias
-├── vitest.config.ts              # Test runner config
-└── package.json                  # Dependencies manifest
+│   │   ├── algorithmCatalog.test.ts           # Documentation, pseudocode, alias, and metadata coverage tests
+│   │   ├── generators.test.ts                 # Generator determinism and topology behavior tests
+│   │   ├── graphMetrics.test.ts               # Graph metric correctness tests
+│   │   ├── rng.test.ts                        # PRNG determinism tests
+│   │   ├── solverCompatibility.test.ts        # Topology compatibility tests for solvers
+│   │   └── solvers.test.ts                    # Solver correctness and path behavior tests
+│   └── engine/
+│       ├── mazeEngine.test.ts                 # Engine frame-loop, metrics, and battle-mode tests
+│       ├── mazeWorker.test.ts                 # Worker bootstrap tests using stubbed globals
+│       ├── mazeWorkerProtocol.test.ts         # Grid snapshot serialization round-trip tests
+│       └── mazeWorkerRuntime.test.ts          # Worker runtime command/event contract tests
+├── tsconfig.json                              # TypeScript compiler configuration
+├── tsconfig.tsbuildinfo                       # [GENERATED — do not edit] incremental TypeScript build cache
+└── vitest.config.ts                           # Vitest alias and test environment configuration
 ```
 
-### Boundary Enforcement
-
-The four layers enforce strict one-way dependencies:
-
-```
-src/core/  ←────────── src/engine/  ←────────── src/render/
-   ↑                        ↑                        ↑
-   └────────────────── src/ui/ ──────────────────────┘
-```
-
-- `src/core/` has **zero imports** from engine, render, or ui layers. It contains only pure TypeScript with no DOM or React dependencies.
-- `src/engine/` imports from `src/core/` only. It has no React, no DOM references beyond `requestAnimationFrame`/`performance.now` (both accessed via `globalThis` with fallbacks, see `MazeEngine.ts:775–789`).
-- `src/render/` imports from `src/core/` and `src/config/`. It receives a `Grid` and an `HTMLCanvasElement` but has no knowledge of Zustand or React.
-- `src/ui/` is the only layer allowed to import across all layers. The `useMazeEngine` hook bridges Zustand ↔ engine transport ↔ canvas renderer.
-
----
+Concrete finding: the repository is cleanly partitioned into `core`, `engine`, `render`, and `ui`, with the only very large surface area living under the algorithm plugin directories.
 
 ## 4. Architecture & Design Patterns
 
-### 4.1 Overall Architectural Style
-
-Mazer is a **step-based visualization engine** with a **patch-driven update model** organized in four clean layers. The macro architecture resembles an event-sourced system: rather than storing full grid snapshots at each step, the system emits atomic `CellPatch` deltas that are applied incrementally to a single shared grid.
-
-### 4.2 Plugin System
-
-Both generators and solvers follow the **Strategy + Factory** pattern, implementing the same narrow interface:
-
-```typescript
-// src/core/plugins/GeneratorPlugin.ts
-interface GeneratorPlugin<TOptions, TMeta> extends PluginMetadata {
-  id: string;
-  label: string;
-  create(params: GeneratorCreateParams<TOptions>): GeneratorStepper<TMeta>;
-}
-
-interface GeneratorStepper<TMeta> {
-  step(): StepResult<TMeta>;
-}
-```
-
-The `create()` call is the factory. It receives the grid, a seeded RNG, and plugin-specific options. It returns a `GeneratorStepper` — a closure or object whose single `step()` method advances the algorithm by exactly one logical step and returns the resulting `CellPatch` deltas. The plugin itself is stateless; all per-run state lives inside the stepper closure.
-
-Solvers follow the identical pattern via `SolverPlugin` / `SolverStepper` (`src/core/plugins/SolverPlugin.ts`).
-
-Plugins are registered in catalog arrays (`generatorPlugins`, `solverPlugins`) in their respective `index.ts` files. The engine indexes these at module load time into `Map<id, plugin>` structures (`MazeEngine.ts:58–61`) for O(1) lookup.
-
-**Plugin Metadata** (`src/core/plugins/pluginMetadata.ts`) decorates each plugin with:
-
-| Field | Type | Purpose |
-|---|---|---|
-| `topologyOut` | `"perfect-planar" \| "loopy-planar" \| "weave"` | Controls which solvers appear in the dropdown |
-| `solverCompatibility` | `{ topologies, guarantee }` | Filtered by generator topology |
-| `generatorParamsSchema` | `GeneratorParamSchema[]` | Drives dynamic UI controls |
-| `tier` | `"research-core" \| "advanced" \| "alias"` | UI grouping and labeling |
-| `implementationKind` | `"native" \| "alias" \| "hybrid"` | Documentation annotation |
-
-### 4.3 State Machine (MazePhase)
-
-`MazeEngine` implements a five-state machine. Transitions are always forward-only except for `reset` which collapses all states back to `Idle`.
-
-```
-         startGeneration()
-Idle ──────────────────────► Generating
-                                  │
-                           done=true (completePhase)
-                                  │
-                                  ▼
-                             Generated ◄───────────── startSolving() [re-solve]
-                                  │
-                          startSolving()
-                                  │
-                                  ▼
-                              Solving
-                                  │
-                      both solvers done (completePhase)
-                                  │
-                                  ▼
-                               Solved
-
-Any state ──── reset() ────► Idle
-```
-
-Phase transitions emit `onPhaseChange` callbacks (`MazeEngine.ts:722–724`). The `completePhase()` method (`MazeEngine.ts:682–703`) handles the `Generating → Generated` transition by computing graph metrics synchronously and setting `paused = true`.
-
-### 4.4 Publish-Subscribe / Reactive State
-
-Three callback hooks connect the engine to the outside world (`src/engine/types.ts:77–86`):
-
-```typescript
-interface MazeEngineCallbacks {
-  onPatchesApplied?(dirtyCells, patches, meta, metrics): void;
-  onPhaseChange?(phase): void;
-  onGridRebuilt?(grid): void;
-}
-```
-
-`MazeWorkerRuntime` implements these callbacks and translates them into serialized `MazeWorkerEvent` messages emitted via `postMessage` (in worker mode) or direct function calls (in fallback mode). The `useMazeEngine` hook in React subscribes to these events and applies them to the canvas renderer and Zustand store.
-
-### 4.5 Worker Command/Event Protocol
-
-The worker protocol (`src/engine/mazeWorkerProtocol.ts`) defines two discriminated unions:
-
-- **`MazeWorkerCommand`**: UI → Engine. Types: `init`, `setOptions`, `setSpeed`, `generate`, `solve`, `pause`, `resume`, `stepOnce`, `reset`, `rebuildGrid`, `dispose`.
-- **`MazeWorkerEvent`**: Engine → UI. Types: `gridRebuilt`, `patchesApplied`, `runtimeSnapshot`, `phaseChange`, `error`.
-
-Grid snapshots transferred over the worker boundary use `Transferable` objects: all four TypedArray `.buffer`s are passed in the transfer list, achieving **zero-copy IPC** (`mazeWorkerProtocol.ts:92–110`).
-
----
-
-## 5. Core Components & High-Performance Data Models
-
-### 5.1 `src/core/grid.ts` — The Bitmask Grid Model
-
-The `Grid` interface (`grid.ts:53–61`) uses four TypedArrays for memory efficiency:
-
-```typescript
-interface Grid {
-  width: number;
-  height: number;
-  cellCount: number;
-  walls: Uint8Array;      // 1 byte per cell: 4-bit wall bitmask
-  overlays: Uint16Array;  // 2 bytes per cell: 8-bit solver overlay flags
-  crossings: Uint8Array;  // 1 byte per cell: CrossingKind enum
-  tunnels: Int32Array;    // 4 bytes per cell: tunnel destination index (-1 = none)
-}
-```
-
-**Memory footprint** for a 200×200 grid (40,000 cells):
-- `walls`: 40 KB
-- `overlays`: 80 KB
-- `crossings`: 40 KB
-- `tunnels`: 160 KB
-- **Total**: ~320 KB
-
-Compare this to a naive object-per-cell model: even a lean `{ walls: number, overlays: number }` object would cost ~80–100 bytes in V8, yielding 3.2–4 MB — **10× larger**, with poor cache locality.
-
-#### WallFlag Bitmask (`grid.ts:3–8`)
-
-```typescript
-export const enum WallFlag {
-  North = 1,   // 0001
-  East  = 2,   // 0010
-  South = 4,   // 0100
-  West  = 8,   // 1000
-}
-export const ALL_WALLS = WallFlag.North | WallFlag.East | WallFlag.South | WallFlag.West; // 0b1111 = 15
-```
-
-Initialized to `ALL_WALLS = 15` (all four walls present). Carving a passage between two cells clears the appropriate bits on both sides:
-
-```typescript
-// grid.ts:187–203 — carvePatch factory
-export function carvePatch(fromIndex, toIndex, wallFrom, wallTo): CellPatch[] {
-  return [
-    { index: fromIndex, wallClear: wallFrom },
-    { index: toIndex,   wallClear: wallTo   },
-  ];
-}
-
-// grid.ts:217–243 — applyCellPatch applies the delta
-if (typeof patch.wallClear === "number") {
-  grid.walls[i] &= ~patch.wallClear;  // bitwise AND with inverted mask
-}
-```
-
-Wall presence check: `(grid.walls[i] & WallFlag.North) !== 0`.
-
-#### OverlayFlag Bitmask (`grid.ts:13–22`)
-
-The 8-bit overlay word packs **two solver channels** into a single `Uint16Array` element:
-
-```typescript
-export const enum OverlayFlag {
-  Visited   = 1,    // 0000_0001 — Solver A visited
-  Frontier  = 2,    // 0000_0010 — Solver A frontier
-  Path      = 4,    // 0000_0100 — Solver A path
-  Current   = 8,    // 0000_1000 — Solver A current cell
-  VisitedB  = 16,   // 0001_0000 — Solver B visited
-  FrontierB = 32,   // 0010_0000 — Solver B frontier
-  PathB     = 64,   // 0100_0000 — Solver B path
-  CurrentB  = 128,  // 1000_0000 — Solver B current cell
-}
-```
-
-Bits 0–3 are the primary (Solver A) channel. Bits 4–7 are the secondary (Solver B / battle mode) channel. This design means both solver overlays coexist in memory without separate arrays or object merges.
-
-Utility masks (`grid.ts:24–45`):
-- `PRIMARY_OVERLAY_MASK = 0b0000_1111 = 15`
-- `SECONDARY_OVERLAY_MASK = 0b1111_0000 = 240`
-- `ANY_VISITED_OVERLAY_MASK = OverlayFlag.Visited | OverlayFlag.VisitedB = 17`
-
-#### CrossingKind & Tunnels (`grid.ts:47–61`)
-
-For weave mazes, cells can physically cross each other. `CrossingKind` (`grid.ts:47–51`) encodes which direction passes over:
-
-```typescript
-export const enum CrossingKind {
-  None                    = 0,
-  HorizontalOverVertical  = 1,
-  VerticalOverHorizontal  = 2,
-}
-```
-
-`tunnels` stores the flat index of the cell on the other side of a crossing. `traversableNeighbors()` (`grid.ts:177–185`) includes tunnel destinations alongside wall-carved neighbors, so solvers work on weave mazes without modification.
-
-#### Indexing (`grid.ts:125–135`)
-
-```typescript
-// Row-major: idx = y * width + x
-export function idx(grid, x, y): number {
-  return y * grid.width + x;
-}
-export function xFromIdx(grid, index): number { return index % grid.width; }
-export function yFromIdx(grid, index): number { return Math.floor(index / grid.width); }
-```
-
-### 5.2 `src/core/patches.ts` — The CellPatch Mechanism
-
-The `CellPatch` interface (`patches.ts:1–9`) is the core delta unit:
-
-```typescript
-interface CellPatch {
-  index: number;          // Target cell (flat index)
-  wallSet?: number;       // OR these bits into walls[index]
-  wallClear?: number;     // AND ~mask into walls[index]
-  overlaySet?: number;    // OR these bits into overlays[index]
-  overlayClear?: number;  // AND ~mask into overlays[index]
-  crossingSet?: number;   // Assign crossings[index]
-  tunnelToSet?: number;   // Assign tunnels[index]
-}
-```
-
-All fields are optional. A typical generation step produces two patches (one per cell in the carved passage), each with only `wallClear` set. A solver step might produce patches with `overlaySet`/`overlayClear` for visited/frontier/path state.
-
-**Why patches instead of full-grid snapshots?**
-
-1. **Memory**: A single generation step affecting 2 cells produces 2 × ~40 bytes of patches vs. copying 40,000 bytes.
-2. **Renderer efficiency**: The `dirtyCells` array derived from patches is the minimal redraw set. Only those cells (+ cardinal neighbors for wall overlap) are repainted.
-3. **Worker IPC**: Patches are plain JSON-serializable objects. Transferring only deltas over `postMessage` is orders of magnitude cheaper than cloning the full grid buffer on each step.
-
-`StepResult<TMeta>` (`patches.ts:13–17`) pairs a batch of patches with metadata:
-
-```typescript
-interface StepResult<TMeta extends StepMeta> {
-  done: boolean;
-  patches: CellPatch[];
-  meta?: TMeta;  // StepMeta = Record<string, number | string | boolean | undefined>
-}
-```
-
-The `meta` field carries algorithm-specific data: `visitedCount`, `frontierSize`, `pathLength`, `line` (pseudocode line number), and `solverRole` (`"A"` or `"B"` in battle mode).
-
-### 5.3 `src/core/rng.ts` — Deterministic RNG
-
-Mazer uses **Mulberry32** (`rng.ts:18–44`), a fast 32-bit PRNG with good statistical properties, seeded from a string:
-
-```typescript
-// FNV-1a-like hash: string → uint32
-export function hashStringToSeed(input: string): number {
-  let h = 2166136261 >>> 0;  // FNV offset basis (unsigned)
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 16777619);  // FNV prime
-  }
-  return h >>> 0;
-}
-
-// Mulberry32 state update
-state = (state + 0x6d2b79f5) >>> 0;
-let t = state;
-t = Math.imul(t ^ (t >>> 15), t | 1);
-t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-```
-
-`createSeededRandom(seedText)` (`rng.ts:46–48`) wraps this in a `RandomSource` interface with `next()`, `nextInt(max)`, and `pick(items[])`. Every generator and solver receives this interface at creation time.
-
-**Determinism guarantee**: The seed string `"mazer"` always produces the identical maze on the identical grid dimensions. Battle mode uses derived seeds: `${seed}-solve-a` and `${seed}-solve-b` (`MazeEngine.ts:183–194`), ensuring solver behavior is also reproducible.
-
-### 5.4 `src/engine/MazeEngine.ts` — The RAF Execution Loop
-
-`MazeEngine` implements `MazeEnginePublicApi` (`engine/types.ts:88–104`). Its most critical method is the RAF frame handler:
-
-#### `onFrame(ts: number)` — `MazeEngine.ts:337–399`
-
-```typescript
-private onFrame(ts: number): void {
-  this.rafHandle = null;
-
-  if (!this.hasActiveWork()) return;
-
-  // Initialize timestamp on first frame
-  if (this.lastFrameTs === 0) this.lastFrameTs = ts;
-
-  const delta = ts - this.lastFrameTs;
-  this.lastFrameTs = ts;
-
-  if (!this.paused) {
-    this.metrics.elapsedMs += delta;
-
-    const stepInterval = 1000 / this.options.speed;  // ms per step
-    this.accumulatorMs += delta;
-
-    const dirtySet = new Set<number>();
-    const patches: CellPatch[] = [];
-    let latestMeta: StepMeta | undefined;
-    let stepped = false;
-    let iteration = 0;
-
-    // Drain the time accumulator: execute as many steps as fit in this frame
-    while (
-      this.accumulatorMs >= stepInterval &&
-      iteration < ENGINE_MAX_STEPS_PER_FRAME &&  // Hard cap: 2000 steps/frame
-      this.hasActiveWork()
-    ) {
-      const result = this.processStep();
-      if (!result) break;
-
-      stepped = true;
-      latestMeta = result.meta;
-      patches.push(...result.patches);
-      for (const cell of result.dirtyCells) dirtySet.add(cell);  // deduplicate
-
-      this.accumulatorMs -= stepInterval;
-      iteration++;
-
-      if (result.done) break;
-    }
-
-    if (stepped) {
-      this.metrics.dirtyCellCount += dirtySet.size;
-      this.recomputeDerivedMetrics();
-      this.syncBattleMetricsSnapshot();
-      this.emitPatches(Array.from(dirtySet), patches, latestMeta);  // single emit per frame
-    }
-  }
-
-  if (this.hasActiveWork() && !this.paused) this.ensureLoop();
-}
-```
-
-**Key design decisions:**
-
-1. **Accumulator-based time budget**: `accumulatorMs` grows with each frame's delta. For a speed of 60 steps/sec, each step requires ~16.67ms. If a frame takes 32ms (skipped), 2 steps are executed. This makes visualization speed **wall-clock accurate** rather than frame-count-accurate.
-
-2. **`ENGINE_MAX_STEPS_PER_FRAME = 2000`** (`limits.ts:14`): A hard cap preventing a single frame from consuming unbounded compute time. At 8,000 steps/sec, a 16ms frame would nominally queue 128 steps — well within the cap. The cap matters at high speeds on slow machines.
-
-3. **One emit per frame**: All patches accumulated across multiple steps within a single frame are bundled into one `onPatchesApplied` call. The `dirtySet` (a `Set<number>`) deduplicates cell indices so the renderer gets the minimal unique set.
-
-4. **RAF fallback for Node**: `MazeEngine.ts:774–789` checks `globalThis.requestAnimationFrame`. In Node.js (Vitest), this is absent and the engine falls back to `setTimeout(() => callback(nowMs()), 16)`, making the engine testable without a browser.
-
-#### Battle Mode — `MazeEngine.ts:452–579`
-
-In `Solving` phase with `battleMode: true`, both `solverPrimary` (role `"A"`) and `solverSecondary` (role `"B"`) step in the same frame. Solver B's patches are remapped before application:
-
-```typescript
-// MazeEngine.ts:792–826
-function remapPatchForSecondary(patch: CellPatch): CellPatch {
-  return {
-    ...patch,
-    overlaySet: mapPrimaryToSecondaryOverlay(patch.overlaySet),
-    overlayClear: mapPrimaryToSecondaryOverlay(patch.overlayClear),
-  };
-}
-
-function mapPrimaryToSecondaryOverlay(mask: number): number {
-  let mapped = 0;
-  if (mask & OverlayFlag.Visited)  mapped |= OverlayFlag.VisitedB;
-  if (mask & OverlayFlag.Frontier) mapped |= OverlayFlag.FrontierB;
-  if (mask & OverlayFlag.Path)     mapped |= OverlayFlag.PathB;
-  if (mask & OverlayFlag.Current)  mapped |= OverlayFlag.CurrentB;
-  return mapped;
-}
-```
-
-This is a pure bitwise operation: each primary flag (bits 0–3) maps to the corresponding secondary flag (bits 4–7) — effectively a left shift of 4. Solver B's algorithm implementation is entirely unaware of this remapping.
-
-#### Graph Metrics — Computed Once at Phase Boundary (`MazeEngine.ts:682–694`)
-
-```typescript
-private completePhase(): void {
-  if (this.phase === "Generating") {
-    this.generatorStepper = null;
-    this.paused = true;
-    this.metrics.graph = analyzeMazeGraph(
-      this.grid,
-      0,                         // startIndex = top-left
-      this.grid.cellCount - 1,   // goalIndex  = bottom-right
-    );
-    this.phase = "Generated";
-    this.emitPhase();
-    return;
-  }
-  // ...
-}
-```
-
-Graph metrics are computed **synchronously** when generation completes. This is acceptable because it happens at a phase boundary (not every frame) and the computation is O(N) in cell count. The snapshot is preserved through the entire solving phase and reset on the next `generate` call.
-
-### 5.5 `src/render/CanvasRenderer.ts` — Dirty-Cell Rendering
-
-#### DPR Computation (`CanvasRenderer.ts:87–98`)
-
-```typescript
-private computeSafeDpr(widthPx: number, heightPx: number): number {
-  const rawDpr = globalThis.devicePixelRatio ?? 1;
-  const maxByWidth  = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, widthPx);
-  const maxByHeight = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, heightPx);
-  const maxByPixels = Math.sqrt(CANVAS_MAX_BACKING_PIXELS / Math.max(1, widthPx * heightPx));
-  return Math.max(0.1, Math.min(rawDpr, maxByWidth, maxByHeight, maxByPixels));
-}
-```
-
-The effective DPR is clamped by three constraints: max backing dimension (16,384px per axis), max total pixels (48,000,000), and native device DPR. On a 2× HiDPI display with a 1600px-wide grid, the DPR might be clamped below 2 to avoid exceeding canvas memory limits.
-
-#### Dirty Expansion (`CanvasRenderer.ts:371–397`)
-
-```typescript
-private expandDirty(cells: number[]): number[] {
-  const output = new Set<number>();
-  for (const index of cells) {
-    output.add(index);
-    const x = index % this.grid.width;
-    const y = Math.floor(index / this.grid.width);
-    if (x > 0)                        output.add(index - 1);          // West neighbor
-    if (x + 1 < this.grid.width)      output.add(index + 1);          // East neighbor
-    if (y > 0)                         output.add(index - this.grid.width); // North neighbor
-    if (y + 1 < this.grid.height)      output.add(index + this.grid.width); // South neighbor
-  }
-  return Array.from(output);
-}
-```
-
-Walls are drawn as filled rectangles that extend outward from the cell boundary (`drawWalls`, `CanvasRenderer.ts:260–304`). Because a North wall of cell `i` visually overlaps cell `i - width` (the cell above), redrawing only cell `i` leaves a visual artifact in the neighboring cell. Expanding the dirty set to cardinal neighbors prevents this at the cost of ~5× more `drawCell` calls, which is still far cheaper than a full grid redraw.
-
-#### Wall Rendering Design (`CanvasRenderer.ts:260–304`)
-
-```typescript
-// Walls use filled rectangles, not stroked lines.
-// Key reason: eliminates corner gaps where perpendicular walls meet.
-this.ctx.fillStyle = this.colors.wall;
-if ((walls & WallFlag.North) !== 0) {
-  this.ctx.fillRect(x, y - hw, size, wallWidth);       // extends above cell top
-}
-if ((walls & WallFlag.South) !== 0) {
-  this.ctx.fillRect(x, y + size - hw, size, wallWidth); // straddles cell bottom
-}
-if ((walls & WallFlag.West) !== 0) {
-  this.ctx.fillRect(x - hw, y, wallWidth, size);        // straddles cell left
-}
-if ((walls & WallFlag.East) !== 0) {
-  this.ctx.fillRect(x + size - hw, y, wallWidth, size); // extends right
-}
-```
-
-`hw = wallWidth / 2`. Walls straddle the cell boundary, centering the wall rectangle on the edge. This means adjacent cells share the same physical wall pixels — there are no sub-pixel gaps.
-
----
-
-## 6. Algorithm Plugin Ecosystem
-
-### 6.1 Generator Catalog (40 algorithms)
-
-Generators are grouped by tier and topology:
-
-**Research Core — Perfect Planar (spanning tree):**
-DFS Backtracker, BFS Tree, Binary Tree, Sidewinder, Aldous-Broder, Wilson, Eller, Recursive Division, Hunt and Kill, Prim (True / Simplified / Modified / Frontier Edges), Kruskal, Boruvka, Houston, BSP, Origin Shift, Unicursal, Reverse Delete, Growing Tree, Growing Forest, Vortex, Blobby Recursive Subdivision, Fractal Tessellation
-
-**Research Core — Loopy Planar (cycles present):**
-Braid, Prim Loopy, Kruskal Loopy, Recursive Division Loopy
-
-**Advanced / Experimental:**
-Weave Growing Tree (`weave` topology), Cellular Automata, Maze-CA, Mazectric-CA, Erosion, Wave Function Collapse (`loopy-planar`), Percolation (`loopy-planar`), L-System, Reaction Diffusion (`loopy-planar`), Ising Model, DLA, Hilbert Curve, Voronoi, Ant Colony (generator), Quantum Seismogenesis, Mycelial Anastomosis, Sandpile Avalanche, Resonant Phase Lock, Counterfactual Cycle Annealing
-
-### 6.2 Solver Catalog (34 algorithms)
-
-**Guaranteed — All Topologies:**
-BFS, DFS, IDDFS, IDA*, Dijkstra, A* (Manhattan heuristic), A* (Euclidean), Bidirectional BFS, Lee Wavefront, Flood Fill, Chain, Fringe Search, Shortest Path Finder, Shortest Paths Finder
-
-**Guaranteed — Perfect Planar Only:**
-Dead-End Filling, Cul-de-Sac Filler, Blind Alley Filler, Blind Alley Sealer, Tremaux, Collision
-
-**Wall-Following (Perfect Planar only):**
-Left Wall Follower, Right Wall Follower (`wall-follower`), Pledge
-
-**Heuristic / Probabilistic:**
-Greedy Best-First, Weighted A*, Q-Learning, Ant Colony (solver), Genetic, RRT*, Physarum, Electric Circuit, Potential Field, Frontier Explorer
-
-**Incomplete:**
-Random Mouse
-
-### 6.3 How Algorithmic State Persists Between Steps
-
-Every plugin's `create()` factory returns a **closure-based stepper**. The algorithm's internal state (stacks, queues, frontier sets, visited bitsets) lives inside the closure's lexical scope. Each `step()` call advances the algorithm by exactly one logical unit (e.g., one cell visit, one edge relaxation, one frontier expansion) and yields the resulting patches.
-
-Example (DFS Backtracker conceptual structure):
-
-```typescript
-// generators/dfsBacktracker.ts — conceptual structure
-function create({ grid, rng }): GeneratorStepper {
-  const stack: number[] = [0];
-  const visited = new Uint8Array(grid.cellCount);  // typed for efficiency
-  visited[0] = 1;
-
-  return {
-    step(): StepResult {
-      if (stack.length === 0) return { done: true, patches: [] };
-
-      const current = stack[stack.length - 1] as number;
-      const unvisited = neighbors(grid, current).filter(n => !visited[n.index]);
-
-      if (unvisited.length === 0) {
-        stack.pop();
-        return { done: stack.length === 0, patches: [], meta: { line: 5, visitedCount: ... } };
-      }
-
-      const next = rng.pick(unvisited);
-      visited[next.index] = 1;
-      stack.push(next.index);
-
-      const patches = carvePatch(current, next.index, next.direction.wall, next.direction.opposite);
-      // + overlay patches for Current, Visited, Frontier markers
-
-      return { done: false, patches, meta: { line: 3, visitedCount: ..., frontierSize: stack.length } };
-    }
-  };
-}
-```
-
-This design means:
-- **No main-thread blocking**: Each `step()` returns in microseconds. The RAF loop controls how many steps execute per frame.
-- **No full-grid iteration inside `step()`**: Algorithms operate on the frontier/stack only.
-- **Implicit state serialization**: The closure variables serve as the full checkpoint. Pause/resume is free — just stop calling `step()`.
-
-### 6.4 Dynamic UI Parameters via `generatorParamsSchema`
-
-Some generators expose tunable parameters through `PluginMetadata.generatorParamsSchema` (`pluginMetadata.ts:9–43`). The schema supports three field types:
-
-```typescript
-type GeneratorParamSchema =
-  | { type: "number"; key; label; min; max; step?; defaultValue }
-  | { type: "boolean"; key; label; defaultValue }
-  | { type: "select"; key; label; options: {label, value}[]; defaultValue }
-```
-
-The `MazeConfigPanel` component reads this schema at runtime and renders the appropriate input controls. Parameters are passed into `plugin.create({ options: generatorParams })`. This avoids hardcoding algorithm-specific UI and allows new algorithms to expose controls without modifying React components.
-
----
-
-## 7. Data Flow & Execution Lifecycle
-
-### 7.1 Step-by-Step "Generate" Walkthrough
-
-```
-1. User changes settings in ControlPanel
-   └─ Zustand: setSeed(), setGeneratorId(), setGridWidth(), etc.
-
-2. User clicks "Generate"
-   └─ controls.generate() in useMazeEngine.ts:376–386
-      ├─ syncEngineOptions() → dispatches setOptions command
-      └─ dispatches "generate" command to worker/fallback transport
-
-3. Worker receives "generate" command
-   └─ MazeWorkerRuntime.handleCommand("generate")
-      └─ engine.startGeneration() — MazeEngine.ts:140–166
-         ├─ createGrid(width, height) — allocates TypedArrays, fills walls=ALL_WALLS
-         ├─ emits onGridRebuilt → serialized grid snapshot → postMessage to UI
-         ├─ createSeededRandom(seed) — deterministic RNG
-         ├─ plugin.create({ grid, rng, options: generatorParams })
-         ├─ phase = "Generating", emitPhase()
-         ├─ paused = false, accumulatorMs = 0
-         └─ ensureLoop() → schedules RAF
-
-4. UI receives "gridRebuilt" event
-   └─ useMazeEngine handleEvent:
-      ├─ deserializeGridSnapshot(event.grid) → local Grid copy
-      └─ new CanvasRenderer(canvas, grid, settings) → full renderAll()
-
-5. RAF fires (inside Worker or in fallback: main thread with setTimeout)
-   └─ MazeEngine.onFrame(ts):
-      ├─ delta = ts - lastFrameTs
-      ├─ accumulatorMs += delta
-      ├─ LOOP while (accumulatorMs >= stepInterval && iteration < 2000):
-      │   ├─ stepper.step() → StepResult{ patches, done, meta }
-      │   ├─ applyCellPatch(grid, patch) for each patch
-      │   ├─ dirtyCells.add(patch.index)
-      │   └─ accumulatorMs -= stepInterval
-      └─ emitPatches(dirtyCells, patches, meta, metrics) → postMessage
-
-6. UI receives "patchesApplied" event
-   └─ useMazeEngine handleEvent:
-      ├─ applyCellPatch(localGrid, patch) for each patch (keeps local copy in sync)
-      └─ renderer.renderDirty(dirtyCells) → expandDirty → drawCell for each
-
-7. UI receives "runtimeSnapshot" event (piggybacked after each patchesApplied)
-   └─ queueRuntimeUpdate(runtime) → RAF-batched → setRuntimeSnapshot in Zustand
-      └─ React re-renders: MetricsPanel, GeneratorTracePanel update
-
-8. When stepper.done === true:
-   └─ MazeEngine.completePhase():
-      ├─ analyzeMazeGraph(grid, 0, cellCount-1) → metrics.graph snapshot
-      ├─ phase = "Generated"
-      └─ emitPhase() → paused = true, RAF stops
-```
-
-### 7.2 Asynchronous Decoupling
-
-There are two distinct async boundaries:
-
-**Boundary 1: Worker ↔ Main Thread**
-- Commands flow Main → Worker via `postMessage`.
-- Events flow Worker → Main via `postMessage`.
-- Grid snapshots use Transferable ArrayBuffers (zero-copy).
-- Patches and runtime snapshots are plain JSON (structured clone).
-
-**Boundary 2: Engine Loop ↔ React Rendering**
-- The engine emits `onPatchesApplied` potentially many times per second.
-- `useMazeEngine` receives these events and immediately calls `renderer.renderDirty()` (imperative, bypasses React).
-- Runtime state updates (metrics, phase, active lines) are batched via `queueRuntimeUpdate` (`useMazeEngine.ts:114–132`): multiple updates within one animation frame are merged into a single `setRuntimeSnapshot` Zustand call. This prevents React from re-rendering once per algorithm step.
-
-### 7.3 Graph Metrics Computation (`src/core/analysis/graphMetrics.ts`)
-
-`analyzeMazeGraph` (`graphMetrics.ts:19–57`) runs once at generation completion:
-
-1. **Degree analysis** (O(N)): For each cell, count traversable neighbors (walls cleared + tunnels). Accumulate `degreeSum`, count `deadEndCount` (degree ≤ 1) and `junctionCount` (degree ≥ 3).
-
-2. **Edge count**: `edgeCount = degreeSum / 2` (each edge counted twice by degree sum).
-
-3. **Cycle count** via Euler characteristic: `cycleCount = max(0, edgeCount - cellCount + componentCount)`. This is the cycle rank (first Betti number) of the graph. For a spanning tree, `edgeCount = cellCount - 1` and `componentCount = 1`, giving `cycleCount = 0`.
-
-4. **Component count** (`countComponents`): BFS flood-fill in O(N). Perfect mazes always return 1.
-
-5. **Shortest path count** (`countShortestPaths`): Two-pass BFS:
-   - Pass 1: Standard BFS to compute `distances[]` from start.
-   - Pass 2: Forward propagation of path counts along BFS level fronts, capped at `1,000,000` to prevent overflow on highly connected grids.
-
----
-
-## 8. State Management
-
-### 8.1 Two-Tier State Architecture
-
-Mazer cleanly separates high-frequency internal state from low-frequency UI state:
-
-| Tier | Location | Update Rate | Technology |
-|---|---|---|---|
-| High-Frequency | `MazeEngine` private fields (`grid`, `metrics`, `accumulatorMs`) | Every algorithm step (up to 8,000/sec) | Mutable class fields, TypedArrays |
-| Mid-Frequency | `MazeWorkerRuntime` active line tracking | Every step | Plain object, updated in-place |
-| Low-Frequency | Zustand `MazeRuntime` slice | Once per RAF via `queueRuntimeUpdate` | Immutable Zustand updates |
-| Configuration | Zustand `MazeSettings` slice | On user interaction | Immutable Zustand updates |
-| UI State | Zustand `MazeUI` slice | On user interaction | Immutable Zustand updates |
-
-### 8.2 Zustand Store Shape (`src/ui/store/mazeStore.ts`)
-
-Three slices:
-
-**`MazeSettings`** (`mazeStore.ts:15–35`): All user-configurable options. Mutations via typed setters that clamp values using `src/config/limits.ts` functions (e.g., `setGridWidth` calls `clampGridWidth(value, height, cellSize)` to enforce multi-axis constraints).
-
-Default values (`mazeStore.ts:106–126`):
-- Generator: `dfs-backtracker`
-- Solver: `bfs` (A vs. `astar` in battle mode)
-- Speed: 60 steps/sec
-- Grid: 40×25 cells at 16px/cell
-- Seed: `"mazer"`
-
-**`MazeRuntime`** (`mazeStore.ts:44–51`): Reflects the engine's observable state. `phase`, `paused`, `metrics` (full `MazeMetrics` object), and active pseudocode lines for generator and both solvers.
-
-**`MazeUI`** (`mazeStore.ts:37–42`): Sidebar collapse, HUD visibility toggles, metrics expansion state.
-
-### 8.3 Safe Connection: React ↔ Non-React Engine
-
-The `useMazeEngine` hook (`src/ui/hooks/useMazeEngine.ts`) uses three patterns to safely bridge React lifecycle with the imperative engine:
-
-1. **Ref-based engine handles** (`transportRef`, `rendererRef`, `gridRef`): These hold non-React objects. Changes to them do not trigger re-renders.
-
-2. **Settings ref** (`settingsRef`): `settingsRef.current = settings` keeps a synchronous reference to the latest Zustand settings inside stale callbacks, avoiding stale closure issues without adding settings to dependency arrays.
-
-3. **RAF-batched runtime updates** (`queueRuntimeUpdate`): A `requestAnimationFrame` coalesces multiple rapid runtime updates into one Zustand `setRuntimeSnapshot` call. This means React re-renders for metrics are frame-rate-limited (~60/sec) regardless of algorithm step rate (up to 8,000/sec).
-
----
-
-## 9. Configuration & Ecosystem Tuning
-
-### 9.1 `src/config/limits.ts` — All Tunable Constants
-
-```typescript
-SPEED_MIN = 1          // steps/sec — minimum visualization speed
-SPEED_MAX = 8_000      // steps/sec — maximum before frame-cap kicks in
-
-GRID_MIN = 2           // cells per axis (both dimensions)
-GRID_MAX = 200         // cells per axis
-GRID_MAX_CELLS = 40_000 // total cell cap (e.g., 200×200 = exactly 40,000)
-
-CELL_MIN = 2           // px per cell
-CELL_MAX = 40          // px per cell
-
-VIEWPORT_MAX_DIMENSION_PX = 16_384   // CSS pixel limit per axis
-VIEWPORT_MAX_PIXELS = 25_000_000     // Total viewport CSS pixel area
-
-ENGINE_MAX_STEPS_PER_FRAME = 2_000   // Hard cap for RAF batch
-CANVAS_MAX_BACKING_DIMENSION = 16_384 // Canvas backing-store pixel limit
-CANVAS_MAX_BACKING_PIXELS = 48_000_000 // Total canvas memory limit
-```
-
-Multi-axis clamping functions ensure constraints are mutually consistent:
-- `clampGridWidth(width, height, cellSize)` applies three constraints simultaneously: cell count, viewport dimension, viewport pixels.
-- `clampGridSizeByCells(width, height)` enforces only `GRID_MAX_CELLS` (used by MazeEngine which has no cellSize context).
-
-### 9.2 Environment Variables
-
-There are **no `.env` files** in the project. All configuration is static TypeScript constants. The only environment-sensitive behavior is:
-- Worker availability check: `typeof Worker === "undefined"` triggers the in-thread fallback.
-- RAF availability check in `MazeEngine`: `typeof globalThis.requestAnimationFrame === "function"`.
-- DPR check: `globalThis.devicePixelRatio ?? 1`.
-
-### 9.3 Next.js Configuration (`next.config.ts`)
-
-```typescript
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  output: "export",        // Static HTML export — no Node.js server required
-};
-```
-
-`output: "export"` means the app builds to a static `out/` directory. This constrains the app to client-side rendering (no server components with data fetching). The `"use client"` directive on `app/page.tsx` is consistent with this choice.
-
-### 9.4 Algorithm Documentation (`src/ui/constants/algorithmDocs.ts`)
-
-Each algorithm has an entry with:
-- `description`: One-line summary.
-- `pseudocode`: Array of numbered steps (strings), displayed in `GeneratorTracePanel`.
-- `inventor`: Optional attribution string.
-
-The `pseudocode` array is 1-indexed by convention (line numbers in `meta.line` start at 1). `GeneratorTracePanel` highlights the element at `activeLine - 1` (0-based array index).
-
----
-
-## 10. Testing Strategy & CI Considerations
-
-### 10.1 Test Structure
-
-Tests live in `tests/` and mirror the `src/` layer hierarchy:
-
-| File | Scope | Key Assertions |
-|---|---|---|
-| `core/generators.test.ts` | All 40 generators | Determinism, full connectivity, topology invariants |
-| `core/solvers.test.ts` | All 34 solvers | Path validity, goal reachability, visualization pacing |
-| `core/graphMetrics.test.ts` | `analyzeMazeGraph` | Euler characteristic, dead-end count, shortest path count |
-| `core/rng.test.ts` | Mulberry32 + hash | Same seed → same sequence; distribution |
-| `engine/mazeEngine.test.ts` | `MazeEngine` | Phase transitions, RAF batching, callback contract |
-| `engine/mazeWorker.test.ts` | Worker protocol | Grid serialization/deserialization, command handling |
-| `engine/mazeWorkerRuntime.test.ts` | `MazeWorkerRuntime` | Event emission, active line tracking |
-| `config/limits.test.ts` | All clamp functions | Boundary values, NaN/Infinity inputs |
-
-### 10.2 Generator Determinism Testing
-
-The standard pattern:
-
-```typescript
-function runGenerator(plugin, seed, width, height, maxSteps = 100_000) {
-  const grid = createGrid(width, height);
-  const rng = createSeededRandom(seed);
-  const stepper = plugin.create({ grid, rng, options: {} });
-
-  for (let i = 0; i < maxSteps; i++) {
-    const result = stepper.step();
-    for (const patch of result.patches) applyCellPatch(grid, patch);
-    if (result.done) break;
-  }
-  return grid;
-}
-
-// Determinism: same seed → same wall array
-const g1 = runGenerator(plugin, "test", 10, 10);
-const g2 = runGenerator(plugin, "test", 10, 10);
-expect(g1.walls).toEqual(g2.walls);
-
-// Connectivity: BFS reaches all cells from corner 0
-expect(isFullyConnected(g1)).toBe(true);
-
-// Topology: no cycles for perfect-planar generators
-if (plugin.topologyOut === "perfect-planar") {
-  expect(analyzeMazeGraph(g1, 0, 99).cycleCount).toBe(0);
-}
-```
-
-### 10.3 RAF Mocking in Engine Tests
-
-```typescript
-vi.useFakeTimers();
-
-const engine = new MazeEngine(options, callbacks);
-engine.startGeneration();
-
-let i = 0;
-while (engine.getPhase() === "Generating" && i < 500) {
-  vi.advanceTimersByTime(100);  // Simulates 100ms real time per "frame"
-  i++;
-}
-
-expect(engine.getPhase()).toBe("Generated");
-```
-
-In test environment, `MazeEngine.requestAnimationFrame` falls back to `setTimeout(..., 16)`. `vi.advanceTimersByTime(100)` fires multiple `setTimeout` callbacks, simulating multiple RAF frames. The accumulator arithmetic works identically in test and production.
-
-### 10.4 Worker Runtime Mocking
-
-`MazeWorkerRuntime` is tested with a mock emit function:
-
-```typescript
-const emitted: MazeWorkerEvent[] = [];
-const runtime = new MazeWorkerRuntime((event) => emitted.push(event));
-
-runtime.handleCommand({ type: "init", options });
-runtime.handleCommand({ type: "generate" });
-
-// Advance fake timers to complete generation
-vi.advanceTimersByTime(5000);
-
-const phaseChanges = emitted.filter(e => e.type === "phaseChange");
-expect(phaseChanges.some(e => e.phase === "Generated")).toBe(true);
-```
-
-### 10.5 CI Gate
-
-Pre-PR quality gate (also enforced in CI):
-
-```bash
-npm run lint      # ESLint --max-warnings=0 (hard fail on any warning)
-npm run typecheck # tsc --noEmit (strict)
-npm test          # Vitest (all suites must pass)
-npm run build     # Next.js static export (build errors surface here)
-```
-
----
-
-## 11. Security & Edge Case Analysis
-
-### 11.1 Input Validation
-
-All user-facing numeric inputs are validated through `src/config/limits.ts` clamping functions before reaching the engine:
-
-- `clampGridWidth`, `clampGridHeight`: multi-axis constraints prevent a grid that would exceed 40,000 cells or 16,384px CSS width.
-- `clampCellSize`: ensures `CELL_MIN ≤ cellSize ≤ CELL_MAX` while also respecting viewport pixel budget.
-- `clampSpeed`: clamps to `[1, 8000]`. NaN and Infinity are handled explicitly (`limits.ts:27–33`).
-- The engine applies `clampGridSizeByCells` again at construction and in `setOptions`/`rebuildGrid` (`MazeEngine.ts:100–106`), providing a defense-in-depth second clamping layer even when called directly (e.g., from tests).
-
-The seed string is passed directly to `hashStringToSeed` which processes it byte-by-byte. Since the hash output is always `>>> 0` (unsigned 32-bit), arbitrary strings including empty strings, Unicode, or XSS payloads simply produce a seed number without any risk of injection (the seed is never rendered back to DOM).
-
-### 11.2 Thread-Blocking Risk
-
-**Can an algorithm infinite-loop and crash the browser?**
-
-The engine has two protections:
-
-1. **`ENGINE_MAX_STEPS_PER_FRAME = 2000`** (`limits.ts:14`): Each RAF call processes at most 2,000 steps. Even if a step completes instantly, the engine yields back to the event loop after 2,000 iterations.
-
-2. **`hasActiveWork()` guard** (`MazeEngine.ts:726–739`): The RAF loop only continues if a stepper exists and the phase is active. If a generator enters a degenerate state and never emits `done: true`, the engine will continue running but will never block indefinitely — it yields every frame.
-
-**Residual risk**: A generator that runs for an astronomically large number of steps (e.g., Aldous-Broder on a large grid with an unlucky random walk) can take many wall-clock seconds at low speeds but will never freeze the browser tab because the RAF loop always yields.
-
-**Not implemented**: There is no step-count timeout or watchdog timer. An algorithm that gets stuck in a finite loop producing patches but never setting `done: true` would run forever. This is acceptable for the current algorithm set, all of which have proven termination conditions.
-
-### 11.3 Canvas Memory Safety
-
-The DPR computation in `CanvasRenderer.computeSafeDpr` prevents canvas backing-store allocation errors. Without this, `canvas.width = 16384 * 3` on a 3× HiDPI display would attempt to allocate a ~2.4 GB backing store and throw an error or be silently clamped by the browser. The safe DPR is computed before `canvas.width` assignment.
-
----
-
-## 12. Performance & Scalability Analysis
-
-### 12.1 Memory Footprint
-
-For a maximum-size 200×200 grid (40,000 cells):
-
-| Structure | Type | Size |
-|---|---|---|
-| `walls` | `Uint8Array(40000)` | 40 KB |
-| `overlays` | `Uint16Array(40000)` | 80 KB |
-| `crossings` | `Uint8Array(40000)` | 40 KB |
-| `tunnels` | `Int32Array(40000)` | 160 KB |
-| Graph analysis `distances` | `Int32Array(40000)` | 160 KB (temporary) |
-| Graph analysis `counts` | `Float64Array(40000)` | 320 KB (temporary) |
-| **Grid total** | | **~320 KB persistent** |
-
-The two copies of the grid (one in the worker, one in the UI thread as `gridRef`) add up to ~640 KB at maximum grid size. This is well within V8's typical heap budget.
-
-### 12.2 Canvas Draw Call Analysis
-
-For a full `renderAll()` on a 200×200 grid with all features enabled, `drawCell` is called 40,000 times. Each `drawCell` issues approximately:
-- 2–3 `fillRect` calls (base cell + inset + overlays)
-- 4 `fillRect` calls for walls (if all 4 walls present)
-- 2 more calls for wall shadows
-
-At 40,000 cells × ~9 calls = ~360,000 Canvas 2D API calls for a full repaint. This happens only on `renderAll()` (triggered by grid rebuild or settings change). During animation, `renderDirty()` typically touches 2–20 cells per frame at moderate speeds, resulting in ~20–200 draw calls per frame — negligible.
-
-**Shadow blur is gated on cell size** (`CanvasRenderer.ts:168–175`):
-```typescript
-if (size >= 12) {
-  this.ctx.shadowColor = this.colors.pathA;
-  this.ctx.shadowBlur = size * 0.3;
-}
-```
-Shadow blur is one of the most expensive Canvas 2D operations (forces software rendering in many browsers). Gating it on `size >= 12` means very large grids (small cell size) avoid this cost entirely.
-
-### 12.3 Step Rate Scalability
-
-At `SPEED_MAX = 8000` steps/sec with `ENGINE_MAX_STEPS_PER_FRAME = 2000`:
-- At 60 fps, the engine processes at most `min(8000/60 ≈ 133, 2000) = 133` steps per frame.
-- The cap of 2000 only matters at high speeds on machines running below ~4 fps (16ms/step would require 2000 steps to drain the accumulator).
-- At 8000 steps/sec on a 40,000-cell grid, generation takes ~5 seconds (40,000 steps / 8,000 steps/sec).
-
-### 12.4 Web Worker Offloading
-
-**Status**: The Web Worker infrastructure is **fully implemented**. `maze.worker.ts` runs `MazeWorkerRuntime` in a dedicated worker thread. The `useMazeEngine` hook attempts Worker creation first and only falls back to the in-thread `MazeWorkerRuntime` if `Worker` is unavailable (e.g., test environment, certain server-side render contexts).
-
-This means **all heavy computation** (stepper execution, patch application, graph metrics) runs on a background thread in production. The main thread only:
-1. Receives serialized events via `onmessage`.
-2. Applies patches to its local grid copy (`applyCellPatch` loop).
-3. Calls `renderer.renderDirty()` (Canvas 2D draws).
-
-The main thread is thus protected from algorithm compute spikes. A 200×200 Aldous-Broder generation running at 8,000 steps/sec will not drop animation frames on the UI side.
-
-**Note on Transferable grids**: Grid snapshots (`gridRebuilt` events) transfer the four TypedArray `.buffer`s using the `transfer` list. The sender's buffers become detached after transfer — zero-copy, no serialization overhead. Patch arrays (`patchesApplied` events) use structured clone since they are plain JSON arrays.
-
-### 12.5 Potential Bottlenecks at Scale
-
-1. **Full `renderAll()` on settings change**: Changing `cellSize` triggers `setSettings → resize → renderAll()`. On a 200×200 grid at 40px/cell, this is 40,000 cell draws. Mitigation: the user must explicitly change settings; this is not on the hot path.
-
-2. **Patch array growth in high-step-rate frames**: At 2000 steps/frame with algorithms that emit many patches (e.g., Bellman-Ford pass-by-pass emitting a full-grid snapshot per pass), the `patches` array in `onFrame` could grow large. The array is not pre-allocated but V8's array growth strategy handles this gracefully for typical counts.
-
-3. **`expandDirty` Set creation**: Every `renderDirty` call creates a new `Set<number>`. At high step rates this is a GC pressure point. Mitigation: the dirty set is small (typically O(patches count × 5)), and the allocation is short-lived.
-
-4. **No OffscreenCanvas**: The renderer uses the main-thread `HTMLCanvasElement`. Moving to `OffscreenCanvas` (transferring it to the worker) would allow Canvas draw calls to also happen off the main thread, preventing UI jank during large full-redraws. This is **not yet implemented**.
-
----
-
-## 13. Architectural Diagrams
-
-### 13.1 System Context Diagram
-
-```mermaid
-graph TB
-    subgraph Browser["Browser Process"]
-        subgraph MainThread["Main Thread"]
-            React["React Components<br/>(ControlPanel, MetricsPanel,<br/>CanvasViewport, TracePanel)"]
-            Zustand["Zustand Store<br/>(settings, runtime, ui)"]
-            Hook["useMazeEngine Hook<br/>(transport bridge)"]
-            Canvas["HTML5 Canvas<br/>(CanvasRenderer)"]
-            React -- reads --> Zustand
-            React -- invokes controls --> Hook
-            Hook -- renderDirty() --> Canvas
-            Hook -- setRuntimeSnapshot() --> Zustand
-        end
-
-        subgraph WorkerThread["Web Worker Thread"]
-            WorkerRuntime["MazeWorkerRuntime<br/>(event emitter)"]
-            Engine["MazeEngine<br/>(phase state machine + RAF)"]
-            GenPlugin["Generator Stepper<br/>(algorithm closure)"]
-            SolPlugin["Solver Stepper(s)<br/>(algorithm closure)"]
-            Grid["Grid<br/>(Uint8Array walls<br/>Uint16Array overlays)"]
-            WorkerRuntime -- wraps --> Engine
-            Engine -- drives --> GenPlugin
-            Engine -- drives --> SolPlugin
-            Engine -- mutates --> Grid
-        end
-
-        Hook -- "postMessage(command)" --> WorkerRuntime
-        WorkerRuntime -- "postMessage(event)" --> Hook
-    end
-
-    User["User"] -- "interact" --> React
-    StaticBuild["next build<br/>(output: export)"] -- "serves" --> Browser
-```
-
-### 13.2 Execution Loop Component Diagram
-
-```mermaid
-sequenceDiagram
-    participant UI as useMazeEngine (Main Thread)
-    participant W as maze.worker.ts
-    participant R as MazeWorkerRuntime
-    participant E as MazeEngine
-    participant G as GeneratorStepper
-    participant CR as CanvasRenderer
-    participant Z as Zustand Store
-
-    UI->>W: postMessage({ type: "generate" })
-    W->>R: handleCommand("generate")
-    R->>E: engine.startGeneration()
-    E->>E: createGrid(), createSeededRandom()
-    E->>G: plugin.create({ grid, rng, options })
-    E-->>R: onGridRebuilt(grid)
-    R->>W: postMessage({ type: "gridRebuilt", grid: ArrayBuffers })
-    W->>UI: message event
-    UI->>CR: new CanvasRenderer(canvas, grid) → renderAll()
-
-    loop Each RAF Frame (Worker Thread)
-        E->>E: onFrame(ts): drain accumulator
-        E->>G: stepper.step() × N
-        G-->>E: StepResult{ patches, done, meta }
-        E->>E: applyCellPatch() × patches
-        E-->>R: onPatchesApplied(dirtyCells, patches, meta, metrics)
-        R->>W: postMessage({ type: "patchesApplied", ... })
-        W->>UI: message event
-        UI->>CR: renderDirty(dirtyCells)
-        UI->>Z: queueRuntimeUpdate (RAF-batched)
-    end
-
-    Note over E,G: When stepper.done=true
-    E->>E: completePhase() → analyzeMazeGraph()
-    E-->>R: onPhaseChange("Generated")
-    R->>W: postMessage({ type: "phaseChange", phase: "Generated" })
-    W->>UI: message event
-    UI->>Z: setRuntimeSnapshot({ phase: "Generated" })
-```
-
-### 13.3 Bitmask & Grid Data Model
+The primary architectural style is a modular front-end application with a plugin-driven algorithm core and a worker-backed execution layer. Evidence for this classification is direct: generator and solver behavior is defined through explicit strategy interfaces (`src/core/plugins/GeneratorPlugin.ts:6-23`, `src/core/plugins/SolverPlugin.ts:6-23`), concrete implementations are registered centrally (`src/core/plugins/generators/index.ts:117-167`, `src/core/plugins/solvers/index.ts:147-183`), runtime orchestration is isolated in `MazeEngine` (`src/engine/MazeEngine.ts:74-801`), and the React layer talks to that runtime through a transport façade in `useMazeEngine` (`src/ui/hooks/useMazeEngine.ts:97-425`).
+
+| Pattern | Location | Why Used |
+|---------|----------|----------|
+| Strategy | `src/core/plugins/GeneratorPlugin.ts`, `src/core/plugins/SolverPlugin.ts`, concrete plugin files under `src/core/plugins/generators/*.ts` and `src/core/plugins/solvers/*.ts` | Each maze algorithm is swappable behind a stable `create(...).step()` contract. |
+| Registry | `src/core/plugins/generators/index.ts:117-167`, `src/core/plugins/solvers/index.ts:147-183` | The UI and engine both need a single authoritative catalog of available algorithms. |
+| Metadata Decorator / Enrichment | `src/core/plugins/generators/index.ts:100-115`, `src/core/plugins/solvers/index.ts:139-145` | Raw plugin exports are wrapped with tier/topology/compatibility metadata without changing the plugin implementation files. |
+| State Machine | `src/engine/types.ts:6-11`, `src/engine/MazeEngine.ts:148-219`, `src/engine/MazeEngine.ts:693-714` | Generation and solving are controlled by explicit `MazePhase` transitions. |
+| Observer / Callback | `src/engine/types.ts:77-86`, `src/engine/MazeEngine.ts:730-735` | Engine emits phase, grid, and patch updates without importing UI code directly. |
+| Adapter | `src/engine/mazeWorkerRuntime.ts:43-293` | Wraps `MazeEngine` behind worker commands/events so the same engine can run in a real Worker or in-thread fallback. |
+| Facade | `src/ui/hooks/useMazeEngine.ts:375-425` | The UI gets a compact `controls` API and `canvasRef` instead of dealing with transport details directly. |
+| Serialization Boundary | `src/engine/mazeWorkerProtocol.ts:5-122` | Converts the typed-array grid into transfer-friendly worker payloads. |
+| Data-Oriented Design | `src/core/grid.ts:53-61` | Maze state is stored in typed arrays for compact memory layout and fast patch application. |
 
 ```mermaid
 graph LR
-    subgraph GridArrays["Grid TypedArrays (per-cell, flat index)"]
-        W["walls: Uint8Array<br/>bit3=West bit2=South<br/>bit1=East bit0=North<br/>Example: 0b0110 = East+South walls"]
-        O["overlays: Uint16Array<br/>bit7=CurrentB bit6=PathB<br/>bit5=FrontierB bit4=VisitedB<br/>bit3=Current bit2=Path<br/>bit1=Frontier bit0=Visited"]
-        C["crossings: Uint8Array<br/>0=None<br/>1=H-over-V<br/>2=V-over-H"]
-        T["tunnels: Int32Array<br/>-1=no tunnel<br/>≥0=destination cell index"]
-    end
-
-    subgraph Patch["CellPatch Delta"]
-        PI["index: number"]
-        WS["wallSet?: number — OR into walls"]
-        WC["wallClear?: number — AND ~mask into walls"]
-        OS["overlaySet?: number — OR into overlays"]
-        OC["overlayClear?: number — AND ~mask into overlays"]
-        CS["crossingSet?: number — assign crossings"]
-        TS["tunnelToSet?: number — assign tunnels"]
-    end
-
-    subgraph Apply["applyCellPatch (grid.ts:217)"]
-        A1["walls[i] |= wallSet"]
-        A2["walls[i] &= ~wallClear"]
-        A3["overlays[i] |= overlaySet"]
-        A4["overlays[i] &= ~overlayClear"]
-    end
-
-    Patch --> Apply
-    Apply --> GridArrays
+  AppRoutes["app/page.tsx<br/>app/docs/page.tsx<br/>app/architecture*/page.tsx"] -->|"imports UI components / markdown renderer"| UI["src/ui/components/*<br/>src/lib/renderMarkdown.ts"]
+  UI -->|"reads and writes state"| Store["src/ui/store/mazeStore.ts"]
+  UI -->|"uses control facade"| Hook["src/ui/hooks/useMazeEngine.ts"]
+  UI -->|"reads option catalogs"| UIConstants["src/ui/constants/algorithms.ts<br/>src/ui/constants/llmAttribution.ts"]
+  AppRoutes -->|"reads docs metadata"| UIDocs["src/ui/docs/*"]
+  Hook -->|"creates / talks to"| Worker["src/engine/maze.worker.ts"]
+  Hook -->|"fallback path"| WorkerRuntime["src/engine/mazeWorkerRuntime.ts"]
+  Hook -->|"updates pixels through"| Renderer["src/render/CanvasRenderer.ts"]
+  Hook -->|"serializes grid snapshots"| WorkerProtocol["src/engine/mazeWorkerProtocol.ts"]
+  Worker -->|"delegates commands"| WorkerRuntime
+  WorkerRuntime -->|"wraps"| Engine["src/engine/MazeEngine.ts"]
+  WorkerRuntime -->|"uses"| WorkerProtocol
+  Engine -->|"mutates"| Grid["src/core/grid.ts<br/>src/core/patches.ts"]
+  Engine -->|"computes stats with"| Graph["src/core/analysis/graphMetrics.ts"]
+  Engine -->|"selects algorithms from"| Generators["src/core/plugins/generators/index.ts"]
+  Engine -->|"selects algorithms from"| Solvers["src/core/plugins/solvers/index.ts"]
+  Generators -->|"imports"| GeneratorPlugins["src/core/plugins/generators/*.ts"]
+  Solvers -->|"imports"| SolverPlugins["src/core/plugins/solvers/*.ts"]
+  UIConstants -->|"reads"| Generators
+  UIConstants -->|"reads"| Solvers
 ```
 
-### 13.4 Phase State Machine
+Concrete finding: the repository is architected around a strict separation between algorithm execution and presentation, with the worker runtime acting as the only transport boundary between them.
+
+## 5. Core Components & Key Functions
+
+### HomePage (`app/page.tsx`)
+
+**What it does:** `HomePage` is the main route component that assembles the visualizer shell. It binds `useMazeEngine()` to the canvas UI and conditionally shows metrics and trace HUDs (`app/page.tsx:10-35`).
+
+**Inputs:** No route params are read in code. It consumes `canvasRef` and `controls` from `useMazeEngine()` and UI flags from `useMazeStore`.
+
+**Outputs:** Returns the main React tree for `/`; side effects are delegated to the hook and store.
+
+**Why it matters:** If this component fails, the core visualizer route is unavailable.
+
+**Non-obvious behavior:** HUD visibility is store-driven, so rendering of metrics/trace panels depends on global UI state rather than local component state.
+
+### `useMazeEngine` (`src/ui/hooks/useMazeEngine.ts`)
+
+**What it does:** `useMazeEngine` is the UI-facing façade over worker transport, fallback runtime, renderer lifecycle, and runtime snapshot synchronization (`src/ui/hooks/useMazeEngine.ts:97-425`).
+
+**Inputs:** Implicit inputs come from `useMazeStore` settings (`src/ui/hooks/useMazeEngine.ts:108-112`), the browser `Worker` API (`src/ui/hooks/useMazeEngine.ts:194-239`), and a canvas DOM ref.
+
+**Outputs:** Returns `canvasRef` and a `controls` object with `generate`, `solve`, `pauseResume`, `stepOnce`, and `reset` (`src/ui/hooks/useMazeEngine.ts:375-425`). Side effects include worker creation, command dispatch, runtime store updates, and canvas rendering.
+
+**Why it matters:** It is the only code path that bridges React UI, runtime orchestration, and the renderer.
+
+**Non-obvious behavior:** It batches runtime updates into a single `requestAnimationFrame` flush (`src/ui/hooks/useMazeEngine.ts:114-130`), skips the first grid-sync rebuild after initialization (`src/ui/hooks/useMazeEngine.ts:326-329`), and falls back to an in-thread runtime if worker creation fails (`src/ui/hooks/useMazeEngine.ts:221-239`).
+
+### `MazeEngine` (`src/engine/MazeEngine.ts`)
+
+**What it does:** `MazeEngine` owns maze phase transitions, generation/solving schedulers, metrics, and patch emission (`src/engine/MazeEngine.ts:74-801`).
+
+**Inputs:** Constructor inputs are `MazeEngineOptions` and optional `MazeEngineCallbacks` (`src/engine/MazeEngine.ts:107-117`). Runtime inputs also include plugin IDs, generator/solver params, speed, and seed.
+
+**Outputs:** Exposes the current `Grid`, `MazeMetrics`, and phase through getters; emits `onGridRebuilt`, `onPhaseChange`, and `onPatchesApplied` callbacks; mutates the in-memory grid.
+
+**Why it matters:** Every maze state transition passes through this class. If it fails, generation, solving, metrics, and playback controls all break.
+
+**Non-obvious behavior:** Battle mode remaps solver-B overlays into secondary overlay flags (`src/engine/MazeEngine.ts:803-837`), and graph metrics are only computed when generation completes (`src/engine/MazeEngine.ts:693-704`).
+
+### `MazeWorkerRuntime` (`src/engine/mazeWorkerRuntime.ts`)
+
+**What it does:** `MazeWorkerRuntime` adapts `MazeEngine` to the worker command/event protocol and is also reused as the in-thread fallback runtime (`src/engine/mazeWorkerRuntime.ts:43-293`).
+
+**Inputs:** `MazeWorkerCommand` values delivered to `handleCommand()` (`src/engine/mazeWorkerRuntime.ts:56-119`), plus an `emit` callback provided at construction (`src/engine/mazeWorkerRuntime.ts:54`).
+
+**Outputs:** Emits `MazeWorkerEvent` values such as `gridRebuilt`, `patchesApplied`, `phaseChange`, `runtimeSnapshot`, and `error`.
+
+**Why it matters:** It decouples the engine from the transport boundary and centralizes protocol-safe error handling.
+
+**Non-obvious behavior:** Runtime snapshots are throttled to at most once every 60 ms except in terminal phases, but the throttle is disabled when `process.env.NODE_ENV === "test"` (`src/engine/mazeWorkerRuntime.ts:211-234`).
+
+### `createGridSnapshot` / `deserializeGridSnapshot` (`src/engine/mazeWorkerProtocol.ts`)
+
+**What it does:** These functions serialize and reconstruct the typed-array `Grid` so it can cross the worker boundary (`src/engine/mazeWorkerProtocol.ts:90-122`).
+
+**Inputs:** `createGridSnapshot(grid)` takes a `Grid`; `deserializeGridSnapshot(snapshot)` takes a `SerializedGridSnapshot`.
+
+**Outputs:** `createGridSnapshot` returns a snapshot object and transfer list; `deserializeGridSnapshot` returns a new `Grid` view over the received buffers.
+
+**Why it matters:** Without them, the UI cannot receive a full grid from the worker runtime.
+
+**Non-obvious behavior:** `createGridSnapshot` clones every typed array with `.slice()` before transferring (`src/engine/mazeWorkerProtocol.ts:93-108`), so snapshot creation is a full-buffer copy rather than zero-copy reuse.
+
+### `Grid` model and helpers (`src/core/grid.ts`)
+
+**What it does:** `grid.ts` defines the maze data model and the primitives used by both generators and solvers: adjacency, overlay masks, tunnel/crossing storage, and patch application (`src/core/grid.ts:3-242`).
+
+**Inputs:** Functions take `Grid` plus indices, coordinates, or `CellPatch` values.
+
+**Outputs:** Produces `Grid` instances, adjacency lists, and in-place mutations of the typed-array state.
+
+**Why it matters:** Every algorithm, metric calculation, and renderer operation assumes this structure and its mask semantics.
+
+**Non-obvious behavior:** Solver A and solver B overlays are intentionally separate bit ranges (`src/core/grid.ts:13-45`), and `traversableNeighbors()` includes tunnel links in addition to carved planar neighbors (`src/core/grid.ts:177-185`).
+
+### `CanvasRenderer` (`src/render/CanvasRenderer.ts`)
+
+**What it does:** `CanvasRenderer` paints the grid, overlays, crossings, endpoints, and walls onto a 2D canvas and supports dirty-cell redraws (`src/render/CanvasRenderer.ts:21-470`).
+
+**Inputs:** Constructor inputs are `HTMLCanvasElement`, `Grid`, and `CanvasRendererSettings` (`src/render/CanvasRenderer.ts:40-59`). `renderDirty()` takes dirty cell indices and current speed (`src/render/CanvasRenderer.ts:147-160`).
+
+**Outputs:** Draws pixels on the canvas; no semantic return value.
+
+**Why it matters:** It is the visible execution surface of the application. If it is incorrect, the algorithm logic can be right while the user sees the wrong maze state.
+
+**Non-obvious behavior:** `renderDirty()` expands each dirty cell to its north/south/east/west neighbors before repainting (`src/render/CanvasRenderer.ts:412-462`) to avoid wall-edge artifacts, and `setSettings()` always triggers `resize()`, buffer reinitialization, and a full redraw (`src/render/CanvasRenderer.ts:68-81`).
+
+### `useMazeStore` (`src/ui/store/mazeStore.ts`)
+
+**What it does:** This Zustand store holds persistent UI settings, current runtime snapshot, and HUD toggles (`src/ui/store/mazeStore.ts:53-147`).
+
+**Inputs:** Setter functions receive typed values such as generator IDs, solver IDs, booleans, and numeric settings (`src/ui/store/mazeStore.ts:57-87`).
+
+**Outputs:** Store reads feed nearly every UI component; setters clamp or normalize state before writing.
+
+**Why it matters:** It is the single source of truth for all UI-configurable behavior.
+
+**Non-obvious behavior:** Grid dimensions, speed, and cell size are clamped through `src/config/limits.ts` (`src/ui/store/mazeStore.ts:197-235`), so the UI never stores unconstrained raw numeric input.
+
+### `generatorPlugins` registry (`src/core/plugins/generators/index.ts`)
+
+**What it does:** Exports the authoritative generator catalog and attaches tier and topology metadata to each plugin (`src/core/plugins/generators/index.ts:60-169`).
+
+**Inputs:** Imported concrete plugin exports from `src/core/plugins/generators/*.ts`.
+
+**Outputs:** `generatorPlugins` and the derived `GeneratorPluginId` type.
+
+**Why it matters:** The engine, docs route, tests, and control panel all rely on this registry.
+
+**Non-obvious behavior:** Any generator not listed in `GENERATOR_TOPOLOGY` defaults to `perfect-planar` (`src/core/plugins/generators/index.ts:87-114`).
+
+### `solverPlugins` registry (`src/core/plugins/solvers/index.ts`)
+
+**What it does:** Exports the authoritative solver catalog and enriches each solver with tier and topology-compatibility metadata (`src/core/plugins/solvers/index.ts:46-185`).
+
+**Inputs:** Imported concrete solver plugin exports from `src/core/plugins/solvers/*.ts`.
+
+**Outputs:** `solverPlugins` and the derived `SolverPluginId` type.
+
+**Why it matters:** Solver selection, battle mode, compatibility filtering, and docs depend on it.
+
+**Non-obvious behavior:** Compatibility is generated from deny-lists (`NO_LOOPY_SUPPORT`, `NO_WEAVE_SUPPORT`) rather than per-plugin declarations (`src/core/plugins/solvers/index.ts:59-137`).
+
+### `ControlPanel` (`src/ui/components/ControlPanel.tsx`)
+
+**What it does:** `ControlPanel` is the main configuration UI for generators, solvers, battle mode, speed, dimensions, visibility toggles, and shortcuts (`src/ui/components/ControlPanel.tsx:131-420` and beyond).
+
+**Inputs:** `controls: MazeControls`, store state, and DOM keyboard events.
+
+**Outputs:** Writes to the Zustand store and invokes runtime controls. It also opens `MazeConfigPanel`.
+
+**Why it matters:** This is where the user changes the active algorithm and runtime parameters.
+
+**Non-obvious behavior:** It automatically normalizes generator params (`src/ui/components/ControlPanel.tsx:89-128`) and force-corrects incompatible or duplicate solver selections when topology or battle mode changes (`src/ui/components/ControlPanel.tsx:280-335`).
+
+### `DocsPage` (`app/docs/page.tsx`)
+
+**What it does:** Renders the algorithm field guide by combining doc records, plugin metadata, and attribution labels (`app/docs/page.tsx:144-219`).
+
+**Inputs:** `GENERATOR_DOCS`, `SOLVER_DOCS`, `generatorPlugins`, `solverPlugins`, and `getAlgorithmInventor`.
+
+**Outputs:** Returns the `/docs` page with stats cards and one card per algorithm.
+
+**Why it matters:** It is the public documentation surface for the plugin catalog.
+
+**Non-obvious behavior:** The displayed generator/solver counts come from doc arrays (`app/docs/page.tsx:178-189`), not directly from the plugin registries.
+
+### `renderMarkdown` (`src/lib/renderMarkdown.ts`)
+
+**What it does:** Converts a limited markdown subset into HTML for the architecture routes (`src/lib/renderMarkdown.ts:47-199`).
+
+**Inputs:** A raw markdown string.
+
+**Outputs:** An HTML string consumed by `dangerouslySetInnerHTML`.
+
+**Why it matters:** Both architecture routes rely on it to display local markdown documents.
+
+**Non-obvious behavior:** It escapes general inline HTML (`src/lib/renderMarkdown.ts:1-7`, `src/lib/renderMarkdown.ts:27-36`) but does not sanitize link destinations before interpolating them into `href` (`src/lib/renderMarkdown.ts:35`).
+
+### `GeneratorTracePanel` (`src/ui/components/GeneratorTracePanel.tsx`)
+
+**What it does:** Displays pseudocode and highlights the currently executing line for the active generator or solver (`src/ui/components/GeneratorTracePanel.tsx:9-124`).
+
+**Inputs:** Store settings, runtime metrics, and pseudocode dictionaries.
+
+**Outputs:** A trace sidebar or `null`.
+
+**Why it matters:** It is the main educational/inspection feature that makes the step-wise execution readable.
+
+**Non-obvious behavior:** In battle mode it reads active lines from `runtime.metrics.battle` rather than the top-level runtime line fields (`src/ui/components/GeneratorTracePanel.tsx:28-31`).
+
+### `analyzeMazeGraph` (`src/core/analysis/graphMetrics.ts`)
+
+**What it does:** Computes edge count, cycle count, dead ends, junctions, and number of shortest routes between the start and goal (`src/core/analysis/graphMetrics.ts:19-57`).
+
+**Inputs:** `Grid`, `startIndex`, `goalIndex`, and optional `pathCountCap`.
+
+**Outputs:** A `MazeGraphMetrics` object.
+
+**Why it matters:** These metrics power the graph-stats section of the metrics HUD and are the only topology-analysis layer in the codebase.
+
+**Non-obvious behavior:** Shortest-path counting is capped at `1_000_000` (`src/core/analysis/graphMetrics.ts:17`, `src/core/analysis/graphMetrics.ts:161-174`) to prevent unbounded count growth on loopy/open grids.
+
+Concrete finding: the most critical components all sit on one execution chain from `useMazeEngine` to `MazeEngine` to `CanvasRenderer`, with registries and graph analysis acting as supporting subsystems.
+
+## 6. External Service Integrations
+
+No remote HTTP APIs, databases, message brokers, or SaaS SDKs were found in the codebase.
+
+### Remote services
+
+| Service | Purpose | Protocol | Auth Method | SDK/Client Used | Timeout/Retry config |
+|---------|---------|----------|-------------|-----------------|----------------------|
+| None found in codebase | — | — | — | — | — |
+
+### Platform / local-runtime integrations
+
+| Service | Purpose | Protocol | Auth Method | SDK/Client Used | Timeout/Retry config |
+|---------|---------|----------|-------------|-----------------|----------------------|
+| Browser `Worker` runtime | Off-main-thread maze execution | Structured clone over `postMessage` | None | Native `Worker` API (`src/ui/hooks/useMazeEngine.ts:199-203`) | Not configured |
+| Local filesystem markdown read | Render architecture documents at `/architecture` and `/architecture-gemini` | Synchronous file I/O | OS filesystem permissions | Node `fs.readFileSync` (`app/architecture/page.tsx:9-12`, `app/architecture-gemini/page.tsx:9-12`) | Not configured |
+
+No hardcoded credentials were found because no credentialed external integration exists in the analyzed source set.
+
+Concrete finding: the application is operationally self-contained; its only integration boundaries are browser platform APIs and local markdown file reads.
+
+## 7. Data Flow & Request Lifecycle
+
+The most critical path in this application is the user-triggered maze generation flow.
+
+1. `[SYNC]` `GET /` renders `HomePage` in `app/page.tsx:10-35`, which mounts `ControlPanel`, `CanvasViewport`, `MetricsPanel`, and `GeneratorTracePanel`.
+2. `[SYNC]` `useMazeEngine()` initializes on the client, reading the current settings from `useMazeStore` and attempting to create a module worker (`src/ui/hooks/useMazeEngine.ts:191-249`).
+3. `[ASYNC]` If the worker is available, `useMazeEngine` sends an `init` command through `postMessage`; otherwise it constructs an in-thread `MazeWorkerRuntime` fallback (`src/ui/hooks/useMazeEngine.ts:194-239`).
+4. `[SYNC]` When the user clicks Generate in `CanvasViewport` (`src/ui/components/CanvasViewport.tsx:69-75`) or triggers the keyboard shortcut path in `ControlPanel` (`src/ui/components/ControlPanel.tsx:389-393`), `controls.generate()` syncs the latest store settings into engine options and dispatches `{ type: "generate" }` (`src/ui/hooks/useMazeEngine.ts:377-386`).
+5. `[SYNC]` `MazeWorkerRuntime.handleCommand()` receives the command and calls `MazeEngine.startGeneration()` (`src/engine/mazeWorkerRuntime.ts:68-70`).
+6. `[SYNC]` `MazeEngine.startGeneration()` rebuilds the grid, creates the selected generator stepper, sets phase to `Generating`, starts the frame loop, and emits an all-dirty refresh (`src/engine/MazeEngine.ts:148-174`, `src/engine/MazeEngine.ts:720-723`).
+7. `[ASYNC]` On each frame, `MazeEngine.onFrame()` steps the algorithm until the speed budget is consumed, accumulates patches and dirty cells, and emits them through the callback interface (`src/engine/MazeEngine.ts:345-408`).
+8. `[ASYNC]` `MazeWorkerRuntime` converts engine callbacks into worker events such as `patchesApplied`, `phaseChange`, and `runtimeSnapshot` (`src/engine/mazeWorkerRuntime.ts:128-184`).
+9. `[SYNC]` `useMazeEngine.handleEvent()` applies each patch to the local grid mirror with `applyCellPatch()` and invokes `rendererRef.current?.renderDirty(...)` (`src/ui/hooks/useMazeEngine.ts:155-164`).
+10. `[ASYNC]` Runtime snapshots are merged and flushed to Zustand on the next `requestAnimationFrame`, updating the HUD and trace panels (`src/ui/hooks/useMazeEngine.ts:114-130`, `src/ui/hooks/useMazeEngine.ts:167-177`).
+11. `[SYNC]` When the generator reports `done`, `MazeEngine.completePhase()` computes graph metrics, sets phase to `Generated`, and the UI enters the state where Solve becomes available (`src/engine/MazeEngine.ts:693-704`, `src/ui/components/CanvasViewport.tsx:22-25`).
+
+Silent-failure behavior:
+
+- `sendCommand()` is a no-op when no transport exists (`src/ui/hooks/useMazeEngine.ts:81-95`).
+- `MazeEngine.startSolving()` returns without error if the current phase is not `Generated` or `Solved` (`src/engine/MazeEngine.ts:176-179`).
+- Worker creation failures are logged and downgraded to the in-thread fallback instead of surfacing to the user (`src/ui/hooks/useMazeEngine.ts:221-225`).
+
+Error boundaries present:
+
+- `MazeWorkerRuntime.handleCommand()` wraps command dispatch in `try/catch` and emits protocol `error` events (`src/engine/mazeWorkerRuntime.ts:56-119`).
+- Worker runtime errors are logged via `worker.onerror` (`src/ui/hooks/useMazeEngine.ts:213-215`).
+
+Error boundaries absent:
+
+- `app/architecture/page.tsx` and `app/architecture-gemini/page.tsx` synchronously read files without a local `try/catch` (`app/architecture/page.tsx:8-13`, `app/architecture-gemini/page.tsx:8-13`).
+- `CanvasRenderer` throws immediately if `getContext("2d")` returns null (`src/render/CanvasRenderer.ts:45-48`).
+
+Concrete finding: the runtime path is deterministic and event-driven, but some user-facing failure modes are intentionally downgraded to console logging instead of visible UI errors.
+
+## 8. Data Storage
+
+| Storage role | Type | Technology | Library / API used | Connection or config location |
+|--------------|------|------------|--------------------|-------------------------------|
+| Maze state | In-memory typed arrays | `Grid` with `Uint8Array`, `Uint16Array`, `Int32Array` | `src/core/grid.ts:53-61` | Created by `createGrid()` and owned by `MazeEngine` |
+| Runtime/UI state | In-memory client store | Zustand store object | `zustand` via `create()` (`src/ui/store/mazeStore.ts:1`, `src/ui/store/mazeStore.ts:144-147`) | No external connection |
+| Documentation content | Local markdown files | Plaintext files on disk | Node `fs.readFileSync` | `app/architecture/page.tsx:9-12`, `app/architecture-gemini/page.tsx:9-12` |
+
+> ⚠️ Not found in codebase — cannot be determined without database schema or migration files.
+
+> ⚠️ Not found in codebase — cannot be determined without persistent storage definitions, so there are no visible entities, foreign keys, cascade rules, or indexes to inventory.
+
+> ⚠️ Not found in codebase — cannot be determined without retention policies or TTL configuration files.
+
+Concrete finding: all application state is ephemeral and memory-resident; the repository contains no persistent application datastore.
+
+## 9. Configuration & Environment
+
+| Variable | Default Value | Required | Where Used | Sensitive? |
+|----------|---------------|----------|------------|------------|
+| `NODE_ENV` | — | NO | `src/engine/mazeWorkerRuntime.ts:212` | NO |
+
+Environment-variable findings:
+
+- No `.env`, `.env.example`, or other `.env*` files were found in the repository-owned paths.
+- `NODE_ENV` is the only environment variable referenced in code, and it is used only to disable runtime snapshot throttling during tests (`src/engine/mazeWorkerRuntime.ts:211-219`).
+- No environment variable is assigned a hardcoded secret-like default.
+
+Non-env configuration visible in code:
+
+- `next.config.ts` enables `reactStrictMode` and static export output (`next.config.ts:3-6`).
+- `tsconfig.json` enables strict type checking, `@/*` path aliases, and incremental builds (`tsconfig.json:2-44`).
+- `src/config/limits.ts` contains runtime safety ceilings for speed, grid dimensions, cell size, viewport size, and per-frame step count (`src/config/limits.ts:1-20`).
+
+Flagged gap:
+
+- `NODE_ENV` is referenced in code but is not documented in any checked-in `.env*` or environment-example file, because no such files exist in the repository.
+
+Visible environment differences:
+
+- `NODE_ENV === "test"` disables worker-runtime snapshot throttling (`src/engine/mazeWorkerRuntime.ts:212-218`).
+- No dev/staging/production branching beyond that conditional was found in application code.
+
+Concrete finding: configuration is primarily code-driven and static; environment-based behavior is minimal and limited to test-mode runtime snapshot cadence.
+
+## 10. API Surface
+
+No backend API routes were found. There is no `app/api/**`, no route handler files, no Express/Fastify/Nest server, and no RPC transport.
+
+### HTTP page routes
+
+| Method | Path | Handler | Auth Required | Purpose |
+|--------|------|---------|---------------|---------|
+| `GET` | `/` | `HomePage` in `app/page.tsx:10-35` | No | Render the main maze visualizer UI |
+| `GET` | `/docs` | `DocsPage` in `app/docs/page.tsx:144-219` | No | Render the algorithm field guide |
+| `GET` | `/architecture` | `ArchitecturePage` in `app/architecture/page.tsx:8-29` | No | Render local `architecture.md` as HTML |
+| `GET` | `/architecture-gemini` | `ArchitectureGeminiPage` in `app/architecture-gemini/page.tsx:8-29` | No | Render local `architecture_gemini.md` as HTML |
+
+Request/response shape finding: these routes are page components, so the codebase exposes HTML pages rather than JSON APIs. Exact HTTP status codes are not set explicitly in code.
+
+### Worker command interface
+
+| Interface | Name | Location | Direction | Payload shape visible in code | Purpose |
+|-----------|------|----------|-----------|-------------------------------|---------|
+| Worker command | `init` | `src/engine/mazeWorkerProtocol.ts:24-28` | UI → worker/runtime | `{ type: "init", options: MazeEngineOptions }` | Initialize engine state |
+| Worker command | `setOptions` | `src/engine/mazeWorkerProtocol.ts:29-32` | UI → worker/runtime | `{ type: "setOptions", options: Partial<MazeEngineOptions> }` | Update mutable runtime options |
+| Worker command | `setSpeed` | `src/engine/mazeWorkerProtocol.ts:33-36` | UI → worker/runtime | `{ type: "setSpeed", speed: number }` | Adjust speed without replacing all options |
+| Worker command | `generate` | `src/engine/mazeWorkerProtocol.ts:37-39` | UI → worker/runtime | `{ type: "generate" }` | Start generation |
+| Worker command | `solve` | `src/engine/mazeWorkerProtocol.ts:40-42` | UI → worker/runtime | `{ type: "solve" }` | Start solving |
+| Worker command | `pause` | `src/engine/mazeWorkerProtocol.ts:43-45` | UI → worker/runtime | `{ type: "pause" }` | Pause frame loop |
+| Worker command | `resume` | `src/engine/mazeWorkerProtocol.ts:46-48` | UI → worker/runtime | `{ type: "resume" }` | Resume frame loop |
+| Worker command | `stepOnce` | `src/engine/mazeWorkerProtocol.ts:49-51` | UI → worker/runtime | `{ type: "stepOnce" }` | Execute one generation/solve step |
+| Worker command | `reset` | `src/engine/mazeWorkerProtocol.ts:52-54` | UI → worker/runtime | `{ type: "reset" }` | Rebuild engine to idle state |
+| Worker command | `rebuildGrid` | `src/engine/mazeWorkerProtocol.ts:55-59` | UI → worker/runtime | `{ type: "rebuildGrid", width: number, height: number }` | Replace grid dimensions |
+| Worker command | `dispose` | `src/engine/mazeWorkerProtocol.ts:60-62` | UI → worker/runtime | `{ type: "dispose" }` | Tear down runtime |
+
+### Worker event interface
+
+| Interface | Name | Location | Direction | Payload shape visible in code | Purpose |
+|-----------|------|----------|-----------|-------------------------------|---------|
+| Worker event | `phaseChange` | `src/engine/mazeWorkerProtocol.ts:64-69` | worker/runtime → UI | `{ type: "phaseChange", phase, paused }` | Broadcast phase transitions |
+| Worker event | `gridRebuilt` | `src/engine/mazeWorkerProtocol.ts:70-73` | worker/runtime → UI | `{ type: "gridRebuilt", grid: SerializedGridSnapshot }` | Replace the local grid mirror |
+| Worker event | `patchesApplied` | `src/engine/mazeWorkerProtocol.ts:74-80` | worker/runtime → UI | `{ type: "patchesApplied", dirtyCells, patches, meta?, metrics }` | Apply incremental visual/state updates |
+| Worker event | `runtimeSnapshot` | `src/engine/mazeWorkerProtocol.ts:81-84` | worker/runtime → UI | `{ type: "runtimeSnapshot", runtime: WorkerRuntimeSnapshot }` | Refresh HUD/store state |
+| Worker event | `error` | `src/engine/mazeWorkerProtocol.ts:85-88` | worker/runtime → UI | `{ type: "error", message: string }` | Surface protocol/runtime failures |
+
+> ⚠️ Not found in codebase — cannot be determined without backend route handlers, so there are no request body schemas, response body schemas, or explicit non-200 status codes to enumerate.
+
+Concrete finding: the only machine-readable API in this repository is the internal worker command/event protocol.
+
+## 11. Testing Strategy
+
+### Framework inventory
+
+| Tool | Version | Evidence | Role |
+|------|---------|----------|------|
+| Vitest | `3.0.5` | `package.json:28`, `vitest.config.ts:4-13` | Test runner and assertion API (`describe`, `it`, `expect`, `vi`) |
+| `@vitest/coverage-v8` | `^3.0.5` | `package.json:24` | Coverage provider dependency |
+
+### Test categories present
+
+| Category | Evidence | Notes |
+|----------|----------|-------|
+| Unit | `tests/config/limits.test.ts`, `tests/core/rng.test.ts`, `tests/core/graphMetrics.test.ts` | Pure-function and utility coverage |
+| Behavioral algorithm tests | `tests/core/generators.test.ts`, `tests/core/solvers.test.ts` | Determinism, connectivity, solving, and topology behavior |
+| Registry / docs consistency | `tests/core/algorithmCatalog.test.ts` | Ensures every plugin has docs and pseudocode |
+| Integration-style engine tests | `tests/engine/mazeEngine.test.ts`, `tests/engine/mazeWorkerRuntime.test.ts`, `tests/engine/mazeWorkerProtocol.test.ts`, `tests/engine/mazeWorker.test.ts` | Cross-module execution-path verification |
+| E2E browser tests | None found | No Playwright/Cypress/WebDriver config present |
+| Snapshot tests | None found | No snapshot files or `toMatchSnapshot()` usage found |
+| Performance tests | None found | No benchmark or load-test suites found |
+
+### Coverage level by layer
+
+| Layer | Coverage estimate | Basis |
+|-------|-------------------|-------|
+| `src/core/` algorithms and model | High | Multiple broad `it.each(...)` suites cover every registered generator and solver (`tests/core/generators.test.ts:99-220`, `tests/core/solvers.test.ts:230-244`) |
+| `src/engine/` orchestration and protocol | High | Dedicated engine, worker bootstrap, protocol, and runtime suites (`tests/engine/*.test.ts`) |
+| `src/ui/constants` and docs metadata | Medium | Catalog coverage tests validate doc/pseudocode completeness but not rendering behavior (`tests/core/algorithmCatalog.test.ts:9-84`) |
+| `src/ui/hooks` | Low | No direct hook tests found |
+| `src/ui/components` | None | No component test files found |
+| `src/render/` | None | No renderer tests found |
+| `app/` routes | None | No route or page rendering tests found |
+
+### Mocking approach
+
+- Fake timers are used extensively for engine/worker loop control (`tests/engine/mazeEngine.test.ts:17-24`, `tests/engine/mazeWorkerRuntime.test.ts:74-81`).
+- Global browser worker functions are stubbed in `tests/engine/mazeWorker.test.ts:7-16`.
+- Most core algorithm tests avoid mocks and run real plugin implementations (`tests/core/generators.test.ts:18-48`, `tests/core/solvers.test.ts:125-167`).
+
+Critical path with zero direct coverage:
+
+- `src/render/CanvasRenderer.ts`
+- `src/ui/hooks/useMazeEngine.ts`
+- `src/ui/components/CanvasViewport.tsx`
+- `src/ui/components/ControlPanel.tsx`
+- `app/page.tsx`
+
+Tests that lean toward implementation details:
+
+- `tests/engine/mazeEngine.test.ts:103-135` asserts timer counts directly with `vi.getTimerCount()`, which couples the test to the current scheduling mechanism rather than only visible behavior.
+
+Concrete finding: algorithm and engine correctness are well covered, but the actual browser integration layer is effectively untested.
+
+## 12. CI/CD & Deployment
+
+### Pipeline steps
+
+| Order | Tool | Config file | Step |
+|-------|------|-------------|------|
+| 1 | GitHub Actions | `.github/workflows/ci.yml:12-13` | Checkout source with `actions/checkout@v4` |
+| 2 | GitHub Actions | `.github/workflows/ci.yml:15-19` | Provision Node.js 20 with npm cache via `actions/setup-node@v4` |
+| 3 | npm | `.github/workflows/ci.yml:21-22` | `npm ci` |
+| 4 | npm / Next.js | `.github/workflows/ci.yml:24-25` | `npm run lint` |
+| 5 | npm / TypeScript | `.github/workflows/ci.yml:27-28` | `npm run typecheck` |
+| 6 | npm / Vitest | `.github/workflows/ci.yml:30-31` | `npm test` |
+| 7 | npm / Next.js | `.github/workflows/ci.yml:33-34` | `npm run build` |
+
+Deployment target:
+
+[INFERRED]: `next.config.ts` sets `output: "export"` (`next.config.ts:3-6`), so the produced build is intended for static hosting rather than a long-running Node server.  
+> ⚠️ Not found in codebase — cannot be determined without hosting, CDN, or deployment manifests.
+
+Dockerfile analysis:
+
+> ⚠️ Not found in codebase — cannot be determined without any `Dockerfile*` files.
+
+Secrets in CI:
+
+- No `${{ secrets.* }}` references were found in `.github/workflows/ci.yml`.
+- No mounted secrets, vault references, or environment-injection steps were found in the visible CI config.
+
+Flagged secret exposure:
+
+- None found in the analyzed workflow file.
+
+Concrete finding: CI is present and strict, but deployment configuration is absent from the repository and must exist outside the analyzed codebase if it exists at all.
+
+## 13. Security Analysis
+
+### Findings
+
+| Severity | Category | Location | Description |
+|----------|----------|----------|-------------|
+| LOW | Unsanitized link destination | `src/lib/renderMarkdown.ts:35` | Markdown link URLs are interpolated directly into `<a href="...">` without scheme validation. Current input is repo-local markdown, but the renderer would become an XSS/open-redirect sink if future content becomes user-controlled. |
+| LOW | Raw HTML sink | `app/architecture/page.tsx:24-27` and `app/architecture-gemini/page.tsx:24-27` | Rendered markdown HTML is inserted with `dangerouslySetInnerHTML`. The current trust boundary is local checked-in files, but there is no sanitizer between markdown parsing and DOM injection. |
+| LOW | Missing explicit application-layer security headers | `next.config.ts:3-6` | The app config does not define CSP, HSTS, or similar headers. For a static export this may be delegated to hosting, but there is no in-repo enforcement. |
+
+### Positive Security Controls
+
+| Control | Location | Notes |
+|---------|----------|-------|
+| HTML escaping in markdown renderer | `src/lib/renderMarkdown.ts:1-36` | General inline text and code are escaped before HTML generation; the gap is limited to link destination validation. |
+| Input clamping for runtime settings | `src/config/limits.ts:1-136`, `src/ui/store/mazeStore.ts:197-235` | Prevents oversized grids, invalid cell sizes, and unbounded speed values from entering runtime state. |
+| Worker protocol error capture | `src/engine/mazeWorkerRuntime.ts:56-119` | Commands are wrapped in `try/catch` and surfaced as typed `error` events. |
+| React strict mode | `next.config.ts:3-5` | Enables stricter React runtime checks in development. |
+| CI quality gates | `.github/workflows/ci.yml:21-34` | Every push and pull request runs lint, typecheck, tests, and build. |
+
+Security-related TODO / FIXME / HACK / DEPRECATED comments:
+
+- None found. The repository-wide search for `TODO|FIXME|HACK|DEPRECATED` returned no matches in repo-owned files.
+
+CORS:
+
+> ⚠️ Not found in codebase — cannot be determined without an HTTP API or custom server configuration.
+
+Rate limiting:
+
+> ⚠️ Not found in codebase — cannot be determined without an HTTP API layer; no rate-limited routes exist in source.
+
+HTTPS enforcement:
+
+> ⚠️ Not found in codebase — cannot be determined without hosting or reverse-proxy configuration.
+
+Concrete finding: the main visible security risk is trust in locally rendered markdown HTML, not credential handling or network perimeter logic.
+
+## 14. Performance & Scalability
+
+### Top visible bottlenecks
+
+| Rank | Location | Bottleneck | Why it matters |
+|------|----------|------------|----------------|
+| 1 | `src/engine/mazeWorkerProtocol.ts:90-109` | Full typed-array cloning during grid snapshot creation | Snapshotting copies the entire maze state before every `gridRebuilt` transfer. |
+| 2 | `src/render/CanvasRenderer.ts:68-81` | Full canvas resize/buffer reset/redraw on every settings change | Color or visibility toggles pay the same cost as a real geometry change. |
+| 3 | `src/engine/MazeEngine.ts:720-723` | Full-grid dirty emission on start/reset/rebuild | Large grids immediately force a whole-grid repaint even when only the initial state changed. |
+
+Caching layers:
+
+> ⚠️ Not found in codebase — cannot be determined without explicit cache settings, cache headers, or cache clients. No in-memory cache, Redis, CDN header configuration, or HTTP cache-control logic is present in source.
+
+Connection pooling:
+
+> ⚠️ Not found in codebase — cannot be determined without external services or database clients. No pool configuration exists because no such clients exist in the codebase.
+
+Async patterns present:
+
+- `requestAnimationFrame`-driven engine stepping with `setTimeout` fallback (`src/engine/MazeEngine.ts:337-408`, `src/engine/MazeEngine.ts:785-800`)
+- Worker `postMessage` transport plus in-thread fallback (`src/ui/hooks/useMazeEngine.ts:81-95`, `src/ui/hooks/useMazeEngine.ts:194-239`)
+- React effect-driven lifecycle wiring (`src/ui/hooks/useMazeEngine.ts:191-353`)
+
+Observability tooling:
+
+- No metrics, tracing, or structured logging libraries were found.
+- Visible diagnostics are limited to `console.error` and `console.warn` in `useMazeEngine` (`src/ui/hooks/useMazeEngine.ts:180-182`, `src/ui/hooks/useMazeEngine.ts:213-225`).
+
+N+1 query patterns:
+
+> ⚠️ Not found in codebase — cannot be determined without ORM or database access code.
+
+Synchronous blocking calls in async or render paths:
+
+- `fs.readFileSync` is used inside architecture page server components (`app/architecture/page.tsx:9-12`, `app/architecture-gemini/page.tsx:9-12`).
+
+Unbounded query / result scans:
+
+- There are no database queries, but several full-catalog scans are intentional and bounded by in-memory arrays, such as `generatorPlugins.map(...)` and `solverPlugins.map(...)` in registry and UI option builders (`src/core/plugins/generators/index.ts:58-60`, `src/core/plugins/solvers/index.ts:147-183`, `src/ui/constants/algorithms.ts:80-102`).
+
+Concrete finding: the code already optimizes step-level updates, but full-buffer snapshots and full-canvas rerenders remain the clearest scalability ceilings for very large grids or frequent UI setting changes.
+
+## 15. Architectural Diagrams
+
+### Diagram 1 — System Context (C4 Level 1)
 
 ```mermaid
-stateDiagram-v2
-    [*] --> Idle: Initial state
-
-    Idle --> Generating: startGeneration()
-    Generating --> Generating: step() — emitPatches each frame
-    Generating --> Generated: stepper.done=true\n+ analyzeMazeGraph() computed
-
-    Generated --> Solving: startSolving()
-    Solved --> Solving: startSolving() (re-solve)
-
-    Solving --> Solving: step() — primary + secondary solvers
-    Solving --> Solved: both solvers done
-
-    Generating --> Idle: reset()
-    Generated --> Idle: reset()
-    Solving --> Idle: reset()
-    Solved --> Idle: reset()
+graph TB
+  User["End User"] -->|"HTTPS GET /, /docs, /architecture* "| System["Mazer<br/>Static Next.js maze visualizer"]
+  System -->|"Client-side rendering / DOM updates"| Browser["Browser runtime<br/>React + Canvas 2D"]
+  System -->|"readFileSync"| LocalDocs["Local markdown files<br/>architecture.md / architecture_gemini.md"]
+  Browser -->|"structured clone / postMessage"| Worker["Browser Web Worker runtime"]
 ```
 
----
+### Diagram 2 — Component Diagram (C4 Level 2)
 
-## 14. Interesting & Non-Obvious Facts
+```mermaid
+graph LR
+  Routes["App Routes<br/>app/page.tsx<br/>app/docs/page.tsx<br/>app/architecture*/page.tsx"] -->|"renders / imports"| Components["UI Components<br/>CanvasViewport<br/>ControlPanel<br/>MetricsPanel<br/>GeneratorTracePanel"]
+  Routes -->|"reads"| DocData["Algorithm docs + pseudocode<br/>src/ui/docs/*"]
+  Routes -->|"renders architecture markdown via"| Markdown["renderMarkdown()"]
+  Components -->|"state reads/writes"| Store["Zustand Store<br/>useMazeStore"]
+  Components -->|"control surface"| Hook["useMazeEngine()"]
+  Components -->|"catalog lookup"| Catalog["Algorithm option catalogs<br/>src/ui/constants/algorithms.ts"]
+  Hook -->|"commands/events"| WorkerRuntime["MazeWorkerRuntime"]
+  Hook -->|"pixel updates"| Renderer["CanvasRenderer"]
+  WorkerRuntime -->|"wraps"| Engine["MazeEngine"]
+  WorkerRuntime -->|"serializes"| Protocol["mazeWorkerProtocol"]
+  Engine -->|"grid mutations"| Grid["Grid + patches"]
+  Engine -->|"metrics"| Graph["analyzeMazeGraph()"]
+  Engine -->|"generator lookup"| Generators["generatorPlugins registry"]
+  Engine -->|"solver lookup"| Solvers["solverPlugins registry"]
+  Generators -->|"imports"| GeneratorImpls["Generator plugin files"]
+  Solvers -->|"imports"| SolverImpls["Solver plugin files"]
+```
 
-### 14.1 `const enum` for Zero-Cost Bitmasks
+### Diagram 3 — Critical Request Flow
 
-`WallFlag` and `OverlayFlag` are declared as `const enum` (`grid.ts:3`, `grid.ts:13`). In TypeScript with `const enum`, all usages are **inlined at compile time** — there is no runtime object. The expression `WallFlag.North | WallFlag.East` compiles to the literal `3`. This eliminates both the property lookup cost and the object allocation.
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant CV as CanvasViewport
+  participant H as useMazeEngine
+  participant WR as MazeWorkerRuntime
+  participant E as MazeEngine
+  participant R as CanvasRenderer
+  participant S as useMazeStore
 
-### 14.2 Battle Mode Overlay Remap Is a Bit Shift
+  U->>CV: Click "Generate"
+  CV->>H: controls.generate()
+  H->>WR: { type: "setOptions", options: ... }
+  H->>WR: { type: "generate" }
+  WR->>E: startGeneration()
+  E-->>WR: onGridRebuilt(grid)
+  WR-->>H: gridRebuilt(snapshot)
+  H->>R: setGrid(deserializeGridSnapshot(snapshot))
+  loop Each animation frame
+    E-->>WR: onPatchesApplied(dirtyCells, patches, meta, metrics)
+    WR-->>H: patchesApplied / runtimeSnapshot
+    H->>R: renderDirty(dirtyCells, speed)
+    H->>S: setRuntimeSnapshot(...)
+  end
+  E-->>WR: onPhaseChange("Generated")
+  WR-->>H: phaseChange / runtimeSnapshot
+  H->>S: phase="Generated", paused=true
+```
 
-The `mapPrimaryToSecondaryOverlay` function (`MazeEngine.ts:806–826`) performs a logical left shift of 4: `Visited(1) → VisitedB(16)`, `Frontier(2) → FrontierB(32)`, `Path(4) → PathB(64)`, `Current(8) → CurrentB(128)`. This could be written as `mask << 4` but the explicit flag-by-flag version is used for clarity and to guard against accidental shifting of non-overlay bits. The net effect is identical to `mask << 4` for valid primary overlay masks.
+### Diagram 4 — Entity Relationship Diagram
 
-### 14.3 Bellman-Ford Visualization Pacing
+This repository has no persistent relational schema. The diagram below models the in-memory runtime structures that act as the system’s effective data model.
 
-Bellman-Ford (`solvers/bellmanFord.ts`) performs relaxation in passes over all edges. If visualized step-by-step, the solver would converge almost instantly on a connected maze — every pass would show many edge relaxations. The implementation groups an **entire pass into a single step**, emitting the full set of updated distance patches at once. This makes the visualization show pass-by-pass progress, giving the user a meaningful sense of iteration count.
+```mermaid
+erDiagram
+  MAZE_ENGINE_OPTIONS ||--|| GRID : creates
+  GRID ||--o{ CELL_PATCH : mutated_by
+  MAZE_ENGINE ||--|| GRID : owns
+  MAZE_ENGINE ||--|| MAZE_METRICS : updates
+  MAZE_RUNTIME ||--|| MAZE_METRICS : exposes
+  WORKER_RUNTIME_SNAPSHOT ||--|| MAZE_METRICS : embeds
+  MAZE_SETTINGS ||--|| MAZE_ENGINE_OPTIONS : maps_to
+  SOLVER_BATTLE_METRICS ||--|| SOLVER_RUN_METRICS : contains
+```
 
-### 14.4 Wall Rendering Eliminates Corner Gaps
+Concrete finding: the diagrams confirm a narrow execution spine from UI controls to worker/runtime to engine to canvas, with no external persistence tier.
 
-Naive wall rendering using `strokeRect` leaves sub-pixel gaps at corners where two perpendicular walls meet. Mazer instead uses `fillRect` with walls that **straddle the cell boundary** (offset by `hw = wallWidth/2`). This means the North wall of cell `(i)` overlaps the South boundary of cell `(i - width)` — which is why `expandDirty` must add cardinal neighbors to prevent stale visual artifacts.
+## 16. Interesting & Non-Obvious Facts
 
-### 14.5 Solver Seeds Are Derived, Not User-Configurable
+**Finding:** The README’s algorithm counts are stale relative to the actual registries.  
+**Location:** `README.md:7-12`, `src/core/plugins/generators/index.ts:117-167`, `src/core/plugins/solvers/index.ts:147-183`  
+**Why it matters:** The public documentation says there are `40` generators and `29` solvers, but the code registers `49` generators and `35` solvers, which can mislead contributors and users.
 
-Solver seeds are derived as `${seed}-solve-a` and `${seed}-solve-b` (`MazeEngine.ts:183–194`). This means the same user seed always produces the same solver behavior, making battle comparisons reproducible. The user has no direct control over solver RNG but can influence it by changing the global seed.
+**Finding:** The application exposes checked-in architecture documents as first-class routes.  
+**Location:** `app/architecture/page.tsx:8-29`, `app/architecture-gemini/page.tsx:8-29`  
+**Why it matters:** Repository documentation is part of the product surface, not just developer collateral.
 
-### 14.6 `skipFirstGridSyncRef` Prevents Spurious Rebuild
+**Finding:** Test mode changes worker-runtime behavior by disabling snapshot throttling.  
+**Location:** `src/engine/mazeWorkerRuntime.ts:211-219`  
+**Why it matters:** Production and test runtime cadence intentionally differ, which is good for deterministic tests but important when interpreting timing behavior.
 
-`useMazeEngine` has a `skipFirstGridSyncRef` flag (`useMazeEngine.ts:106`). Without it, the `useEffect` watching `settings.gridWidth/gridHeight` would fire on mount (since these change from undefined to their initial values in React's first render), triggering a spurious `rebuildGrid` command that races with the `init` command. The skip flag suppresses the first fire of this effect, ensuring only subsequent user-driven width/height changes cause a rebuild.
+**Finding:** Documentation coverage is enforced as a correctness property, not a manual checklist.  
+**Location:** `tests/core/algorithmCatalog.test.ts:9-84`  
+**Why it matters:** A new plugin can fail CI if it lacks matching docs or pseudocode.
 
-### 14.7 `Math.imul` for 32-Bit Integer Multiplication
+**Finding:** Theme randomization is intentionally non-deterministic even though maze generation is seed-deterministic.  
+**Location:** `src/render/colorPresets.ts:195-216`  
+**Why it matters:** Two runs with the same maze seed can still differ visually if the random theme path is used.
 
-Both `hashStringToSeed` and `createMulberry32` use `Math.imul(a, b)` (`rng.ts:13, 26, 28`). JavaScript's standard `*` operator produces 64-bit floats. For hash/PRNG functions that require integer overflow behavior (wrapping at 2³²), `Math.imul` provides C-style 32-bit signed integer multiplication, matching the intended algorithm behavior.
+**Finding:** Solver compatibility is computed centrally from topology deny-lists instead of being repeated in every solver implementation.  
+**Location:** `src/core/plugins/solvers/index.ts:59-145`  
+**Why it matters:** Compatibility policy is easy to maintain, but one incorrect central rule can misclassify many solvers at once.
 
-### 14.8 `analyzeMazeGraph` Uses `Float64Array` for Path Counts
+**Finding:** The docs page count widgets come from documentation arrays, not from the plugin registries.  
+**Location:** `app/docs/page.tsx:178-189`  
+**Why it matters:** Documentation can drift from runtime truth if the docs arrays and registries stop matching, even though tests currently guard against that.
 
-The shortest path count accumulator in `countShortestPaths` (`graphMetrics.ts:144`) uses `Float64Array` rather than `Int32Array`. This is because path counts can exceed 2^31 on highly connected loopy mazes before being capped. `Float64Array` provides safe integer representation up to 2^53 and the cap at 1,000,000 means the effective ceiling is always well within safe float64 range.
+Concrete finding: several of the repository’s most interesting behaviors live in metadata, docs, and build-time routes rather than only in the main runtime path.
 
----
+## 17. Improvement Recommendations
 
-## 15. Improvement Recommendations
+| Priority | Area | Recommendation | Effort | Impact |
+|----------|------|----------------|--------|--------|
+| P0 | Security | Sanitize or whitelist markdown link destinations in `src/lib/renderMarkdown.ts:35` before emitting `<a href="...">`. | Low | High |
+| P0 | Security | Add an HTML sanitization boundary or a stricter markdown renderer contract before using `dangerouslySetInnerHTML` in `app/architecture/page.tsx:24-27` and `app/architecture-gemini/page.tsx:24-27`. | Medium | High |
+| P1 | Tooling | Align `next` and `eslint-config-next` to the same major version in `package.json:15-27` to remove framework/tooling skew. | Low | High |
+| P1 | Tooling | Replace `next lint --max-warnings=0` in `package.json:9` with direct ESLint CLI usage so the repository is not blocked by the documented `next lint` deprecation/removal path. | Low | High |
+| P1 | Testing | Add direct tests for `src/ui/hooks/useMazeEngine.ts` covering worker creation, fallback runtime, and command dispatch. | Medium | High |
+| P1 | Testing | Add renderer tests for `src/render/CanvasRenderer.ts`, especially dirty-cell expansion (`src/render/CanvasRenderer.ts:412-462`) and full-redraw behavior in `setSettings()` (`src/render/CanvasRenderer.ts:68-81`). | Medium | High |
+| P1 | Performance | Reduce full-grid cloning in `src/engine/mazeWorkerProtocol.ts:90-109`, or limit full snapshots to initialization/rebuild paths and rely on patches otherwise. | Medium | High |
+| P1 | Performance | Split `CanvasRenderer.setSettings()` into targeted update paths so color/visibility toggles do not always force `resize()`, buffer recreation, and `renderAll()`. | Medium | Medium |
+| P2 | Documentation | Update `README.md:7-12` to match the registry counts or derive the counts from the registries during documentation generation. | Low | Medium |
+| P2 | Metadata design | Move hardcoded inventor attribution from `src/ui/constants/llmAttribution.ts:3-10` into plugin or doc metadata so the label stays co-located with the algorithm definition. | Medium | Medium |
+| P2 | Deployment clarity | Add checked-in hosting/deployment documentation to complement `next.config.ts:3-6`, which already shows static-export intent but not the target platform. | Low | Medium |
+| P3 | Repository hygiene | Classify or archive supplemental audit markdown files at the repo root if they are not part of the maintained product/documentation surface. | Low | Low |
 
-The following are concrete, prioritized recommendations. Items are ordered by impact-to-effort ratio.
-
-### Priority 1 — Medium Impact, Low Effort
-
-**1.1 Offscreen Canvas Rendering**
-
-Currently, `CanvasRenderer` runs on the main thread. Moving to `OffscreenCanvas` (transferring it to the worker) would allow both computation and rendering to happen off the main thread. This eliminates the only remaining main-thread cost during animation: Canvas 2D draw calls.
-
-Implementation path: Transfer the `OffscreenCanvas` to the worker in the `init` command; instantiate `CanvasRenderer` inside the worker; remove the `renderDirty` call from `useMazeEngine`; the worker emits rendered frames directly.
-
-Caveat: `OffscreenCanvas` requires HTTPS + Worker support. The current fallback path (in-thread) already handles unsupported environments.
-
-**1.2 Pre-allocated `expandDirty` Set**
-
-`renderDirty` creates a new `Set<number>` on every call (`CanvasRenderer.ts:372`). At high step rates (8,000/sec), this creates GC pressure. A pre-allocated `Set` reused across calls (cleared at the start of each `renderDirty`) would eliminate per-frame allocation.
-
-**1.3 Memoize Solver Dropdown Filtering**
-
-The solver dropdown currently filters `SOLVER_OPTIONS` by the selected generator's `topologyOut` on every render. This computation is cheap but could be memoized with `useMemo` keyed on `topologyOut` to be explicit.
-
-### Priority 2 — High Impact, Medium Effort
-
-**2.1 Step-Count Timeout / Watchdog**
-
-There is no protection against an algorithm that never terminates (runs forever without `done: true`). Adding a configurable `maxSteps` limit (e.g., `10 * cellCount`) that auto-completes the phase would prevent runaway algorithms. This is especially relevant for research/experimental generators.
-
-**2.2 Grid History / Rewind**
-
-The current patch-based model is ideal for recording a step history. Storing `StepResult[]` as a replay buffer would enable:
-- Rewind/scrubbing of generation/solving.
-- Jumping to a specific step for debugging.
-- Export of generation as an animation.
-
-The memory cost at 8,000 steps/sec for 40,000-cell grids is the main constraint: each step yields ~2 patches × 40 bytes = ~80 bytes × 8,000 = ~640 KB/sec. Capping the buffer at N seconds is straightforward.
-
-**2.3 Topology-Aware Endpoint Configuration**
-
-Currently start (`index=0`) and goal (`index=cellCount-1`) are hardcoded (`MazeEngine.ts:592–595`). Exposing configurable endpoints (e.g., random, corners, center-to-edge) would increase pedagogical value and enable more interesting solver visualizations.
-
-### Priority 3 — High Impact, High Effort
-
-**3.1 OffscreenCanvas + Worker-Side Rendering (Full Worker Isolation)**
-
-Combining OffscreenCanvas with the existing worker would achieve complete UI isolation: the main thread handles only React state, the worker handles all computation and rendering. This is the ideal architecture for maximum frame rate at maximum grid sizes.
-
-**3.2 Incremental Graph Metrics**
-
-`analyzeMazeGraph` runs synchronously at generation completion. On a 200×200 grid, the BFS and shortest-path count can take 5–10ms. This causes a brief but measurable pause when generation completes. Moving this to an async/chunked computation (or a Web Worker of its own) would eliminate the pause.
-
-**3.3 Anti-Pattern: React-to-Canvas via Imperative Ref**
-
-The current architecture has `useMazeEngine` directly calling `renderer.renderDirty()` and `new CanvasRenderer()` inside a React hook. This is a controlled anti-pattern: React components should not imperatively drive Canvas. The pattern is acceptable here because:
-- The canvas is intentionally outside React's reconciler scope (it would be catastrophic for performance to use React state for every pixel).
-- The hook is the designated "bridge" between the two systems.
-
-However, if the UI grows (multiple canvases, overlay canvases, WebGL), this coupling should be formalized as a `VisualizerController` class that the hook manages, rather than embedding canvas lifecycle directly in the hook.
-
-**3.4 Plugin Error Boundary**
-
-If a generator/solver plugin throws an exception inside `step()`, it currently propagates to `processStep()` in `MazeEngine` and then up to the RAF callback, crashing the animation loop silently. Adding a try/catch in `processGenerationStep`/`processSolverRuntime` that emits an `error` event and transitions to `Idle` would make plugin failures recoverable.
-
-**3.5 TypeScript Nominal IDs for Plugin IDs**
-
-`GeneratorPluginId` and `SolverPluginId` are currently string union types. This means any arbitrary string passes type checking if the union is large or permissive. Using branded types or opaque types (`type GeneratorPluginId = string & { readonly __brand: "GeneratorPluginId" }`) would catch invalid plugin ID usage at compile time.
-
----
-
-*Generated from source analysis of `/Users/ekarimov/mazer` as of 2026-03-15.*
-*Source file references verified against actual codebase at the line numbers cited.*
+Concrete finding: the highest-value improvements are concentrated in markdown-safety hardening, UI/renderer test coverage, and framework/tooling alignment.
