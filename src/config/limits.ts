@@ -1,5 +1,5 @@
 export const SPEED_MIN = 1;
-export const SPEED_MAX = 8_000;
+export const SPEED_MAX = 16_000;
 
 export const GRID_MIN = 2;
 export const GRID_MAX = 200;
