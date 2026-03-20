@@ -252,10 +252,12 @@ export class MazeEngine implements MazeEnginePublicApi {
       return;
     }
 
-    this.metrics.dirtyCellCount += result.dirtyCells.length;
+    this.activeDirtySet.clear();
+    for (const cell of result.dirtyCells) this.activeDirtySet.add(cell);
+    this.metrics.dirtyCellCount += this.activeDirtySet.size;
     this.recomputeDerivedMetrics();
     this.syncBattleMetricsSnapshot();
-    this.emitPatches(result.dirtyCells, result.patches, result.meta);
+    this.emitPatches(Array.from(this.activeDirtySet), result.patches, result.meta);
   }
 
   reset(): void {
@@ -452,7 +454,7 @@ export class MazeEngine implements MazeEnginePublicApi {
 
     return {
       done: result.done,
-      dirtyCells: result.patches.map(p => p.index),
+      dirtyCells,
       patches: result.patches,
       meta: result.meta,
     };

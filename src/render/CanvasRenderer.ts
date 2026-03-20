@@ -109,6 +109,7 @@ export class CanvasRenderer {
   }
 
   renderAll(): void {
+    this.isHighPerformance = true;
     const widthPx = this.grid.width * this.settings.cellSize;
     const heightPx = this.grid.height * this.settings.cellSize;
     const size = this.settings.cellSize;
