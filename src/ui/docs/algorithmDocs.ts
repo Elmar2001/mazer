@@ -1020,6 +1020,34 @@ export const ALGORITHM_DOCS: AlgorithmDoc[] = [
       "Dijkstra published his algorithm in 1956 and reportedly designed it in about twenty minutes.",
   },
   {
+    id: "bmssp",
+    name: "BMSSP (Bounded Multi-Source Shortest Path)",
+    kind: "Solver",
+    summary:
+      "Maze-adapted recursive shortest-path solver based on the BMSSP routine from Duan et al.'s 2025 directed SSSP paper.",
+    howItWorks: [
+      "Maintain a bounded frontier of candidate source vertices instead of globally sorting every unsettled node.",
+      "Run a short bounded-relaxation phase to identify witnesses and shrink the frontier down to pivot roots.",
+      "Recursively solve the next smallest pivot batch under a tighter boundary.",
+      "Relax outgoing edges from the returned complete batch, refill the bounded frontier, and repeat until the frontier is exhausted.",
+    ],
+    timeComplexity:
+      "Visualization-first adaptation; higher practical overhead than the paper's asymptotic O(m log^{2/3} n) result",
+    spaceComplexity: "O(V)",
+    pros: [
+      "Optimal on unit-cost mazes",
+      "Shows the paper's pivot-shrinking and bounded-recursion ideas step-by-step",
+    ],
+    cons: [
+      "Much more complex than BFS or Dijkstra for ordinary maze solving",
+      "This repo intentionally simplifies the paper's specialized partial-sorting data structure",
+    ],
+    bestFor:
+      "Studying frontier reduction ideas from modern shortest-path research inside an educational maze visualizer.",
+    interestingFact:
+      "The source paper is the first deterministic directed SSSP result to beat Dijkstra's O(m + n log n) sparse-graph barrier.",
+  },
+  {
     id: "bellman-ford",
     name: "Bellman-Ford",
     kind: "Solver",

@@ -426,6 +426,20 @@ describe("solver plugins", () => {
     expect(result.lastMeta?.pathLength).toBe(optimalLength);
   });
 
+  it("bmssp finds an optimal shortest path", () => {
+    const bmssp = solverPlugins.find((plugin) => plugin.id === "bmssp");
+    if (!bmssp) {
+      throw new Error("BMSSP plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    const result = runSolver(bmssp, grid);
+
+    expect(result.lastMeta?.pathLength).toBe(optimalLength);
+  });
+
   it("bellman-ford progresses over multiple steps for visualization", () => {
     const bellmanFord = solverPlugins.find(
       (plugin) => plugin.id === "bellman-ford",
@@ -440,6 +454,43 @@ describe("solver plugins", () => {
     clearOverlays(grid);
 
     const stepper = bellmanFord.create({
+      grid,
+      rng: createSeededRandom("solver-seed"),
+      options: {
+        startIndex: 0,
+        goalIndex: grid.cellCount - 1,
+      },
+    });
+
+    let finishedEarly = false;
+
+    for (let i = 0; i < 10; i += 1) {
+      const result = stepper.step();
+      for (const patch of result.patches) {
+        applyCellPatch(grid, patch);
+      }
+
+      if (result.done) {
+        finishedEarly = true;
+        break;
+      }
+    }
+
+    expect(finishedEarly).toBe(false);
+  });
+
+  it("bmssp progresses over multiple steps for visualization", () => {
+    const bmssp = solverPlugins.find((plugin) => plugin.id === "bmssp");
+    if (!bmssp) {
+      throw new Error("BMSSP plugin not found");
+    }
+
+    const grid = createGrid(baseGrid.width, baseGrid.height);
+    grid.walls.set(baseGrid.walls);
+
+    clearOverlays(grid);
+
+    const stepper = bmssp.create({
       grid,
       rng: createSeededRandom("solver-seed"),
       options: {

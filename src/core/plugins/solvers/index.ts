@@ -11,6 +11,7 @@ import { aStarSolver } from "@/core/plugins/solvers/astar";
 import { aStarEuclideanSolver } from "@/core/plugins/solvers/aStarEuclidean";
 import { antColonySolver } from "@/core/plugins/solvers/antColony";
 import { bfsSolver } from "@/core/plugins/solvers/bfs";
+import { bmsspSolver } from "@/core/plugins/solvers/bmssp";
 import { bellmanFordSolver } from "@/core/plugins/solvers/bellmanFord";
 import { blindAlleyFillerSolver } from "@/core/plugins/solvers/blindAlleyFiller";
 import { blindAlleySealerSolver } from "@/core/plugins/solvers/blindAlleySealer";
@@ -76,6 +77,7 @@ const GUARANTEED_SOLVERS = new Set<string>([
   "astar-euclidean",
   "dijkstra",
   "bellman-ford",
+  "bmssp",
   "bidirectional-bfs",
   "dead-end-filling",
   "cul-de-sac-filler",
@@ -147,6 +149,7 @@ function withSolverMetadata<T extends AnySolverPlugin>(plugin: T): T {
 export const solverPlugins = [
   withSolverMetadata(randomMouseSolver),
   withSolverMetadata(bfsSolver),
+  withSolverMetadata(bmsspSolver),
   withSolverMetadata(dfsSolver),
   withSolverMetadata(aStarSolver),
   withSolverMetadata(aStarEuclideanSolver),

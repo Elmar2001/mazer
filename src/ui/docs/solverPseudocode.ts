@@ -74,6 +74,18 @@ export const SOLVER_PSEUDOCODE: Record<SolverPluginId, SolverPseudocodeDoc> = {
       "relax neighbor distances and enqueue improvements",
     ],
   },
+  bmssp: {
+    title: "BMSSP (Bounded Multi-Source Shortest Path)",
+    summary: "Recursive bounded frontier reduction inspired by the 2025 BMSSP paper.",
+    lines: [
+      "initialize top-level boundary, complete start, and seed the frontier",
+      "if level is zero: run bounded mini-Dijkstra from the singleton source",
+      "run k bounded relaxation rounds to collect witnesses and choose pivots",
+      "pull the next smallest pivot batch and recurse one level lower",
+      "relax edges from the returned complete batch and requeue labels in range",
+      "if the bounded frontier is empty: reconstruct the path and finish",
+    ],
+  },
   "bellman-ford": {
     title: "Bellman-Ford",
     summary: "Repeated pass-snapshot edge relaxation until distances converge.",
