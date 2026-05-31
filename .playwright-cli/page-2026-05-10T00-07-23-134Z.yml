@@ -1,0 +1,243 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]:
+            - heading "Mazer" [level=1] [ref=e7]
+            - generic [ref=e8]:
+              - generic [ref=e9]: Idle
+              - generic [ref=e10]: Idle
+          - generic [ref=e11]:
+            - link "?" [ref=e12] [cursor=pointer]:
+              - /url: /docs
+            - button "◀" [ref=e13] [cursor=pointer]
+        - generic [ref=e14]:
+          - button "⚙ Algorithms ▸" [expanded] [ref=e15] [cursor=pointer]:
+            - generic [ref=e16]: ⚙
+            - generic [ref=e17]: Algorithms
+            - generic [ref=e18]: ▸
+          - generic [ref=e19]:
+            - generic [ref=e20]:
+              - generic [ref=e21]: Topology
+              - generic [ref=e22]:
+                - button "All" [ref=e23] [cursor=pointer]
+                - button "Perfect" [ref=e24] [cursor=pointer]
+                - button "Loopy" [ref=e25] [cursor=pointer]
+                - button "Weave" [ref=e26] [cursor=pointer]
+            - generic [ref=e27]:
+              - generic [ref=e28]: Generator
+              - combobox "Generator" [ref=e29]:
+                - option "Recursive Backtracker (DFS)" [selected]
+                - option "Recursive Division"
+                - option "Recursive Division (Multi-Gap)"
+                - option "Randomized Prim"
+                - option "Prim (Loopy)"
+                - option "Prim (Frontier Edges)"
+                - option "Randomized Kruskal"
+                - option "Kruskal (Loopy)"
+                - option "Binary Tree"
+                - option "Sidewinder"
+                - option "Aldous-Broder"
+                - option "Hunt-and-Kill"
+                - option "Growing Tree"
+                - option "Eller"
+                - option "Houston (AB + Wilson) (hybrid)"
+                - option "Wilson"
+                - option "Fractal Tessellation"
+                - option "Maze CA (B3/S12345) (hybrid)"
+                - option "Mazectric CA (B3/S1234) (hybrid)"
+                - option "Binary Space Partitioning (BSP)"
+                - option "Blobby Recursive Subdivision"
+                - option "Braid (DFS + Dead-End Reduction) (hybrid)"
+                - option "Weave Growing Tree (hybrid)"
+                - option "Erosion (Hydraulic) (Claude)"
+                - option "Growing Forest"
+                - option "Unicursal"
+                - option "Cellular Automata (Cave-Biased) (hybrid)"
+                - option "Counterfactual Cycle Annealing (Simulated Graph Annealing) (Codex)"
+                - option "Origin Shift"
+                - option "Reverse-Delete"
+                - option "Randomized Boruvka"
+                - option "Resonant Phase-Lock (Wave-Field Growing Tree) (Codex)"
+                - option "Sandpile Avalanche (Self-Organized Criticality) (Claude)"
+                - option "Reaction-Diffusion (Turing)"
+                - option "Ant Colony Excavation"
+                - option "Wave Function Collapse"
+                - option "Diffusion-Limited Aggregation"
+                - option "Hilbert Curve"
+                - option "Voronoi Tessellation"
+                - option "Percolation"
+                - option "L-System (Lindenmayer)"
+                - option "Prim (True Frontier Edges - Random Prim) (alias of Prim (Frontier Edges))"
+                - option "Prim (Simplified - Randomized Prim) (alias of Randomized Prim)"
+                - option "Prim (Modified) (Growing Tree) (alias of Growing Tree)"
+                - option "Randomized BFS Tree (Growing Tree) (alias of Growing Tree)"
+                - option "Vortex Maze (DFS Backtracker) (alias of Recursive Backtracker (DFS))"
+                - option "Quantum Seismogenesis (Multi-Source Prim's) (alias of Randomized Prim) (Gemini)"
+                - option "Mycelial Anastomosis (Multi-Source Kruskal's) (alias of Randomized Kruskal) (Gemini)"
+                - option "Magnetic Spin Crystallization (Kruskal's) (alias of Randomized Kruskal)"
+            - generic [ref=e30]:
+              - generic [ref=e31]: Solver
+              - combobox "Solver" [ref=e32]:
+                - option "Random Mouse"
+                - option "Breadth-First Search (BFS)" [selected]
+                - option "BMSSP (Bounded Multi-Source Shortest Path)"
+                - option "Depth-First Search (DFS)"
+                - option "A* Search"
+                - option "Bellman-Ford"
+                - option "Dijkstra"
+                - option "Bidirectional BFS"
+                - option "Dead-End Filling"
+                - option "Cul-de-sac Filler (Degree-Based Dead-End Elimination)"
+                - option "Lee Wavefront"
+                - option "Shortest Paths Finder (All)"
+                - option "Wall Follower (Right-Hand)"
+                - option "Wall Follower (Left-Hand)"
+                - option "IDA* (Iterative Deepening A*)"
+                - option "Frontier-Based Exploration"
+                - option "Fringe Search"
+                - option "Iterative Deepening DFS (IDDFS)"
+                - option "Greedy Best-First"
+                - option "Genetic Algorithm"
+                - option "RRT* (Grid Approximation)"
+                - option "Q-Learning (RL)"
+                - option "Ant Colony Optimization"
+                - option "Physarum (Slime Mold)"
+                - option "Electric Circuit (Resistor Network)"
+                - option "Artificial Potential Field"
+                - option "A* (Euclidean Heuristic) (alias of A* Search)"
+                - option "Blind Alley Sealer (Dead-End Filling) (alias of Dead-End Filling)"
+                - option "Blind Alley Filler (Dead-End Filling) (alias of Dead-End Filling)"
+                - option "Weighted A* (Greedy-Biased) (alias of A* Search)"
+                - option "Flood Fill (Lee Wavefront) (alias of Lee Wavefront)"
+                - option "Shortest Path Finder (BFS) (alias of Breadth-First Search (BFS))"
+                - option "Collision Solver (Bidirectional BFS) (alias of Bidirectional BFS)"
+                - option "Pledge Algorithm (Wall Follower Extension) (alias of Wall Follower (Right-Hand))"
+                - option "Tremaux (DFS Path-Marking) (alias of Depth-First Search (DFS))"
+                - option "Chain (Bidirectional BFS) (alias of Bidirectional BFS)"
+            - generic [ref=e33]:
+              - generic [ref=e34]: Seed
+              - textbox "Seed" [ref=e35]: mazer
+        - button "⚔ Battle Mode ▸" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: ⚔
+          - generic [ref=e39]: Battle Mode
+          - generic [ref=e40]: ▸
+        - generic [ref=e41]:
+          - button "☰ Grid & Speed ▸" [expanded] [ref=e42] [cursor=pointer]:
+            - generic [ref=e43]: ☰
+            - generic [ref=e44]: Grid & Speed
+            - generic [ref=e45]: ▸
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]:
+                - generic [ref=e49]: Speed
+                - generic [ref=e50]: 60 sps
+              - generic [ref=e51]:
+                - slider [ref=e52] [cursor=pointer]: "60"
+                - spinbutton [ref=e53]: "60"
+            - generic [ref=e54]:
+              - generic [ref=e55]:
+                - generic [ref=e56]: Width
+                - generic [ref=e57]: "40"
+              - generic [ref=e58]:
+                - slider [ref=e59] [cursor=pointer]: "40"
+                - spinbutton [ref=e60]: "40"
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - generic [ref=e63]: Height
+                - generic [ref=e64]: "25"
+              - generic [ref=e65]:
+                - slider [ref=e66] [cursor=pointer]: "25"
+                - spinbutton [ref=e67]: "25"
+            - generic [ref=e68]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: Cell Size
+                - generic [ref=e71]: 16px
+              - generic [ref=e72]:
+                - slider [ref=e73] [cursor=pointer]: "16"
+                - spinbutton [ref=e74]: "16"
+            - generic [ref=e75]:
+              - button "Compact" [ref=e76] [cursor=pointer]
+              - button "Default" [ref=e77] [cursor=pointer]
+              - button "Dense" [ref=e78] [cursor=pointer]
+              - button "Fast" [ref=e79] [cursor=pointer]
+        - button "◉ Display ▸" [ref=e81] [cursor=pointer]:
+          - generic [ref=e82]: ◉
+          - generic [ref=e83]: Display
+          - generic [ref=e84]: ▸
+        - generic [ref=e85]:
+          - button "⚙ Maze Config" [ref=e86] [cursor=pointer]
+          - paragraph [ref=e87]: G generate S solve Space pause N step R reset [ sidebar M metrics T trace
+    - generic [ref=e88]:
+      - generic "Maze status" [ref=e89]:
+        - generic [ref=e90]:
+          - generic [ref=e91]: Interactive maze lab
+          - strong [ref=e92]: Idle
+        - generic [ref=e93]:
+          - generic [ref=e94]: 40x25
+          - generic [ref=e95]: dfs-backtracker
+          - generic [ref=e96]: bfs
+      - generic [ref=e97]:
+        - generic [ref=e101]:
+          - generic [ref=e102]: Walls
+          - generic [ref=e104]: Start
+          - generic [ref=e106]: Goal
+          - generic [ref=e108]: Path A
+        - generic [ref=e110]:
+          - button "Generate maze" [ref=e111] [cursor=pointer]:
+            - generic [ref=e112]: ▶
+            - text: Generate
+          - button "Solve maze" [disabled] [ref=e113]:
+            - generic [ref=e114]: ⚡
+            - text: Solve
+          - button "Resume playback" [disabled] [ref=e116]: ⏵
+          - button "Step forward" [disabled] [ref=e117]: ⏭
+          - button "Reset maze" [ref=e119] [cursor=pointer]: ↻
+          - generic [ref=e120]: 0 steps
+          - generic [ref=e121]: 0 sps
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - heading "Metrics" [level=3] [ref=e125]
+          - generic [ref=e126]:
+            - button "▾" [ref=e127] [cursor=pointer]
+            - button "✕" [ref=e128] [cursor=pointer]
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Steps
+            - generic [ref=e132]: "0"
+          - generic [ref=e133]:
+            - generic [ref=e134]: Visited
+            - generic [ref=e135]: "0"
+          - generic [ref=e136]:
+            - generic [ref=e137]: Frontier
+            - generic [ref=e138]: "0"
+          - generic [ref=e139]:
+            - generic [ref=e140]: Elapsed
+            - generic [ref=e141]: 0.00s
+      - complementary [ref=e143]:
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]: Generator Trace
+            - heading "Recursive Backtracker (DFS)" [level=3] [ref=e147]
+          - button "✕" [ref=e148] [cursor=pointer]
+        - list [ref=e150]:
+          - listitem [ref=e151]:
+            - generic [ref=e152]: "01"
+            - code [ref=e153]: "if first step: mark start visited and push on stack"
+          - listitem [ref=e154]:
+            - generic [ref=e155]: "02"
+            - code [ref=e156]: "if stack is empty: finish"
+          - listitem [ref=e157]:
+            - generic [ref=e158]: "03"
+            - code [ref=e159]: current <- top(stack); unvisited <- neighbors(current)
+          - listitem [ref=e160]:
+            - generic [ref=e161]: "04"
+            - code [ref=e162]: "if unvisited is empty: pop stack and backtrack"
+          - listitem [ref=e163]:
+            - generic [ref=e164]: "05"
+            - code [ref=e165]: pick random unvisited neighbor and carve passage
+          - listitem [ref=e166]:
+            - generic [ref=e167]: "06"
+            - code [ref=e168]: mark neighbor visited and push neighbor onto stack
+  - alert [ref=e169]

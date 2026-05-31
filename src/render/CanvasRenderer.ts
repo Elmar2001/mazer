@@ -1,4 +1,5 @@
 import { CrossingKind, OverlayFlag, WallFlag, type Grid } from "@/core/grid";
+import type { CellPatch } from "@/core/patches";
 import {
   CANVAS_MAX_BACKING_DIMENSION,
   CANVAS_MAX_BACKING_PIXELS,
@@ -6,6 +7,16 @@ import {
   RENDERING_SHADOW_SPEED_THRESHOLD,
 } from "@/config/limits";
 import { DEFAULT_COLOR_THEME, type ColorTheme } from "@/render/colorPresets";
+import {
+  classifyPatchEffects,
+  pruneTransientEffects,
+  resolveRenderMotionMode,
+  shouldRunLiveCanvasLoop,
+  type RenderAnimationPhase,
+  type RenderEffectKind,
+  type RenderEffectRole,
+  type RenderTransientEffect,
+} from "@/render/renderEffects";
 
 export interface CanvasRendererSettings {
   cellSize: number;
@@ -16,6 +27,12 @@ export interface CanvasRendererSettings {
   wallThickness?: number;
   showWallShadow?: boolean;
   showCellInset?: boolean;
+}
+
+export interface CanvasRendererMotionState {
+  phase: RenderAnimationPhase;
+  paused: boolean;
+  reducedMotion: boolean;
 }
 
 export class CanvasRenderer {
@@ -37,6 +54,18 @@ export class CanvasRenderer {
 
   private isHighPerformance = true;
 
+  private transientEffects: RenderTransientEffect[] = [];
+
+  private effectRafHandle: number | null = null;
+
+  private readonly maxTransientEffects = 220;
+
+  private motionState: CanvasRendererMotionState = {
+    phase: "idle",
+    paused: true,
+    reducedMotion: false,
+  };
+
   constructor(
     canvas: HTMLCanvasElement,
     grid: Grid,
@@ -56,13 +85,16 @@ export class CanvasRenderer {
     this.resize();
     this.initBuffers();
     this.renderAll();
+    this.ensureEffectLoop();
   }
 
   setGrid(grid: Grid): void {
     this.grid = grid;
+    this.clearTransientEffects();
     this.resize();
     this.initBuffers();
     this.renderAll();
+    this.ensureEffectLoop();
   }
 
   setSettings(settings: Partial<CanvasRendererSettings>): void {
@@ -75,9 +107,25 @@ export class CanvasRenderer {
       this.colors = settings.colors;
     }
 
+    this.clearTransientEffects();
     this.resize();
     this.initBuffers();
     this.renderAll();
+  }
+
+  setMotionState(state: CanvasRendererMotionState): void {
+    const wasLive = this.isLiveCanvasLoopRunning();
+    this.motionState = state;
+
+    if (this.isLiveCanvasLoopRunning()) {
+      this.ensureEffectLoop();
+      return;
+    }
+
+    if (wasLive) {
+      this.clearTransientEffects();
+      this.renderAll();
+    }
   }
 
   resize(): void {
@@ -114,6 +162,7 @@ export class CanvasRenderer {
     const heightPx = this.grid.height * this.settings.cellSize;
     const size = this.settings.cellSize;
 
+    this.resetPaintState();
     this.ctx.fillStyle = this.colors.background;
     this.ctx.fillRect(0, 0, widthPx, heightPx);
 
@@ -145,7 +194,12 @@ export class CanvasRenderer {
     }
   }
 
-  renderDirty(dirtyCells: number[], speed = 0): void {
+  renderDirty(
+    dirtyCells: number[],
+    speed = 0,
+    patches: readonly CellPatch[] = [],
+    reducedMotion = false,
+  ): void {
     if (dirtyCells.length === 0) {
       return;
     }
@@ -158,6 +212,41 @@ export class CanvasRenderer {
     for (const index of this.expandedDirtyIndices) {
       this.drawCell(index);
     }
+
+    const now = nowMs();
+    const mode = resolveRenderMotionMode({
+      cellSize: this.settings.cellSize,
+      dirtyCellCount: dirtyCells.length,
+      reducedMotion,
+      speed,
+    });
+
+    if (mode === "off" || !this.isLiveCanvasLoopRunning()) {
+      this.clearTransientEffects();
+      this.renderAll();
+      return;
+    }
+
+    if (patches.length > 0) {
+      this.transientEffects = pruneTransientEffects(
+        [
+          ...this.transientEffects,
+          ...classifyPatchEffects(patches, now, mode),
+        ],
+        now,
+        this.maxTransientEffects,
+      );
+    } else {
+      this.transientEffects = pruneTransientEffects(
+        this.transientEffects,
+        now,
+        this.maxTransientEffects,
+      );
+    }
+
+    this.drawTransientEffects(now);
+    this.drawLiveEndpointGlow(now);
+    this.ensureEffectLoop();
   }
 
   private drawCell(index: number, skipBaseFill = false): void {
@@ -166,6 +255,8 @@ export class CanvasRenderer {
     const size = this.settings.cellSize;
     const row = Math.floor(index / this.grid.width);
     const col = index % this.grid.width;
+
+    this.resetPaintState();
 
     if (!skipBaseFill) {
       // Base cell fill — edge-to-edge, no gaps
@@ -243,6 +334,15 @@ export class CanvasRenderer {
 
     this.drawWalls(index, x, y, size);
     this.drawEndpoints(index, x, y, size);
+  }
+
+  private resetPaintState(): void {
+    this.ctx.globalAlpha = 1;
+    this.ctx.globalCompositeOperation = "source-over";
+    this.ctx.shadowBlur = 0;
+    this.ctx.shadowColor = "transparent";
+    this.ctx.setLineDash([]);
+    this.ctx.lineCap = "butt";
   }
 
   private drawCurrentRing(
@@ -468,4 +568,265 @@ export class CanvasRenderer {
       this.expandedDirtyIndices = [];
     }
   }
+
+  private ensureEffectLoop(): void {
+    if (
+      this.effectRafHandle !== null ||
+      (this.transientEffects.length === 0 && !this.isLiveCanvasLoopRunning())
+    ) {
+      return;
+    }
+
+    this.effectRafHandle = requestFrame((ts) => {
+      this.effectRafHandle = null;
+      this.renderEffectFrame(ts);
+    });
+  }
+
+  private renderEffectFrame(now: number): void {
+    const dirty = [
+      ...this.collectTransientEffectIndices(),
+      ...this.liveCanvasIndices(),
+    ];
+
+    this.transientEffects = pruneTransientEffects(
+      this.transientEffects,
+      now,
+      this.maxTransientEffects,
+    );
+
+    if (dirty.length > 0) {
+      this.expandDirty(dirty);
+
+      for (const index of this.expandedDirtyIndices) {
+        this.drawCell(index);
+      }
+    }
+
+    if (this.transientEffects.length === 0 && !this.isLiveCanvasLoopRunning()) {
+      return;
+    }
+
+    this.drawTransientEffects(now);
+    this.drawLiveEndpointGlow(now);
+    this.ensureEffectLoop();
+  }
+
+  private drawTransientEffects(now: number): void {
+    for (const effect of this.transientEffects) {
+      const progress = (now - effect.bornAt) / effect.durationMs;
+      if (progress < 0 || progress > 1) {
+        continue;
+      }
+
+      this.drawTransientEffect(effect, progress);
+    }
+  }
+
+  private drawTransientEffect(
+    effect: RenderTransientEffect,
+    progress: number,
+  ): void {
+    const x = (effect.index % this.grid.width) * this.settings.cellSize;
+    const y = Math.floor(effect.index / this.grid.width) * this.settings.cellSize;
+    const size = this.settings.cellSize;
+    const alpha = Math.max(0, 1 - progress);
+    const color = this.effectColor(effect.kind, effect.role);
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = "lighter";
+
+    if (effect.kind === "frontier-flash") {
+      const flash = alpha * alpha;
+      const inset = size * 0.08;
+      this.ctx.globalAlpha = flash * 0.42;
+      this.ctx.fillStyle = color;
+      this.ctx.fillRect(x + inset, y + inset, size - inset * 2, size - inset * 2);
+      this.ctx.globalAlpha = flash * 0.72;
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = Math.max(1, size * 0.08);
+      this.ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      this.ctx.restore();
+      return;
+    }
+
+    if (effect.kind === "path-pulse") {
+      const pulse = 0.65 + Math.sin(progress * Math.PI * 5) * 0.35;
+      const inset = Math.max(1, size * 0.16);
+      this.ctx.globalAlpha = alpha * pulse * 0.5;
+      this.ctx.fillStyle = color;
+      this.ctx.fillRect(x + inset, y + inset, size - inset * 2, size - inset * 2);
+      this.ctx.globalAlpha = alpha * pulse * 0.7;
+      this.ctx.strokeStyle = color;
+      this.ctx.lineWidth = Math.max(1, size * 0.1);
+      this.ctx.strokeRect(x + inset * 0.5, y + inset * 0.5, size - inset, size - inset);
+      this.ctx.restore();
+      return;
+    }
+
+    this.ctx.globalAlpha = alpha * 0.2;
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(x, y, size, size);
+    this.ctx.globalAlpha = alpha * 0.12;
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, size * 0.42, 0, Math.PI * 2);
+    this.ctx.fillStyle = color;
+    this.ctx.fill();
+
+    this.ctx.restore();
+  }
+
+  private collectTransientEffectIndices(): number[] {
+    const indices: number[] = [];
+    const seen = new Set<number>();
+
+    for (const effect of this.transientEffects) {
+      if (seen.has(effect.index)) {
+        continue;
+      }
+
+      seen.add(effect.index);
+      indices.push(effect.index);
+    }
+
+    return indices;
+  }
+
+  private redrawTransientEffectCells(): void {
+    if (this.transientEffects.length === 0) {
+      return;
+    }
+
+    const dirty = this.collectTransientEffectIndices();
+    this.expandDirty(dirty);
+
+    for (const index of this.expandedDirtyIndices) {
+      this.drawCell(index);
+    }
+  }
+
+  private redrawCells(indices: number[]): void {
+    if (indices.length === 0) {
+      return;
+    }
+
+    this.expandDirty(indices);
+
+    for (const index of this.expandedDirtyIndices) {
+      this.drawCell(index);
+    }
+  }
+
+  private effectColor(kind: RenderEffectKind, role: RenderEffectRole): string {
+    if (role === "B") {
+      if (kind === "path-pulse") return this.colors.pathB;
+      if (kind === "frontier-flash") return this.colors.frontierB;
+      return this.colors.visitedB;
+    }
+
+    if (kind === "path-pulse") return this.colors.pathA;
+    if (kind === "frontier-flash") return this.colors.frontierA;
+    return this.colors.visitedA;
+  }
+
+  private liveCanvasIndices(): number[] {
+    if (!this.isLiveCanvasLoopRunning()) {
+      return [];
+    }
+
+    return this.endpointIndices();
+  }
+
+  private endpointIndices(): number[] {
+    if (this.grid.cellCount <= 1) {
+      return [0];
+    }
+
+    return [0, this.grid.cellCount - 1];
+  }
+
+  private drawLiveEndpointGlow(now: number): void {
+    if (!this.isLiveCanvasLoopRunning()) {
+      return;
+    }
+
+    const size = this.settings.cellSize;
+    if (size < 8) {
+      return;
+    }
+
+    const pulse = 0.5 + Math.sin(now / 260) * 0.5;
+    const haloAlpha = 0.22 + pulse * 0.22;
+    this.drawEndpointHalo(0, this.colors.start, haloAlpha, true);
+    this.drawEndpointHalo(this.grid.cellCount - 1, this.colors.goal, haloAlpha, false);
+  }
+
+  private drawEndpointHalo(
+    index: number,
+    color: string,
+    alpha: number,
+    isStart: boolean,
+  ): void {
+    const size = this.settings.cellSize;
+    const x = (index % this.grid.width) * size;
+    const y = Math.floor(index / this.grid.width) * size;
+    const baseRadius = Math.max(2, Math.floor(size * 0.2));
+    const cx = isStart ? x + 2 + baseRadius : x + size - 2 - baseRadius;
+    const cy = isStart ? y + 2 + baseRadius : y + size - 2 - baseRadius;
+    const radius = baseRadius * 2.2;
+
+    this.ctx.save();
+    this.ctx.globalCompositeOperation = "lighter";
+    this.ctx.globalAlpha = alpha;
+    this.ctx.shadowColor = color;
+    this.ctx.shadowBlur = size * 0.75;
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    this.ctx.strokeStyle = color;
+    this.ctx.lineWidth = Math.max(1, size * 0.08);
+    this.ctx.stroke();
+    this.ctx.restore();
+  }
+
+  private isLiveCanvasLoopRunning(): boolean {
+    return shouldRunLiveCanvasLoop(this.motionState);
+  }
+
+  private clearTransientEffects(): void {
+    this.transientEffects = [];
+
+    if (this.effectRafHandle === null) {
+      return;
+    }
+
+    cancelFrame(this.effectRafHandle);
+    this.effectRafHandle = null;
+  }
+}
+
+function requestFrame(callback: (ts: number) => void): number {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    return globalThis.requestAnimationFrame(callback);
+  }
+
+  return setTimeout(() => callback(nowMs()), 16) as unknown as number;
+}
+
+function cancelFrame(handle: number): void {
+  if (typeof globalThis.cancelAnimationFrame === "function") {
+    globalThis.cancelAnimationFrame(handle);
+    return;
+  }
+
+  clearTimeout(handle);
+}
+
+function nowMs(): number {
+  if (typeof globalThis.performance !== "undefined") {
+    return globalThis.performance.now();
+  }
+
+  return Date.now();
 }

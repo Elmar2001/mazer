@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { useMazeStore } from "@/ui/store/mazeStore";
 import { GENERATOR_PSEUDOCODE } from "@/ui/docs/generatorPseudocode";
 import { SOLVER_PSEUDOCODE, type SolverPseudocodeDoc } from "@/ui/docs/solverPseudocode";
@@ -38,7 +40,11 @@ export function GeneratorTracePanel() {
     : generatorTitle;
 
   return (
-    <aside className="tracePanel">
+    <aside
+      className="tracePanel"
+      data-phase={runtime.phase.toLowerCase()}
+      data-battle={isBattleSolverTrace}
+    >
       <div className="hudHeader">
         <div>
           <span className="traceEyebrow">{eyebrow}</span>
@@ -101,6 +107,24 @@ function TraceCodeList({
   label?: string;
   displayTitle?: string;
 }) {
+  const activeLineRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    if (!activeLineRef.current) {
+      return;
+    }
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    activeLineRef.current.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "nearest",
+    });
+  }, [activeLine, keyId]);
+
   return (
     <section className={label ? "traceCodeSection" : undefined}>
       {label && <h4 className="traceCodeTitle">{label}: {displayTitle ?? doc.title}</h4>}
@@ -111,7 +135,9 @@ function TraceCodeList({
           return (
             <li
               key={`${keyId}-line-${lineNumber}`}
+              ref={isActive ? activeLineRef : undefined}
               className={isActive ? "traceLine traceLineActive" : "traceLine"}
+              data-active={isActive}
             >
               <span className="traceLineNo">{lineNumber.toString().padStart(2, "0")}</span>
               <code>{line}</code>

@@ -12,13 +12,32 @@ export default function HomePage() {
   const sidebarCollapsed = useMazeStore((s) => s.ui.sidebarCollapsed);
   const showMetricsHud = useMazeStore((s) => s.ui.showMetricsHud);
   const showTraceHud = useMazeStore((s) => s.ui.showTraceHud);
+  const runtime = useMazeStore((s) => s.runtime);
+  const settings = useMazeStore((s) => s.settings);
+  const battleMode = useMazeStore((s) => s.settings.battleMode);
 
   return (
-    <main className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""}`}>
+    <main
+      className={`appShell ${sidebarCollapsed ? "sidebarCollapsed" : ""}`}
+      data-phase={runtime.phase.toLowerCase()}
+      data-paused={runtime.paused}
+      data-battle={battleMode}
+    >
       <aside className="sidebar">
         <ControlPanel controls={controls} />
       </aside>
       <section className="canvasArea">
+        <div className="commandDeck" aria-label="Maze status">
+          <div className="commandDeckMain">
+            <span className="commandEyebrow">Interactive maze lab</span>
+            <strong>{runtime.phase}</strong>
+          </div>
+          <div className="commandDeckStats">
+            <span>{settings.gridWidth}x{settings.gridHeight}</span>
+            <span>{settings.generatorId}</span>
+            <span>{settings.solverId}</span>
+          </div>
+        </div>
         <CanvasViewport canvasRef={canvasRef} controls={controls} />
         {showMetricsHud && (
           <div className="hudMetrics">

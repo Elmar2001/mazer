@@ -39,7 +39,10 @@ function AccordionSection({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section className={`accordionSection ${open ? "accordionOpen" : ""}`}>
+    <section
+      className={`accordionSection ${open ? "accordionOpen" : ""}`}
+      data-open={open}
+    >
       <button
         type="button"
         className="accordionTrigger"
@@ -434,7 +437,11 @@ export function ControlPanel({ controls }: ControlPanelProps) {
 
   if (ui.sidebarCollapsed) {
     return (
-      <section className="controlPanel controlPanelCollapsed">
+      <section
+        className="controlPanel controlPanelCollapsed"
+        data-phase={runtime.phase.toLowerCase()}
+        data-paused={runtime.paused}
+      >
         <button type="button" className="iconRailBtn" onClick={toggleSidebar} title="Expand sidebar">
           &#x25B6;
         </button>
@@ -474,7 +481,12 @@ export function ControlPanel({ controls }: ControlPanelProps) {
   }
 
   return (
-    <section className="controlPanel">
+    <section
+      className="controlPanel"
+      data-phase={runtime.phase.toLowerCase()}
+      data-paused={runtime.paused}
+      data-battle={settings.battleMode}
+    >
       <div className="sidebarHeader">
         <div className="sidebarBrand">
           <h1>Mazer</h1>

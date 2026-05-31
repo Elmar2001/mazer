@@ -78,6 +78,10 @@ function toRendererSettings(settings: MazeSettings) {
   };
 }
 
+function toRendererPhase(phase: MazeRuntime["phase"]) {
+  return phase.toLowerCase() as Lowercase<MazeRuntime["phase"]>;
+}
+
 function sendCommand(
   transport: MazeTransport | null,
   command: MazeWorkerCommand,
@@ -104,8 +108,10 @@ export function useMazeEngine(): UseMazeEngineResult {
   const runtimeRafRef = useRef<number | null>(null);
   const initializedRef = useRef(false);
   const skipFirstGridSyncRef = useRef(true);
+  const reducedMotionRef = useRef(false);
 
   const settings = useMazeStore((state) => state.settings);
+  const runtime = useMazeStore((state) => state.runtime);
   const setRuntimeSnapshot = useMazeStore((state) => state.setRuntimeSnapshot);
   const resetRuntime = useMazeStore((state) => state.resetRuntime);
 
@@ -160,7 +166,12 @@ export function useMazeEngine(): UseMazeEngineResult {
           }
         }
 
-        rendererRef.current?.renderDirty(event.dirtyCells, settingsRef.current.speed);
+        rendererRef.current?.renderDirty(
+          event.dirtyCells,
+          settingsRef.current.speed,
+          event.patches,
+          reducedMotionRef.current,
+        );
         return;
       }
 
@@ -279,6 +290,29 @@ export function useMazeEngine(): UseMazeEngineResult {
   }, [handleEvent]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncReducedMotion = () => {
+      reducedMotionRef.current = media.matches;
+      rendererRef.current?.setMotionState({
+        phase: toRendererPhase(useMazeStore.getState().runtime.phase),
+        paused: useMazeStore.getState().runtime.paused,
+        reducedMotion: reducedMotionRef.current,
+      });
+    };
+
+    syncReducedMotion();
+    media.addEventListener("change", syncReducedMotion);
+
+    return () => {
+      media.removeEventListener("change", syncReducedMotion);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!rendererRef.current && canvasRef.current && gridRef.current) {
       rendererRef.current = new CanvasRenderer(
         canvasRef.current,
@@ -351,6 +385,14 @@ export function useMazeEngine(): UseMazeEngineResult {
   useEffect(() => {
     rendererRef.current?.setSettings(toRendererSettings(settings));
   }, [settings]);
+
+  useEffect(() => {
+    rendererRef.current?.setMotionState({
+      phase: toRendererPhase(runtime.phase),
+      paused: runtime.paused,
+      reducedMotion: reducedMotionRef.current,
+    });
+  }, [runtime.phase, runtime.paused]);
 
   const syncEngineOptions = useCallback(() => {
     const store = useMazeStore.getState().settings;

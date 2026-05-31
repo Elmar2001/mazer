@@ -105,7 +105,12 @@ export function MetricsPanel() {
     !!graph && (runtime.phase === "Generated" || runtime.phase === "Solved");
 
   return (
-    <section className="metricsPanel">
+    <section
+      className="metricsPanel"
+      data-phase={runtime.phase.toLowerCase()}
+      data-expanded={metricsExpanded}
+      data-battle={!!battle}
+    >
       <div className="hudHeader">
         <h3>Metrics</h3>
         <div className="hudActions">
@@ -121,19 +126,19 @@ export function MetricsPanel() {
       <div className="kpiGrid">
         <div className="kpiItem">
           <span className="kpiLabel">Steps</span>
-          <span className="kpiValue">{runtime.metrics.stepCount}</span>
+          <span className="kpiValue" key={`steps-${runtime.metrics.stepCount}`}>{runtime.metrics.stepCount}</span>
         </div>
         <div className="kpiItem">
           <span className="kpiLabel">Visited</span>
-          <span className="kpiValue">{runtime.metrics.visitedCount}</span>
+          <span className="kpiValue" key={`visited-${runtime.metrics.visitedCount}`}>{runtime.metrics.visitedCount}</span>
         </div>
         <div className="kpiItem">
           <span className="kpiLabel">Frontier</span>
-          <span className="kpiValue">{runtime.metrics.frontierSize}</span>
+          <span className="kpiValue" key={`frontier-${runtime.metrics.frontierSize}`}>{runtime.metrics.frontierSize}</span>
         </div>
         <div className="kpiItem">
           <span className="kpiLabel">Elapsed</span>
-          <span className="kpiValue">{formatElapsed(runtime.metrics.elapsedMs)}</span>
+          <span className="kpiValue" key={`elapsed-${Math.floor(runtime.metrics.elapsedMs / 250)}`}>{formatElapsed(runtime.metrics.elapsedMs)}</span>
         </div>
       </div>
 

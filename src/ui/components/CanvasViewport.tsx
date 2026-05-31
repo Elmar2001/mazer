@@ -45,14 +45,25 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
   };
 
   return (
-    <section className="canvasViewport">
+    <section
+      className="canvasViewport"
+      data-phase={runtime.phase.toLowerCase()}
+      data-paused={runtime.paused}
+      data-battle={battleMode}
+    >
       <div className="canvasScroller">
+        <div className="canvasAtmosphere" aria-hidden="true" />
+        <div className="canvasVignette" aria-hidden="true" />
         <div
           className="canvasFrame"
           style={{ width: `${viewportWidth}px`, height: `${viewportHeight}px` }}
           onMouseMove={onFramePointerMove}
           onMouseLeave={() => setHoverCell(null)}
         >
+          <span className="frameCorner frameCornerTl" aria-hidden="true" />
+          <span className="frameCorner frameCornerTr" aria-hidden="true" />
+          <span className="frameCorner frameCornerBl" aria-hidden="true" />
+          <span className="frameCorner frameCornerBr" aria-hidden="true" />
           <canvas ref={canvasRef} />
         </div>
       </div>
@@ -66,7 +77,7 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
         {hoverCell && <span className="coordBadge">{hoverCell}</span>}
       </div>
 
-      <div className="playbackBar">
+      <div className="playbackBar" data-active={canPlaybackControl && !runtime.paused}>
         <button type="button" className="pbBtn pbGenerate" onClick={controls.generate} aria-label="Generate maze">
           <span className="pbIcon">&#x25B6;</span> Generate
         </button>

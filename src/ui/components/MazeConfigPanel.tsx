@@ -166,7 +166,7 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
   const thicknessPercent = Math.round(wallThickness * 100);
 
   const content = (
-    <div className="csPanel" ref={panelRef}>
+    <div className="csPanel" ref={panelRef} data-panel="maze-config">
       <div className="csPanelHeader">
         <h3>Maze Config</h3>
         <button type="button" className="csCloseBtn" onClick={onClose}>
