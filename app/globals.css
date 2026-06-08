@@ -944,7 +944,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .canvasFrame {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-sm);
+  box-sizing: content-box;
+  border-radius: 0;
   border: 1px solid rgba(0, 240, 255, 0.15);
   background: rgba(2, 2, 5, 0.7);
   box-shadow:
@@ -1129,6 +1130,7 @@ canvas {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
+  overflow: hidden;
   background: rgba(6, 6, 12, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
