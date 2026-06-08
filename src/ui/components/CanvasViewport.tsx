@@ -64,7 +64,11 @@ export function CanvasViewport({ canvasRef, controls }: CanvasViewportProps) {
           <span className="frameCorner frameCornerTr" aria-hidden="true" />
           <span className="frameCorner frameCornerBl" aria-hidden="true" />
           <span className="frameCorner frameCornerBr" aria-hidden="true" />
-          <canvas ref={canvasRef} />
+          <canvas
+            ref={canvasRef}
+            role="img"
+            aria-label={`Maze visualization, ${gridWidth} by ${gridHeight}`}
+          />
         </div>
       </div>
 

@@ -294,6 +294,70 @@ describe("generator plugins", () => {
     expect(hasCurrent).toBe(false);
   });
 
+  it("mycelial anastomosis does not crash and stays connected for probe-11", () => {
+    const mycelial = generatorPlugins.find(
+      (plugin) => plugin.id === "mycelial-anastomosis",
+    );
+    if (!mycelial) {
+      throw new Error("Missing mycelial-anastomosis plugin");
+    }
+
+    const grid = runGenerator(mycelial, "probe-11", 40, 25);
+    expect(reachableCellCount(grid)).toBe(grid.cellCount);
+  });
+
+  it("reaction-diffusion stays connected across many seeds", () => {
+    const reactionDiffusion = generatorPlugins.find(
+      (plugin) => plugin.id === "reaction-diffusion",
+    );
+    if (!reactionDiffusion) {
+      throw new Error("Missing reaction-diffusion plugin");
+    }
+
+    for (let i = 0; i < 25; i += 1) {
+      const grid = runGenerator(reactionDiffusion, `probe-${i}`, 40, 25);
+      expect(reachableCellCount(grid)).toBe(grid.cellCount);
+    }
+  });
+
+  it("ant colony terminates as a connected spanning tree across many seeds", () => {
+    const antColony = generatorPlugins.find(
+      (plugin) => plugin.id === "ant-colony",
+    );
+    if (!antColony) {
+      throw new Error("Missing ant-colony plugin");
+    }
+
+    for (let i = 0; i < 25; i += 1) {
+      const grid = runGenerator(antColony, `probe-${i}`, 18, 12);
+      expect(reachableCellCount(grid)).toBe(grid.cellCount);
+      expect(countGraphEdges(grid)).toBe(grid.cellCount - 1);
+    }
+
+    for (let i = 0; i < 5; i += 1) {
+      const grid = runGenerator(antColony, `probe-large-${i}`, 40, 25);
+      expect(reachableCellCount(grid)).toBe(grid.cellCount);
+      expect(countGraphEdges(grid)).toBe(grid.cellCount - 1);
+    }
+  });
+
+  it("all generators stay connected across a multi-seed sweep", () => {
+    // aldous-broder is a pure random walk whose O(N^2) cover time exceeds
+    // runGenerator's 20*cellCount budget on some seeds; its connectivity is
+    // already asserted by the standard per-plugin connectivity test above.
+    const SWEEP_SKIP = new Set<string>(["aldous-broder"]);
+
+    for (const plugin of generatorPlugins) {
+      if (SWEEP_SKIP.has(plugin.id)) {
+        continue;
+      }
+      for (let i = 0; i < 8; i += 1) {
+        const grid = runGenerator(plugin, `sweep-${i}`, 18, 12);
+        expect(reachableCellCount(grid)).toBe(grid.cellCount);
+      }
+    }
+  });
+
   it("blobby recursive subdivision clears in-progress overlays on completion", () => {
     const blobby = generatorPlugins.find(
       (plugin) => plugin.id === "blobby-recursive-subdivision",

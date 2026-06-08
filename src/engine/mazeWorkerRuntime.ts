@@ -170,6 +170,12 @@ export class MazeWorkerRuntime {
         const { snapshot, transfer } = createGridSnapshot(grid);
         this.emitGridRebuilt(snapshot, transfer);
       },
+      onError: (message) => {
+        this.emit({
+          type: "error",
+          message,
+        });
+      },
     });
 
     const engine = this.requireEngine();

@@ -48,6 +48,7 @@ export interface MazeRuntime {
   generatorActiveLine: number | null;
   solverActiveLine: number | null;
   solverBActiveLine: number | null;
+  error: string | null;
 }
 
 interface MazeStore {
@@ -79,6 +80,8 @@ interface MazeStore {
   setShowWallShadow: (value: boolean) => void;
   setShowCellInset: (value: boolean) => void;
   setRuntimeSnapshot: (snapshot: Partial<MazeRuntime>) => void;
+  setError: (message: string) => void;
+  clearError: () => void;
   resetRuntime: () => void;
   toggleSidebar: () => void;
   toggleMetricsHud: () => void;
@@ -132,6 +135,7 @@ const DEFAULT_RUNTIME: MazeRuntime = {
   generatorActiveLine: null,
   solverActiveLine: null,
   solverBActiveLine: null,
+  error: null,
 };
 
 const DEFAULT_UI: MazeUI = {
@@ -307,6 +311,20 @@ export const useMazeStore = create<MazeStore>((set) => ({
         ...snapshot,
       },
     })),
+  setError: (message) =>
+    set((state) => ({
+      runtime: {
+        ...state.runtime,
+        error: message,
+      },
+    })),
+  clearError: () =>
+    set((state) => ({
+      runtime: {
+        ...state.runtime,
+        error: null,
+      },
+    })),
   resetRuntime: () =>
     set(() => ({
       runtime: {
@@ -316,6 +334,7 @@ export const useMazeStore = create<MazeStore>((set) => ({
         generatorActiveLine: null,
         solverActiveLine: null,
         solverBActiveLine: null,
+        error: null,
       },
     })),
   toggleSidebar: () =>

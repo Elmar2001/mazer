@@ -20,6 +20,7 @@ interface QuantumSeismogenesisContext {
     grid: Grid;
     rng: RandomSource;
     stress: Float32Array;
+    visited: Uint8Array;
     parent: Int32Array;
     rank: Uint8Array;
     activeFractures: FractureTip[];
@@ -33,9 +34,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 > = {
     id: "quantum-seismogenesis",
     label: "Quantum Seismogenesis (Multi-Source Prim's)",
-    tier: "alias",
-    implementationKind: "alias",
-    aliasOf: "prim",
+    implementationKind: "native",
     create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {
@@ -46,6 +45,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
             grid,
             rng,
             stress: new Float32Array(grid.cellCount),
+            visited: new Uint8Array(grid.cellCount),
             parent,
             rank: new Uint8Array(grid.cellCount),
             activeFractures: [],
@@ -60,7 +60,7 @@ export const quantumSeismogenesisGenerator: GeneratorPlugin<
 };
 
 function stepQuantumSeismogenesis(context: QuantumSeismogenesisContext) {
-    const { grid, rng, stress, parent, rank, activeFractures } = context;
+    const { grid, rng, stress, visited, parent, rank, activeFractures } = context;
     const patches: CellPatch[] = [];
 
     if (context.components <= 1) {
@@ -89,10 +89,12 @@ function stepQuantumSeismogenesis(context: QuantumSeismogenesisContext) {
             if (union(tip.index, neighbor.index, parent, rank)) {
                 // Successful fracture
                 context.components--;
-                if (stress[tip.index] === 0) {
+                if (visited[tip.index] === 0) {
+                    visited[tip.index] = 1;
                     context.visitedCount++;
                 }
-                if (stress[neighbor.index] === 0) {
+                if (visited[neighbor.index] === 0) {
+                    visited[neighbor.index] = 1;
                     context.visitedCount++;
                 }
 
@@ -141,7 +143,7 @@ function stepQuantumSeismogenesis(context: QuantumSeismogenesisContext) {
         patches,
         meta: {
             line: activeFractures.length > 0 ? 3 : 2,
-            visitedCount: grid.cellCount - context.components,
+            visitedCount: context.visitedCount,
             frontierSize: activeFractures.length,
         },
     };

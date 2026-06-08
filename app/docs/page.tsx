@@ -169,9 +169,6 @@ export default function DocsPage() {
             <Link href="/architecture" className="docsBtn docsBtnArch">
               View Architecture
             </Link>
-            <Link href="/architecture-gemini" className="docsBtn docsBtnArchGemini">
-              View Architecture (Gemini)
-            </Link>
           </div>
         </div>
 

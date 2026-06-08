@@ -32,9 +32,7 @@ export const mycelialAnastomosisGenerator: GeneratorPlugin<
 > = {
     id: "mycelial-anastomosis",
     label: "Mycelial Anastomosis (Multi-Source Kruskal's)",
-    tier: "alias",
-    implementationKind: "alias",
-    aliasOf: "kruskal",
+    implementationKind: "native",
     create({ grid, rng }) {
         const parent = new Int32Array(grid.cellCount);
         for (let i = 0; i < grid.cellCount; i++) {
@@ -115,6 +113,32 @@ function stepMycelialAnastomosis(
                 activeHyphae.push({ index: i });
                 patches.push({ index: i, overlaySet: OverlayFlag.Frontier });
                 break;
+            }
+        }
+    }
+
+    if (activeHyphae.length === 0) {
+        // Every cell is visited but components remain disconnected (orphaned
+        // singleton spores that never merged). Deterministically merge the
+        // remaining components — one cross-component carve per step.
+        for (let i = 0; i < grid.cellCount; i++) {
+            for (const n of neighbors(grid, i)) {
+                if (n.index <= i) {
+                    continue;
+                }
+                if (union(i, n.index, parent, rank)) {
+                    context.components--;
+                    patches.push(...carvePatch(i, n.index, n.direction.wall, n.direction.opposite));
+                    return {
+                        done: context.components <= 1,
+                        patches,
+                        meta: {
+                            line: 4,
+                            visitedCount: context.visitedCount,
+                            frontierSize: 0,
+                        },
+                    };
+                }
             }
         }
     }

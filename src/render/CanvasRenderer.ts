@@ -15,6 +15,7 @@ import {
   type RenderAnimationPhase,
   type RenderEffectKind,
   type RenderEffectRole,
+  type RenderMotionMode,
   type RenderTransientEffect,
 } from "@/render/renderEffects";
 
@@ -60,6 +61,8 @@ export class CanvasRenderer {
 
   private readonly maxTransientEffects = 220;
 
+  private lastMotionMode: RenderMotionMode | null = null;
+
   private motionState: CanvasRendererMotionState = {
     phase: "idle",
     paused: true,
@@ -90,6 +93,7 @@ export class CanvasRenderer {
 
   setGrid(grid: Grid): void {
     this.grid = grid;
+    this.lastMotionMode = null;
     this.clearTransientEffects();
     this.resize();
     this.initBuffers();
@@ -107,6 +111,7 @@ export class CanvasRenderer {
       this.colors = settings.colors;
     }
 
+    this.lastMotionMode = null;
     this.clearTransientEffects();
     this.resize();
     this.initBuffers();
@@ -123,9 +128,14 @@ export class CanvasRenderer {
     }
 
     if (wasLive) {
+      this.lastMotionMode = null;
       this.clearTransientEffects();
       this.renderAll();
     }
+  }
+
+  dispose(): void {
+    this.clearTransientEffects();
   }
 
   resize(): void {
@@ -147,13 +157,8 @@ export class CanvasRenderer {
     const rawDpr = globalThis.devicePixelRatio ?? 1;
     const nativeDpr =
       Number.isFinite(rawDpr) && rawDpr > 0 ? rawDpr : 1;
-    const maxByWidth = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, widthPx);
-    const maxByHeight = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, heightPx);
-    const maxByPixels = Math.sqrt(
-      CANVAS_MAX_BACKING_PIXELS / Math.max(1, widthPx * heightPx),
-    );
 
-    return Math.max(0.1, Math.min(nativeDpr, maxByWidth, maxByHeight, maxByPixels));
+    return computeSafeDpr(widthPx, heightPx, nativeDpr);
   }
 
   renderAll(): void {
@@ -222,10 +227,19 @@ export class CanvasRenderer {
     });
 
     if (mode === "off" || !this.isLiveCanvasLoopRunning()) {
-      this.clearTransientEffects();
-      this.renderAll();
+      // Only do a full repaint once, on the frame we transition into off-mode.
+      // The dirty cells were already drawn above, so subsequent off-mode frames
+      // just return and rely on the dirty fast path.
+      const enteringOff = this.lastMotionMode !== "off";
+      this.lastMotionMode = "off";
+      if (enteringOff) {
+        this.clearTransientEffects();
+        this.renderAll();
+      }
       return;
     }
+
+    this.lastMotionMode = mode;
 
     if (patches.length > 0) {
       this.transientEffects = pruneTransientEffects(
@@ -804,6 +818,20 @@ export class CanvasRenderer {
     cancelFrame(this.effectRafHandle);
     this.effectRafHandle = null;
   }
+}
+
+export function computeSafeDpr(
+  widthPx: number,
+  heightPx: number,
+  nativeDpr: number,
+): number {
+  const maxByWidth = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, widthPx);
+  const maxByHeight = CANVAS_MAX_BACKING_DIMENSION / Math.max(1, heightPx);
+  const maxByPixels = Math.sqrt(
+    CANVAS_MAX_BACKING_PIXELS / Math.max(1, widthPx * heightPx),
+  );
+
+  return Math.max(0.1, Math.min(nativeDpr, maxByWidth, maxByHeight, maxByPixels));
 }
 
 function requestFrame(callback: (ts: number) => void): number {

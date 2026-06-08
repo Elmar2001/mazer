@@ -111,6 +111,53 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
   }, [onClose]);
 
   useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const focusableSelector =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(focusableSelector),
+      ).filter((el) => !el.hasAttribute("disabled"));
+
+    getFocusable()[0]?.focus();
+
+    const onTrap = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") {
+        return;
+      }
+
+      const focusable = getFocusable();
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    panel.addEventListener("keydown", onTrap);
+    return () => {
+      panel.removeEventListener("keydown", onTrap);
+      previousFocus?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose();
@@ -166,10 +213,22 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
   const thicknessPercent = Math.round(wallThickness * 100);
 
   const content = (
-    <div className="csPanel" ref={panelRef} data-panel="maze-config">
+    <div
+      className="csPanel"
+      ref={panelRef}
+      data-panel="maze-config"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Maze configuration"
+    >
       <div className="csPanelHeader">
         <h3>Maze Config</h3>
-        <button type="button" className="csCloseBtn" onClick={onClose}>
+        <button
+          type="button"
+          className="csCloseBtn"
+          onClick={onClose}
+          aria-label="Close maze configuration"
+        >
           &#x2715;
         </button>
       </div>
@@ -189,6 +248,7 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
                   value={thicknessPercent}
                   onChange={(e) => setWallThickness(Number(e.currentTarget.value) / 100)}
                   className="csAlphaSlider"
+                  aria-label="Wall thickness"
                 />
                 <span className="csAlphaValue">{thicknessPercent}%</span>
               </div>
@@ -255,6 +315,7 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
                             handleColorChange(key, e.currentTarget.value, hasAlpha)
                           }
                           className="csColorInput"
+                          aria-label={label}
                         />
                         <span
                           className="csSwatchPreview"
@@ -273,6 +334,7 @@ export function MazeConfigPanel({ onClose }: MazeConfigPanelProps) {
                               handleAlphaChange(key, Number(e.currentTarget.value) / 100)
                             }
                             className="csAlphaSlider"
+                            aria-label={`${label} opacity`}
                           />
                           <span className="csAlphaValue">
                             {Math.round(parsed.alpha * 100)}%

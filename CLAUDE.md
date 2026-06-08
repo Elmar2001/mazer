@@ -18,7 +18,7 @@ npx vitest run tests/core/generators.test.ts  # Run a single test file
 
 ## Architecture
 
-Mazer is a maze algorithm visualizer built with Next.js 15 (App Router), React 19, TypeScript (strict), Zustand 5, and HTML Canvas. It visualizes step-by-step maze generation and solving with real-time metrics. Built as a static export (`output: "export"` in `next.config.ts`) — no server components, no Node.js runtime required.
+Mazer is a maze algorithm visualizer built with Next.js 16 (App Router), React 19, TypeScript (strict), Zustand 5, and HTML Canvas. It visualizes step-by-step maze generation and solving with real-time metrics. Built as a static export (`output: "export"` in `next.config.ts`) — no server components, no Node.js runtime required.
 
 ### Four layers — strict one-way dependencies
 
@@ -100,7 +100,7 @@ Mulberry32 PRNG seeded via FNV-1a string hash. Uses `Math.imul` for C-style 32-b
 
 `plugin.create({ grid, rng, options })` is the factory; it returns a **stepper closure** whose `step()` method advances by exactly one logical unit and returns `StepResult`. All per-run state (stacks, queues, visited sets) lives in the closure — pause/resume is free. Algorithms use `Uint8Array` for visited tracking (not `Set<number>`) for memory efficiency.
 
-40 generator plugins, 34 solver plugins registered in their respective `index.ts` catalog arrays. Engine indexes them into `Map<id, plugin>` at load time for O(1) lookup. Topology output (`perfect-planar`, `loopy-planar`, `weave`) controls which solvers appear in the dropdown.
+49 generator plugins, 36 solver plugins registered in their respective `index.ts` catalog arrays. Engine indexes them into `Map<id, plugin>` at load time for O(1) lookup. Topology output (`perfect-planar`, `loopy-planar`, `weave`) controls which solvers appear in the dropdown.
 
 `generatorParamsSchema` supports `{ type: "number" | "boolean" | "select" }` — `MazeConfigPanel` renders dynamic controls from this at runtime; adding params to a plugin does not require modifying React components.
 
@@ -142,7 +142,7 @@ while (accumulatorMs >= stepInterval && iteration < ENGINE_MAX_STEPS_PER_FRAME &
 }
 // single onPatchesApplied emit per frame with deduplicated dirtyCells Set
 ```
-`ENGINE_MAX_STEPS_PER_FRAME = 2000` prevents unbounded computation per frame. At 8,000 steps/sec on a 60fps machine, the engine executes ~133 steps/frame — well within the cap. In Node.js (Vitest), `requestAnimationFrame` is absent; engine falls back to `setTimeout(..., 16)`.
+`ENGINE_MAX_STEPS_PER_FRAME = 2000` prevents unbounded computation per frame. At 16,000 steps/sec on a 60fps machine, the engine executes ~267 steps/frame — well within the cap. In Node.js (Vitest), `requestAnimationFrame` is absent; engine falls back to `setTimeout(..., 16)`.
 
 #### Battle mode
 
@@ -159,7 +159,7 @@ Both `solverPrimary` (role `"A"`) and `solverSecondary` (role `"B"`) step in the
 
 ### 3. Renderer (`src/render/CanvasRenderer.ts`)
 
-**DPR clamping** — `computeSafeDpr(widthPx, heightPx)` takes the minimum of: native DPR, `16384 / widthPx`, `16384 / heightPx`, `sqrt(48_000_000 / (widthPx * heightPx))`. Computed before `canvas.width` assignment to prevent multi-GB backing-store allocation crashes.
+**DPR clamping** — `computeSafeDpr(widthPx, heightPx)` takes the minimum of: native DPR, `16384 / widthPx`, `16384 / heightPx`, `sqrt(48_000_000 / (widthPx * heightPx))`, then floors the result at `0.1` (`Math.max(0.1, Math.min(...))`). Computed before `canvas.width` assignment to prevent multi-GB backing-store allocation crashes.
 
 **Dirty expansion** — `renderDirty(cells)` expands each dirty cell to its four cardinal neighbors. Walls use `fillRect` straddling the cell boundary (offset by `hw = wallWidth/2`), so a North wall of cell `i` visually overlaps cell `i - width`. Without expansion, repainting only `i` leaves stale pixels in the neighbor.
 
@@ -183,7 +183,7 @@ Both `solverPrimary` (role `"A"`) and `solverSecondary` (role `"B"`) step in the
 
 1. **Ref-based engine handles** (`transportRef`, `rendererRef`, `gridRef`): hold non-React objects; changes don't trigger re-renders.
 2. **`settingsRef.current = settings`**: keeps a synchronous reference to latest Zustand settings inside stale callbacks, avoiding stale-closure bugs without adding settings to dependency arrays.
-3. **`queueRuntimeUpdate`**: coalesces multiple rapid engine events into one `setRuntimeSnapshot` Zustand call per animation frame (~60/sec), regardless of algorithm step rate (up to 8,000/sec). Prevents React from re-rendering once per algorithm step.
+3. **`queueRuntimeUpdate`**: coalesces multiple rapid engine events into one `setRuntimeSnapshot` Zustand call per animation frame (~60/sec), regardless of algorithm step rate (up to 16,000/sec). Prevents React from re-rendering once per algorithm step.
 4. **`skipFirstGridSyncRef`**: suppresses the first fire of the `gridWidth/gridHeight` `useEffect` on mount — without it, the effect fires immediately (undefined → initial value), triggering a spurious `rebuildGrid` that races with `init`.
 
 ---
@@ -218,7 +218,7 @@ Both `solverPrimary` (role `"A"`) and `solverSecondary` (role `"B"`) step in the
 ## Configuration constants (`src/config/limits.ts`)
 
 ```
-SPEED_MIN=1, SPEED_MAX=8_000          (steps/sec)
+SPEED_MIN=1, SPEED_MAX=16_000         (steps/sec)
 GRID_MIN=2, GRID_MAX=200              (cells per axis)
 GRID_MAX_CELLS=40_000                 (total cell cap)
 CELL_MIN=2, CELL_MAX=40               (px per cell)
@@ -299,7 +299,7 @@ Some plugins are aliases (thin wrappers) around another algorithm with different
 ## Solver compatibility model
 
 Compatibility is **deny-list based**, not per-plugin opt-in (`src/core/plugins/solvers/index.ts:59-137`):
-- `NO_LOOPY_SUPPORT`: solvers that break on mazes with cycles (e.g., wall followers, dead-end fillers).
+- `NO_LOOPY_SUPPORT`: solvers that break on mazes with cycles (`wall-follower`, `left-wall-follower`, `random-mouse`, `pledge`). Dead-end fillers are NOT denied — they fall back to BFS and handle cycles correctly.
 - `NO_WEAVE_SUPPORT`: solvers that can't handle tunnel/crossing topology.
 - A solver **not** in either deny-list is assumed compatible with all topologies.
 - One incorrect deny-list entry misclassifies the solver for every generator that produces that topology — verify compatibility carefully.

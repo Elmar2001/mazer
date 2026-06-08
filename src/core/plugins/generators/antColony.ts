@@ -88,6 +88,7 @@ function stepAntColony(context: AntColonyContext, rng: RandomSource) {
     }
 
     // Process ants
+    let progressedThisStep = false;
     for (let i = ants.length - 1; i >= 0; i--) {
         const ant = ants[i];
         ant.age++;
@@ -132,20 +133,38 @@ function stepAntColony(context: AntColonyContext, rng: RandomSource) {
 
         patches.push({ index: ant.index, overlayClear: OverlayFlag.Current });
 
-        // Carve logic
+        // Carve logic — only advance the ant when a passage is actually carved.
+        // Moving through an uncarved wall decoheres the trail from the graph.
         if (union(ant.index, selectedNeighbor.index, parent, rank)) {
             context.components--;
             context.visitedCount++;
             patches.push(...carvePatch(ant.index, selectedNeighbor.index, selectedNeighbor.direction.wall, selectedNeighbor.direction.opposite));
             patches.push({ index: ant.index, overlaySet: OverlayFlag.Visited });
             patches.push({ index: selectedNeighbor.index, overlaySet: OverlayFlag.Visited });
+
+            // Move ant into the newly carved cell
+            ant.index = selectedNeighbor.index;
+            pheromones[ant.index] += context.depositAmount;
+            progressedThisStep = true;
         }
 
-        // Move ant
-        ant.index = selectedNeighbor.index;
-        pheromones[ant.index] += context.depositAmount;
-
         patches.push({ index: ant.index, overlaySet: OverlayFlag.Current });
+    }
+
+    // Termination guarantee: if ants made no progress this step but components
+    // remain, deterministically carve a cross-component edge per step until the
+    // graph is spanning.
+    if (!progressedThisStep && context.components > 1) {
+        mergeRemainingComponents(context, patches);
+        return {
+            done: context.components <= 1,
+            patches,
+            meta: {
+                line: 3,
+                visitedCount: Math.min(grid.cellCount, context.visitedCount),
+                frontierSize: ants.length,
+            },
+        };
     }
 
     // Evaporate pheromones
@@ -162,6 +181,29 @@ function stepAntColony(context: AntColonyContext, rng: RandomSource) {
             frontierSize: ants.length,
         }
     };
+}
+
+function mergeRemainingComponents(
+    context: AntColonyContext,
+    patches: CellPatch[],
+): boolean {
+    const { grid, parent, rank } = context;
+    for (let i = 0; i < grid.cellCount; i++) {
+        for (const n of neighbors(grid, i)) {
+            if (n.index <= i) {
+                continue;
+            }
+            if (union(i, n.index, parent, rank)) {
+                context.components--;
+                context.visitedCount++;
+                patches.push(...carvePatch(i, n.index, n.direction.wall, n.direction.opposite));
+                patches.push({ index: i, overlaySet: OverlayFlag.Visited });
+                patches.push({ index: n.index, overlaySet: OverlayFlag.Visited });
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 function find(index: number, parent: Int32Array): number {

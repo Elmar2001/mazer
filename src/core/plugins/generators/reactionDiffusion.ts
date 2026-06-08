@@ -24,7 +24,7 @@ interface ReactionDiffusionContext {
     nextB: Float32Array;
     iterations: number;
     maxIterations: number;
-    phase: "reaction" | "threshold" | "connect" | "done";
+    phase: "reaction" | "threshold" | "connect" | "finalize" | "done";
     AThreshold: number;
     // Tracks which overlay is currently shown per cell so we only emit delta patches.
     // 0 = none, 1 = Current (A > threshold), 2 = Visited (A ≤ threshold)
@@ -239,20 +239,49 @@ function stepReactionDiffusion(context: ReactionDiffusionContext, rng: RandomSou
         }
 
         if (context.components <= 1 || context.currentEdgeIndex >= context.unconnectedEdges.length) {
-            context.phase = "done";
-
-            for (let i = 0; i < grid.cellCount; i++) {
-                patches.push({ index: i, overlayClear: OverlayFlag.Visited | OverlayFlag.Current });
-            }
+            // Always run a final spanning pass — connect only joins thresholded↔
+            // non-thresholded edges, so fully non-thresholded pockets remain
+            // disconnected until finalize sweeps every uncarved edge.
+            context.phase = "finalize";
         }
 
         return {
-            done: context.phase === "done",
+            done: false,
             patches,
             meta: {
                 line: 3,
                 visitedCount: grid.cellCount,
                 frontierSize: Math.max(0, context.components - 1),
+            }
+        };
+
+    } else if (context.phase === "finalize") {
+        // Final union-find spanning pass over ALL uncarved edges to guarantee a
+        // single connected component (topologyOut is loopy-planar, so the extra
+        // edges already carved above are fine).
+        for (let i = 0; i < grid.cellCount; i++) {
+            for (const n of neighbors(grid, i)) {
+                if (n.index <= i) continue;
+                if (union(i, n.index, context.parent, context.rank)) {
+                    context.components--;
+                    patches.push(...carvePatch(i, n.index, n.direction.wall, n.direction.opposite));
+                }
+            }
+        }
+
+        context.phase = "done";
+
+        for (let i = 0; i < grid.cellCount; i++) {
+            patches.push({ index: i, overlayClear: OverlayFlag.Visited | OverlayFlag.Current });
+        }
+
+        return {
+            done: true,
+            patches,
+            meta: {
+                line: 4,
+                visitedCount: grid.cellCount,
+                frontierSize: 0,
             }
         };
     }

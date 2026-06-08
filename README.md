@@ -4,12 +4,12 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
 
 ## Features
 
-- Step-based generator catalog with `40` algorithms (research-core + advanced + aliases), including:
+- Step-based generator catalog with `49` algorithms (research-core + advanced + aliases), including:
   - classic perfect mazes: DFS Backtracker, Prim variants, Kruskal, Wilson, Eller, Recursive Division
   - loop-capable mazes: Braid, Prim (Loopy), Kruskal (Loopy), Recursive Division (Multi-Gap)
   - weave topology: Weave Growing Tree
   - advanced/experimental variants: Resonant Phase-Lock, Erosion, Quantum Seismogenesis, Mycelial Anastomosis, Counterfactual Cycle Annealing, Sandpile Avalanche
-- Step-based solver catalog with `29` algorithms, including:
+- Step-based solver catalog with `36` algorithms, including:
   - Random Mouse
   - BFS
   - DFS
@@ -51,7 +51,7 @@ Deterministic maze generation and solving visualizer built with Next.js App Rout
   - topology-aware solver compatibility filtering
   - visited/frontier/path visibility toggles
   - live generator/solver pseudocode trace with active-line highlighting
-- speed slider range: `1..5000` steps/sec
+- speed slider range: `1..16000` steps/sec
 - Metrics panel:
   - step count
   - visited count

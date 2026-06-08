@@ -15,6 +15,7 @@ export default function HomePage() {
   const runtime = useMazeStore((s) => s.runtime);
   const settings = useMazeStore((s) => s.settings);
   const battleMode = useMazeStore((s) => s.settings.battleMode);
+  const clearError = useMazeStore((s) => s.clearError);
 
   return (
     <main
@@ -38,6 +39,19 @@ export default function HomePage() {
             <span>{settings.solverId}</span>
           </div>
         </div>
+        {runtime.error && (
+          <div className="engineErrorBanner" role="alert">
+            <span className="engineErrorText">{runtime.error}</span>
+            <button
+              type="button"
+              className="engineErrorDismiss"
+              onClick={clearError}
+              aria-label="Dismiss error"
+            >
+              &#x2715;
+            </button>
+          </div>
+        )}
         <CanvasViewport canvasRef={canvasRef} controls={controls} />
         {showMetricsHud && (
           <div className="hudMetrics">

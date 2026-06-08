@@ -442,37 +442,37 @@ export function ControlPanel({ controls }: ControlPanelProps) {
         data-phase={runtime.phase.toLowerCase()}
         data-paused={runtime.paused}
       >
-        <button type="button" className="iconRailBtn" onClick={toggleSidebar} title="Expand sidebar">
+        <button type="button" className="iconRailBtn" onClick={toggleSidebar} title="Expand sidebar" aria-label="Expand sidebar">
           &#x25B6;
         </button>
         <div className="iconRailDivider" />
-        <button type="button" className="iconRailBtn iconRailPrimary" onClick={controls.generate} title="Generate (G)">
+        <button type="button" className="iconRailBtn iconRailPrimary" onClick={controls.generate} title="Generate (G)" aria-label="Generate maze">
           &#x25B6;
         </button>
-        <button type="button" className="iconRailBtn iconRailAccent" onClick={controls.solve} disabled={!canSolve} title="Solve (S)">
+        <button type="button" className="iconRailBtn iconRailAccent" onClick={controls.solve} disabled={!canSolve} title="Solve (S)" aria-label="Solve maze">
           &#x26A1;
         </button>
-        <button type="button" className="iconRailBtn" onClick={controls.pauseResume} disabled={!canPlaybackControl} title="Pause/Resume">
+        <button type="button" className="iconRailBtn" onClick={controls.pauseResume} disabled={!canPlaybackControl} title="Pause/Resume" aria-label={runtime.paused ? "Resume playback" : "Pause playback"}>
           {runtime.paused ? "\u23F5" : "\u23F8"}
         </button>
-        <button type="button" className="iconRailBtn" onClick={controls.stepOnce} disabled={!canPlaybackControl} title="Step (N)">
+        <button type="button" className="iconRailBtn" onClick={controls.stepOnce} disabled={!canPlaybackControl} title="Step (N)" aria-label="Step forward">
           &#x23ED;
         </button>
-        <button type="button" className="iconRailBtn iconRailDanger" onClick={controls.reset} title="Reset (R)">
+        <button type="button" className="iconRailBtn iconRailDanger" onClick={controls.reset} title="Reset (R)" aria-label="Reset maze">
           &#x21BB;
         </button>
         <div className="iconRailDivider" />
-        <button type="button" className={`iconRailBtn ${ui.showMetricsHud ? "iconRailActive" : ""}`} onClick={toggleMetricsHud} title="Toggle Metrics (M)">
+        <button type="button" className={`iconRailBtn ${ui.showMetricsHud ? "iconRailActive" : ""}`} onClick={toggleMetricsHud} title="Toggle Metrics (M)" aria-label="Toggle metrics HUD" aria-pressed={ui.showMetricsHud}>
           M
         </button>
-        <button type="button" className={`iconRailBtn ${ui.showTraceHud ? "iconRailActive" : ""}`} onClick={toggleTraceHud} title="Toggle Trace (T)">
+        <button type="button" className={`iconRailBtn ${ui.showTraceHud ? "iconRailActive" : ""}`} onClick={toggleTraceHud} title="Toggle Trace (T)" aria-label="Toggle trace HUD" aria-pressed={ui.showTraceHud}>
           T
         </button>
         <div className="iconRailSpacer" />
-        <button type="button" className="iconRailBtn" onClick={() => setColorPopupOpen(true)} title="Maze Config">
+        <button type="button" className="iconRailBtn" onClick={() => setColorPopupOpen(true)} title="Maze Config" aria-label="Open maze configuration">
           &#x2699;
         </button>
-        <Link href="/docs" className="iconRailBtn" title="Documentation">
+        <Link href="/docs" className="iconRailBtn" title="Documentation" aria-label="Documentation">
           ?
         </Link>
         {colorPopupOpen && <MazeConfigPanel onClose={() => setColorPopupOpen(false)} />}
@@ -491,11 +491,23 @@ export function ControlPanel({ controls }: ControlPanelProps) {
         <div className="sidebarBrand">
           <h1>Mazer</h1>
           <div className="sidebarPills">
-            <span className={`pill phase${runtime.phase}`}>{runtime.phase}</span>
-            <span className={`pill ${runtime.paused ? "pillMuted" : "pillLive"}`}>
+            <span
+              className={`pill phase${runtime.phase}`}
+              aria-label={`Phase: ${runtime.phase}`}
+            >
+              {runtime.phase}
+            </span>
+            <span
+              className={`pill ${runtime.paused ? "pillMuted" : "pillLive"}`}
+              aria-label={`Playback: ${runtime.paused ? "Idle" : "Live"}`}
+            >
               {runtime.paused ? "Idle" : "Live"}
             </span>
-            {settings.battleMode && <span className="pill pillBattle">VS</span>}
+            {settings.battleMode && (
+              <span className="pill pillBattle" aria-label="Battle mode enabled">
+                VS
+              </span>
+            )}
           </div>
         </div>
         <div className="sidebarActions">
@@ -521,6 +533,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
                 type="button"
                 className={`presetBtn ${settings.topologyFilter === option.value ? "presetBtnActive" : ""}`}
                 onClick={() => setTopologyFilter(option.value)}
+                aria-pressed={settings.topologyFilter === option.value}
               >
                 {option.label}
               </button>
@@ -676,6 +689,7 @@ export function ControlPanel({ controls }: ControlPanelProps) {
             type="checkbox"
             checked={settings.battleMode}
             onChange={onBattleModeChange}
+            aria-label="Enable battle mode"
           />
           <span>Compare two solvers</span>
         </label>
@@ -749,10 +763,10 @@ export function ControlPanel({ controls }: ControlPanelProps) {
           </div>
         </div>
         <div className="presetRow">
-          <button type="button" className="presetBtn" onClick={() => { setGridWidth(25); setGridHeight(15); setCellSize(20); }}>Compact</button>
-          <button type="button" className="presetBtn" onClick={() => { setGridWidth(40); setGridHeight(25); setCellSize(16); }}>Default</button>
-          <button type="button" className="presetBtn" onClick={() => { setGridWidth(72); setGridHeight(42); setCellSize(10); }}>Dense</button>
-          <button type="button" className="presetBtn" onClick={() => setSpeed(Math.min(SPEED_MAX, 4_000))}>Fast</button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(25); setGridHeight(15); setCellSize(20); }} aria-pressed={settings.gridWidth === 25 && settings.gridHeight === 15 && settings.cellSize === 20}>Compact</button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(40); setGridHeight(25); setCellSize(16); }} aria-pressed={settings.gridWidth === 40 && settings.gridHeight === 25 && settings.cellSize === 16}>Default</button>
+          <button type="button" className="presetBtn" onClick={() => { setGridWidth(72); setGridHeight(42); setCellSize(10); }} aria-pressed={settings.gridWidth === 72 && settings.gridHeight === 42 && settings.cellSize === 10}>Dense</button>
+          <button type="button" className="presetBtn" onClick={() => setSpeed(Math.min(SPEED_MAX, 4_000))} aria-pressed={settings.speed === Math.min(SPEED_MAX, 4_000)}>Fast</button>
         </div>
       </AccordionSection>
 

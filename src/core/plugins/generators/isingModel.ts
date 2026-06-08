@@ -32,8 +32,7 @@ export const isingModelGenerator: GeneratorPlugin<
 > = {
     id: "ising-model",
   label: "Magnetic Spin Crystallization (Kruskal's)",
-  implementationKind: "alias",
-  aliasOf: "kruskal",
+  implementationKind: "native",
     create({ grid, rng }) {
         const context: IsingModelContext = {
             grid,

@@ -78,6 +78,7 @@ const GUARANTEED_SOLVERS = new Set<string>([
   "dijkstra",
   "bellman-ford",
   "bmssp",
+  "iterative-deepening-dfs",
   "bidirectional-bfs",
   "dead-end-filling",
   "cul-de-sac-filler",

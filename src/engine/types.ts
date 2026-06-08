@@ -83,6 +83,7 @@ export interface MazeEngineCallbacks {
   ) => void;
   onPhaseChange?: (phase: MazePhase) => void;
   onGridRebuilt?: (grid: Grid) => void;
+  onError?: (message: string) => void;
 }
 
 export interface MazeEnginePublicApi {

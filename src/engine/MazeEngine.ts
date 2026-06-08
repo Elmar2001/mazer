@@ -60,6 +60,8 @@ const GENERATOR_INDEX = new Map(
 );
 const SOLVER_INDEX = new Map(solverPlugins.map((plugin) => [plugin.id, plugin]));
 
+const MAX_FRAME_DELTA_MS = 250;
+
 type SolverRole = "A" | "B";
 
 interface SolverRuntime {
@@ -95,6 +97,10 @@ export class MazeEngine implements MazeEnginePublicApi {
   private lastFrameTs = 0;
 
   private accumulatorMs = 0;
+
+  private phaseStepCount = 0;
+
+  private phaseStepBudget = 0;
 
   private activeDirtySet = new Set<number>();
 
@@ -165,6 +171,7 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.phase = "Generating";
     this.emitPhase();
 
+    this.resetPhaseBudget();
     this.paused = false;
     this.lastFrameTs = 0;
     this.accumulatorMs = 0;
@@ -210,6 +217,7 @@ export class MazeEngine implements MazeEnginePublicApi {
     this.phase = "Solving";
     this.emitPhase();
 
+    this.resetPhaseBudget();
     this.paused = false;
     this.lastFrameTs = 0;
     this.accumulatorMs = 0;
@@ -355,7 +363,7 @@ export class MazeEngine implements MazeEnginePublicApi {
       this.lastFrameTs = ts;
     }
 
-    const delta = ts - this.lastFrameTs;
+    const delta = Math.min(ts - this.lastFrameTs, MAX_FRAME_DELTA_MS);
     this.lastFrameTs = ts;
 
     if (!this.paused) {
@@ -412,15 +420,73 @@ export class MazeEngine implements MazeEnginePublicApi {
   private processStep():
     | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
     | null {
-    if (this.phase === "Generating") {
-      return this.processGenerationStep();
+    let result:
+      | { done: boolean; dirtyCells: number[]; patches: CellPatch[]; meta?: StepMeta }
+      | null = null;
+
+    try {
+      if (this.phase === "Generating") {
+        result = this.processGenerationStep();
+      } else if (this.phase === "Solving") {
+        result = this.processSolvingStep();
+      }
+    } catch (error) {
+      this.handleStepError(error);
+      return null;
     }
 
-    if (this.phase === "Solving") {
-      return this.processSolvingStep();
+    if (!result) {
+      return null;
     }
 
-    return null;
+    if (!result.done && this.checkStepBudget()) {
+      return null;
+    }
+
+    return result;
+  }
+
+  private checkStepBudget(): boolean {
+    this.phaseStepCount += 1;
+    if (this.phaseStepCount <= this.phaseStepBudget) {
+      return false;
+    }
+
+    const budget = this.phaseStepBudget;
+    this.stopLoop();
+    this.generatorStepper = null;
+    this.solverPrimary = null;
+    this.solverSecondary = null;
+    this.paused = true;
+    this.completePhase();
+    this.callbacks.onError?.(
+      `Algorithm exceeded step budget (${budget} steps) — stopped.`,
+    );
+
+    return true;
+  }
+
+  private handleStepError(error: unknown): void {
+    const failedPhase = this.phase;
+    this.stopLoop();
+    this.generatorStepper = null;
+    this.solverPrimary = null;
+    this.solverSecondary = null;
+    this.phase = "Idle";
+    this.paused = true;
+    this.emitPhase();
+
+    const detail = error instanceof Error ? error.message : String(error);
+    const prefix =
+      failedPhase === "Solving" ? "Solve failed" : "Generation failed";
+    this.callbacks.onError?.(`${prefix}: ${detail}`);
+  }
+
+  private stopLoop(): void {
+    if (this.rafHandle !== null) {
+      this.cancelAnimationFrame(this.rafHandle);
+      this.rafHandle = null;
+    }
   }
 
   private processGenerationStep():
@@ -692,6 +758,11 @@ export class MazeEngine implements MazeEnginePublicApi {
     };
   }
 
+  private resetPhaseBudget(): void {
+    this.phaseStepCount = 0;
+    this.phaseStepBudget = Math.max(1000, this.grid.cellCount * 50);
+  }
+
   private completePhase(): void {
     if (this.phase === "Generating") {
       this.generatorStepper = null;
@@ -802,7 +873,7 @@ export class MazeEngine implements MazeEnginePublicApi {
   }
 }
 
-function remapPatchForSecondary(patch: CellPatch): CellPatch {
+export function remapPatchForSecondary(patch: CellPatch): CellPatch {
   return {
     ...patch,
     overlaySet:

@@ -203,6 +203,58 @@ body {
   transform: translateY(-1px);
 }
 
+/* ─── Engine Error Banner ─── */
+.engineErrorBanner {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(720px, calc(100% - 32px));
+  padding: 8px 8px 8px 14px;
+  border: 1px solid rgba(255, 42, 95, 0.45);
+  border-radius: var(--radius-md);
+  background: rgba(28, 6, 12, 0.85);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 18px var(--rose-glow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform: translateX(-50%);
+}
+
+.engineErrorText {
+  color: var(--text);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.engineErrorDismiss {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 42, 95, 0.3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--rose);
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.engineErrorDismiss:hover {
+  border-color: var(--rose);
+  color: #ffffff;
+  background: rgba(255, 42, 95, 0.15);
+}
+
+.engineErrorDismiss:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
 /* ─── Glass Panel Base ─── */
 .controlPanel,
 .metricsPanel,
@@ -516,6 +568,12 @@ body {
   box-shadow: 0 0 10px var(--cyan-glow);
 }
 
+.controlPanel select:focus-visible,
+.controlPanel input[type="text"]:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
 .controlPanel select:disabled,
 .controlPanel input:disabled {
   opacity: 0.35;
@@ -639,6 +697,11 @@ input[type="range"]::-webkit-slider-thumb:hover {
   outline: none;
   border-color: var(--cyan);
   box-shadow: 0 0 8px var(--cyan-glow);
+}
+
+.sliderNumber:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 /* ─── Presets ─── */
@@ -1722,6 +1785,15 @@ button:disabled {
   border-radius: 2px;
 }
 
+.csCloseBtn:focus-visible,
+.csPresetBtn:focus-visible,
+.csActionBtn:focus-visible,
+.csColorInput:focus-visible,
+.csAlphaSlider:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
 .csCloseBtn {
   display: inline-flex;
   align-items: center;
@@ -2325,19 +2397,6 @@ button:disabled {
   transform: translateY(-1px);
 }
 
-.docsBtnArchGemini {
-  color: var(--violet);
-  background: rgba(181, 95, 230, 0.04);
-  border-color: rgba(181, 95, 230, 0.25);
-}
-
-.docsBtnArchGemini:hover {
-  background: rgba(181, 95, 230, 0.1);
-  border-color: var(--violet);
-  box-shadow: 0 4px 14px var(--violet-glow);
-  transform: translateY(-1px);
-}
-
 .docsStats {
   display: grid;
   gap: 8px;
@@ -2625,12 +2684,6 @@ button:disabled {
   border: 1px solid rgba(6, 182, 212, 0.35);
   color: var(--cyan);
   white-space: nowrap;
-}
-
-.archHeaderBadgeGemini {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.35);
-  color: #a78bfa;
 }
 
 /* ─── Prose content ─── */

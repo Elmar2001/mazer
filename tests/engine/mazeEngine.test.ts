@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MazeEngine } from "@/engine/MazeEngine";
+import { OverlayFlag } from "@/core/grid";
+import { generatorPlugins } from "@/core/plugins/generators";
+import { MazeEngine, remapPatchForSecondary } from "@/engine/MazeEngine";
 import type { MazeEngineOptions } from "@/engine/types";
 
 const BASE_OPTIONS: MazeEngineOptions = {
@@ -453,5 +455,112 @@ describe("maze engine api surface", () => {
     const m2 = engine.getMetrics();
     expect(m1.graph).not.toBe(m2.graph); // different object references
     engine.destroy();
+  });
+});
+
+describe("maze engine resilience", () => {
+  it("error boundary: a throwing generator step ends in Idle/paused and fires onError", () => {
+    const plugin = generatorPlugins.find((p) => p.id === "dfs-backtracker");
+    if (!plugin) {
+      throw new Error("dfs-backtracker plugin missing");
+    }
+
+    const createSpy = vi.spyOn(plugin, "create").mockReturnValue({
+      step() {
+        throw new Error("boom inside step");
+      },
+    });
+
+    let errorMessage: string | undefined;
+    let lastPhase: string | undefined;
+    const engine = new MazeEngine(BASE_OPTIONS, {
+      onError: (message) => { errorMessage = message; },
+      onPhaseChange: (phase) => { lastPhase = phase; },
+    });
+
+    engine.startGeneration();
+
+    // Drive the loop — must not throw out of the engine.
+    expect(() => {
+      let iterations = 0;
+      while (engine.getPhase() === "Generating" && iterations < 50) {
+        vi.advanceTimersByTime(100);
+        iterations += 1;
+      }
+    }).not.toThrow();
+
+    expect(engine.getPhase()).toBe("Idle");
+    expect(lastPhase).toBe("Idle");
+    expect(errorMessage).toBeDefined();
+    expect(errorMessage).toContain("Generation failed");
+    expect(errorMessage).toContain("boom inside step");
+    expect(vi.getTimerCount()).toBe(0);
+
+    engine.destroy();
+    createSpy.mockRestore();
+  });
+
+  it("watchdog: a never-completing generator stops with the step budget message", () => {
+    const plugin = generatorPlugins.find((p) => p.id === "dfs-backtracker");
+    if (!plugin) {
+      throw new Error("dfs-backtracker plugin missing");
+    }
+
+    const createSpy = vi.spyOn(plugin, "create").mockReturnValue({
+      step() {
+        return { done: false, patches: [] };
+      },
+    });
+
+    let errorMessage: string | undefined;
+    const engine = new MazeEngine(BASE_OPTIONS, {
+      onError: (message) => { errorMessage = message; },
+    });
+
+    engine.startGeneration();
+    engine.pause();
+
+    // 8x6 grid → budget = max(1000, 48 * 50) = 2400. Drive well past it.
+    let guard = 0;
+    while (engine.getPhase() === "Generating" && guard < 4_000) {
+      engine.stepOnce();
+      guard += 1;
+    }
+
+    expect(engine.getPhase()).not.toBe("Generating");
+    expect(guard).toBeLessThan(4_000); // did not loop forever
+    expect(errorMessage).toBeDefined();
+    expect(errorMessage).toContain("exceeded step budget");
+    expect(errorMessage).toContain("2400");
+
+    engine.destroy();
+    createSpy.mockRestore();
+  });
+
+  it("battle remap: primary overlay flags map to secondary B flags", () => {
+    const remapped = remapPatchForSecondary({
+      index: 7,
+      overlaySet:
+        OverlayFlag.Visited |
+        OverlayFlag.Frontier |
+        OverlayFlag.Path |
+        OverlayFlag.Current,
+      overlayClear: OverlayFlag.Current,
+    });
+
+    expect(remapped.index).toBe(7);
+    expect(remapped.overlaySet).toBe(
+      OverlayFlag.VisitedB |
+        OverlayFlag.FrontierB |
+        OverlayFlag.PathB |
+        OverlayFlag.CurrentB,
+    );
+    expect(remapped.overlayClear).toBe(OverlayFlag.CurrentB);
+
+    // Non-overlay fields are preserved; absent overlay channels stay undefined.
+    const wallOnly = remapPatchForSecondary({ index: 3, wallClear: 1 });
+    expect(wallOnly.wallClear).toBe(1);
+    expect(wallOnly.overlaySet).toBeUndefined();
+    expect(wallOnly.overlayClear).toBeUndefined();
   });
 });

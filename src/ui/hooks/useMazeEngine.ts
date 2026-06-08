@@ -103,19 +103,21 @@ export function useMazeEngine(): UseMazeEngineResult {
   const transportRef = useRef<MazeTransport | null>(null);
   const rendererRef = useRef<CanvasRenderer | null>(null);
   const gridRef = useRef<Grid | null>(null);
-  const settingsRef = useRef(useMazeStore.getState().settings);
   const pendingRuntimeRef = useRef<Partial<MazeRuntime>>({});
   const runtimeRafRef = useRef<number | null>(null);
   const initializedRef = useRef(false);
-  const skipFirstGridSyncRef = useRef(true);
+  const initialSettings = useMazeStore.getState().settings;
+  const lastSentDimsRef = useRef({
+    width: initialSettings.gridWidth,
+    height: initialSettings.gridHeight,
+  });
   const reducedMotionRef = useRef(false);
 
   const settings = useMazeStore((state) => state.settings);
   const runtime = useMazeStore((state) => state.runtime);
   const setRuntimeSnapshot = useMazeStore((state) => state.setRuntimeSnapshot);
+  const setError = useMazeStore((state) => state.setError);
   const resetRuntime = useMazeStore((state) => state.resetRuntime);
-
-  settingsRef.current = settings;
 
   const queueRuntimeUpdate = useCallback(
     (next: Partial<MazeRuntime>) => {
@@ -152,7 +154,7 @@ export function useMazeEngine(): UseMazeEngineResult {
           rendererRef.current = new CanvasRenderer(
             canvasRef.current,
             nextGrid,
-            toRendererSettings(settingsRef.current),
+            toRendererSettings(useMazeStore.getState().settings),
           );
         }
         return;
@@ -168,7 +170,7 @@ export function useMazeEngine(): UseMazeEngineResult {
 
         rendererRef.current?.renderDirty(
           event.dirtyCells,
-          settingsRef.current.speed,
+          useMazeStore.getState().settings.speed,
           event.patches,
           reducedMotionRef.current,
         );
@@ -190,9 +192,10 @@ export function useMazeEngine(): UseMazeEngineResult {
 
       if (event.type === "error") {
         console.error("Maze worker error:", event.message);
+        setError(event.message);
       }
     },
-    [queueRuntimeUpdate],
+    [queueRuntimeUpdate, setError],
   );
 
   const dispatchCommand = useCallback((command: MazeWorkerCommand) => {
@@ -251,17 +254,20 @@ export function useMazeEngine(): UseMazeEngineResult {
 
     transportRef.current = transport;
     initializedRef.current = true;
-    skipFirstGridSyncRef.current = true;
+    const currentSettings = useMazeStore.getState().settings;
+    lastSentDimsRef.current = {
+      width: currentSettings.gridWidth,
+      height: currentSettings.gridHeight,
+    };
 
     sendCommand(transport, {
       type: "init",
-      options: toEngineOptions(settingsRef.current),
+      options: toEngineOptions(currentSettings),
     });
 
     return () => {
       disposed = true;
       initializedRef.current = false;
-      skipFirstGridSyncRef.current = true;
 
       if (runtimeRafRef.current !== null) {
         cancelAnimationFrame(runtimeRafRef.current);
@@ -269,6 +275,7 @@ export function useMazeEngine(): UseMazeEngineResult {
       }
 
       pendingRuntimeRef.current = {};
+      rendererRef.current?.dispose();
       rendererRef.current = null;
       gridRef.current = null;
 
@@ -357,10 +364,18 @@ export function useMazeEngine(): UseMazeEngineResult {
       return;
     }
 
-    if (skipFirstGridSyncRef.current) {
-      skipFirstGridSyncRef.current = false;
+    const lastDims = lastSentDimsRef.current;
+    if (
+      lastDims.width === settings.gridWidth &&
+      lastDims.height === settings.gridHeight
+    ) {
       return;
     }
+
+    lastSentDimsRef.current = {
+      width: settings.gridWidth,
+      height: settings.gridHeight,
+    };
 
     dispatchCommand({
       type: "rebuildGrid",
